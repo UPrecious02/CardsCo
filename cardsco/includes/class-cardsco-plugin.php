@@ -24,6 +24,7 @@ class CardsCo_Plugin {
 			require_once CARDSCO_PATH . 'includes/admin/class-cardsco-admin.php';
 			require_once CARDSCO_PATH . 'includes/admin/class-cardsco-wizard.php';
 			require_once CARDSCO_PATH . 'includes/admin/class-cardsco-fulfilment.php';
+			require_once CARDSCO_PATH . 'includes/admin/class-cardsco-campaign-builder.php';
 
 			$admin = new CardsCo_Admin();
 			$admin->init();
@@ -33,6 +34,9 @@ class CardsCo_Plugin {
 
 			$fulfilment = new CardsCo_Fulfilment();
 			$fulfilment->init();
+
+			$builder = new CardsCo_Campaign_Builder();
+			$builder->init();
 		}
 
 		add_action( 'init', array( $this, 'load_textdomain' ) );
@@ -128,9 +132,14 @@ class CardsCo_Plugin {
 		// so the order here is what stops a person getting two cards.
 		$boxes = CardsCo_Box::run();
 
+		// Campaigns next: they lock and queue on their own lock date, which is
+		// nothing to do with anybody's birthday.
+		$campaigns = CardsCo_Campaign::run();
+
 		$summary = CardsCo_Scheduler::run();
 
-		$summary['boxes'] = $boxes;
+		$summary['boxes']     = $boxes;
+		$summary['campaigns'] = $campaigns;
 
 		do_action( 'cardsco_after_daily_scan', $summary );
 	}

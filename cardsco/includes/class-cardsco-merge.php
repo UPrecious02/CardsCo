@@ -60,6 +60,45 @@ class CardsCo_Merge {
 				'note'       => __( 'Needs order dates, which CardsCo does not hold yet. Waiting on the client.', 'cardsco' ),
 				'needs_data' => true,
 			),
+			// Only a campaign can fill these two, because only a campaign has
+			// an offer. Used in an occasion's wording they would come out
+			// blank, and a blank must never reach a card, so the campaign
+			// builder is the only screen that offers them.
+			'offer_code' => array(
+				'label'      => __( 'Offer code', 'cardsco' ),
+				'sample'     => 'SPRING20',
+				'note'       => __( 'Campaigns only, and only when an offer is switched on.', 'cardsco' ),
+				'needs_data' => false,
+				'campaign'   => true,
+			),
+			'offer_expires' => array(
+				'label'      => __( 'Offer expiry', 'cardsco' ),
+				'sample'     => '31 March',
+				'note'       => __( 'Campaigns only, and only when the offer has an end date.', 'cardsco' ),
+				'needs_data' => false,
+				'campaign'   => true,
+			),
+		);
+	}
+
+	/**
+	 * The fields a given screen should offer.
+	 *
+	 * @param bool $campaign True for the campaign builder.
+	 * @return array
+	 */
+	public static function fields_for( $campaign = false ) {
+		$fields = self::fields();
+
+		if ( $campaign ) {
+			return $fields;
+		}
+
+		return array_filter(
+			$fields,
+			static function ( $field ) {
+				return empty( $field['campaign'] );
+			}
 		);
 	}
 

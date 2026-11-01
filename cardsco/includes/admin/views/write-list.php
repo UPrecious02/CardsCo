@@ -63,6 +63,12 @@ $month = $box['period'] ? gmdate( 'F Y', strtotime( $box['period'] . '-01' ) ) :
 					</p>
 					<p class="cardsco-write-card-name"><?php echo esc_html( $card['card_title'] ); ?></p>
 					<div class="cardsco-write-message"><?php echo nl2br( esc_html( $card['message_final'] ) ); ?></div>
+					<?php if ( ! empty( $card['offer_code'] ) ) : ?>
+						<p class="cardsco-write-offer">
+							<?php esc_html_e( 'Offer code:', 'cardsco' ); ?>
+							<strong><?php echo esc_html( $card['offer_code'] ); ?></strong>
+						</p>
+					<?php endif; ?>
 					<?php if ( ! empty( $programme['signature'] ) ) : ?>
 						<p class="cardsco-write-sign"><?php echo esc_html( $programme['signature'] ); ?></p>
 					<?php endif; ?>

@@ -181,13 +181,10 @@ simply climbs with each release. They are not the same counter.
    Replaced the original "campaigns and the builder" plan after the approved
    designs landed on 31 Oct.
 8. ~~Admin fulfilment screens~~ — done (0.9.0)
-9. Front-end dashboard rendering — needs brand tokens from the client
+9. Front-end dashboard rendering — needs brand tokens, which are in the
+   approved Figma and will be read from there
 10. Orders and payment — card payment, charged monthly before each box
-11. Campaigns and the builder — displaced from slot 7 by the redesign and not
-    re-slotted at the time. The approved designs carry a Campaigns item in the
-    sidebar with a count badge, and the Promotions & Offers category depends on
-    it. Until it is built, a campaign-driven occasion can be drafted but
-    activation is refused, so nothing can be switched on that would silently
-    never send.
+11. ~~Campaigns and the builder~~ — done (0.10.0). Built out of order: it was
+    displaced from slot 7 by the redesign and only re-slotted on 1 Nov.
 
 Then: handover document, and two weeks of bug-fix support after launch.

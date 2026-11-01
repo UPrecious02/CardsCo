@@ -60,6 +60,7 @@ class CardsCo_Admin {
 
 		add_submenu_page( self::MENU, __( 'Recipients', 'cardsco' ), __( 'Recipients', 'cardsco' ), self::CAP, self::MENU, array( $this, 'page_recipients' ) );
 		add_submenu_page( self::MENU, __( 'Occasions', 'cardsco' ), __( 'Occasions', 'cardsco' ), self::CAP, CardsCo_Wizard::PAGE, array( $this, 'page_programmes' ) );
+		add_submenu_page( self::MENU, __( 'Campaigns', 'cardsco' ), __( 'Campaigns', 'cardsco' ), self::CAP, CardsCo_Campaign_Builder::PAGE, array( $this, 'page_campaigns' ) );
 		add_submenu_page( self::MENU, __( 'Segments', 'cardsco' ), __( 'Segments', 'cardsco' ), self::CAP, 'cardsco-segments', array( $this, 'page_segments' ) );
 		add_submenu_page( self::MENU, __( 'Occasion library', 'cardsco' ), __( 'Occasion library', 'cardsco' ), self::CAP, 'cardsco-occasions', array( $this, 'page_occasions' ) );
 		add_submenu_page( self::MENU, __( 'Card queue', 'cardsco' ), __( 'Card queue', 'cardsco' ), self::CAP, 'cardsco-queue', array( $this, 'page_queue' ) );
@@ -236,6 +237,7 @@ class CardsCo_Admin {
 		.cardsco-write-message{font-size:17px;line-height:1.6;color:#1d2327;
 			border-left:3px solid #dcdcde;padding-left:14px;white-space:normal}
 		.cardsco-write-sign{margin:10px 0 0;font-size:15px;color:#50575e;font-style:italic}
+		.cardsco-write-offer{margin:10px 0 0;font-size:15px;color:#1d2327}
 
 		@media print{
 			#adminmenumain,#wpadminbar,#wpfooter,.cardsco-write-hide,.notice{display:none!important}
@@ -471,6 +473,18 @@ class CardsCo_Admin {
 
 		$wizard = new CardsCo_Wizard();
 		$wizard->render( $this );
+	}
+
+	/**
+	 * Campaigns: the list and the seven step builder.
+	 *
+	 * @return void
+	 */
+	public function page_campaigns() {
+		$this->guard();
+
+		$builder = new CardsCo_Campaign_Builder();
+		$builder->render( $this );
 	}
 
 	/**

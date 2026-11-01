@@ -572,15 +572,14 @@ class CardsCo_Programme {
 	public static function can_activate( array $programme ) {
 		$errors = new WP_Error();
 
-		// Some categories are run as a campaign you send on a chosen day, not
-		// off a date each person holds. The campaign engine is not built yet,
-		// so there is nothing for the scheduler to act on: switching one of
-		// these on would look like it worked and then quietly never send a
-		// card. Refuse it and say why, rather than fail silently.
+		// Some categories are sent as a campaign on a day somebody chooses,
+		// not off a date each person holds. There is no date for the scheduler
+		// to act on, so switching one on here would look like it worked and
+		// then quietly never send a card. Send them to Campaigns instead.
 		if ( ! CardsCo_Category::is_dated( $programme['category'], (int) $programme['company_id'] ) ) {
 			$errors->add(
 				'cardsco_needs_campaigns',
-				__( 'This occasion is sent as a campaign rather than from dates people hold, and campaigns are not ready yet. It can be saved as a draft for now.', 'cardsco' )
+				__( 'This one is sent as a campaign on a day you choose, not from dates people hold, so it is set up under Campaigns rather than here.', 'cardsco' )
 			);
 
 			return $errors;
