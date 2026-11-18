@@ -1,0 +1,5384 @@
+/*
+ * The front-end dashboard.
+ *
+ * Every value here comes from a token in tokens.css. Nothing is hard-coded,
+ * so when the CTO confirms the real brand colours and fonts, this file does
+ * not change at all.
+ *
+ * Mobile first: the layout stacks by default and opens out at wider sizes.
+ *
+ * @package CardsCo
+ */
+
+.cc {
+	font-family: var(--cc-font-ui);
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	color: var(--cc-text-primary);
+	background: var(--cc-bg-app);
+	box-sizing: border-box;
+}
+
+.cc *,
+.cc *::before,
+.cc *::after {
+	box-sizing: inherit;
+}
+
+.cc h2 {
+	font-family: var(--cc-font-display);
+	font-size: var(--cc-h3-size);
+	line-height: var(--cc-h3-line);
+	letter-spacing: var(--cc-h3-track);
+	font-weight: var(--cc-weight-semi);
+	margin: 0 0 var(--cc-space-4);
+	color: var(--cc-text-primary);
+}
+
+.cc h3 {
+	font-family: var(--cc-font-display);
+	font-size: var(--cc-h4-size);
+	line-height: var(--cc-h4-line);
+	font-weight: var(--cc-weight-semi);
+	margin: 0 0 var(--cc-space-4);
+	color: var(--cc-text-primary);
+}
+
+.cc p {
+	margin: 0 0 var(--cc-space-8);
+}
+
+.cc p:last-child {
+	margin-bottom: 0;
+}
+
+.cc-muted {
+	color: var(--cc-text-secondary);
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+}
+
+.cc-big {
+	font-family: var(--cc-font-display);
+	font-size: var(--cc-h2-size);
+	line-height: var(--cc-h2-line);
+	letter-spacing: var(--cc-h2-track);
+	font-weight: var(--cc-weight-semi);
+}
+
+/* ---------------------------------------------------------------- panels */
+
+.cc-panel {
+	background: var(--cc-surface-default);
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-lg);
+	padding: var(--cc-space-20);
+	margin: 0 0 var(--cc-space-16);
+}
+
+.cc-locked {
+	background: var(--cc-bg-subtle);
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-lg);
+	padding: var(--cc-space-24);
+	text-align: center;
+	color: var(--cc-text-secondary);
+}
+
+.cc-warn {
+	background: var(--cc-status-warning-bg);
+	border-color: var(--cc-status-warning-solid);
+}
+
+.cc-next-box {
+	background: var(--cc-accent-subtle);
+	border-color: var(--cc-accent-default);
+}
+
+/* ----------------------------------------------------------------- tiles */
+
+.cc-tiles {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: var(--cc-space-12);
+	margin: 0 0 var(--cc-space-16);
+}
+
+.cc-tile {
+	background: var(--cc-surface-default);
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-lg);
+	padding: var(--cc-space-16);
+	display: flex;
+	flex-direction: column;
+	gap: var(--cc-space-2);
+}
+
+.cc-tile-n {
+	font-family: var(--cc-font-display);
+	font-size: var(--cc-h1-size);
+	line-height: var(--cc-h1-line);
+	letter-spacing: var(--cc-h1-track);
+	font-weight: var(--cc-weight-semi);
+}
+
+.cc-tile-l {
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-secondary);
+}
+
+/* ------------------------------------------------------------- the lists */
+
+.cc-list {
+	list-style: none;
+	margin: var(--cc-space-8) 0 0;
+	padding: 0;
+}
+
+.cc-list li {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var(--cc-space-8);
+	padding: var(--cc-space-10) 0;
+	border-top: 1px solid var(--cc-border-subtle);
+}
+
+.cc-list li:first-child {
+	border-top: 0;
+}
+
+.cc-who {
+	font-weight: var(--cc-weight-medium);
+}
+
+.cc-what,
+.cc-when,
+.cc-reason {
+	color: var(--cc-text-secondary);
+	font-size: var(--cc-body-s-size);
+}
+
+.cc-when {
+	margin-left: auto;
+	white-space: nowrap;
+}
+
+.cc-reason {
+	margin-left: auto;
+	color: var(--cc-status-warning-solid);
+	font-weight: var(--cc-weight-medium);
+}
+
+/* --------------------------------------------------------- occasion grid */
+
+.cc-cards {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: var(--cc-space-12);
+	margin-top: var(--cc-space-12);
+}
+
+.cc-card {
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-md);
+	padding: var(--cc-space-16);
+	background: var(--cc-bg-subtle);
+}
+
+.cc-card.is-live {
+	background: var(--cc-surface-default);
+	border-color: var(--cc-border-strong);
+}
+
+.cc-meta {
+	display: flex;
+	align-items: center;
+	gap: var(--cc-space-8);
+	font-size: var(--cc-body-s-size);
+	color: var(--cc-text-secondary);
+	margin-top: var(--cc-space-8);
+}
+
+.cc-pill {
+	display: inline-block;
+	padding: var(--cc-space-2) var(--cc-space-10);
+	border-radius: var(--cc-radius-full);
+	background: var(--cc-bg-emphasis);
+	color: var(--cc-text-secondary);
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	font-weight: var(--cc-weight-medium);
+	white-space: nowrap;
+}
+
+.cc-pill.is-on {
+	background: var(--cc-status-success-bg);
+	color: var(--cc-status-success-solid);
+}
+
+/* ------------------------------------------------------------ campaigns */
+
+.cc-rows {
+	list-style: none;
+	margin: var(--cc-space-12) 0 0;
+	padding: 0;
+}
+
+.cc-rows li {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--cc-space-8) var(--cc-space-16);
+	padding: var(--cc-space-12) 0;
+	border-top: 1px solid var(--cc-border-subtle);
+}
+
+.cc-rows li:first-child {
+	border-top: 0;
+}
+
+.cc-row-main {
+	flex: 1 1 100%;
+	display: flex;
+	align-items: center;
+	gap: var(--cc-space-8);
+}
+
+.cc-row-meta {
+	color: var(--cc-text-secondary);
+	font-size: var(--cc-body-s-size);
+}
+
+.cc-code {
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	font-size: var(--cc-caption-size);
+	background: var(--cc-accent-subtle);
+	color: var(--cc-accent-text);
+	padding: var(--cc-space-2) var(--cc-space-6);
+	border-radius: var(--cc-radius-xs);
+}
+
+/* --------------------------------------------------------- wider screens */
+
+@media (min-width: 600px) {
+	.cc-tiles {
+		grid-template-columns: repeat(2, 1fr);
+	}
+
+	.cc-cards {
+		grid-template-columns: repeat(2, 1fr);
+	}
+
+	.cc-row-main {
+		flex: 1 1 auto;
+	}
+}
+
+@media (min-width: 960px) {
+	.cc-tiles {
+		grid-template-columns: repeat(4, 1fr);
+	}
+
+	.cc-panel {
+		padding: var(--cc-space-24);
+	}
+
+	.cc-cards {
+		grid-template-columns: repeat(3, 1fr);
+	}
+}
+
+/* ================================================================
+   The dashboard page.
+
+   Measured off the Dashboard frames (9:5965 empty, 11:9058 filled):
+
+     frame            1440
+       sidebar         240
+       main           1200   padding 40/40/48/40, vertical gap 24
+         content      1120
+
+   Headings on this screen are Inter, not the display face: the band
+   heading is Inter 600 16/22 and a tile title Inter 500 14/20. Only
+   the page H1 is EB Garamond.
+   ================================================================ */
+
+.cc-main {
+	flex: 1 1 auto;
+	width: 100%;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--cc-space-24);
+	padding: var(--cc-space-40) var(--cc-space-40) var(--cc-space-48);
+	background: var(--cc-bg-app);
+}
+
+/* ================================================================
+   Putting the two halves side by side.
+
+   The sidebar and the page content are separate shortcodes, so in a
+   page builder they land in separate containers — a Code Block and
+   an Inner Content element in Oxygen — and neither is a flex
+   container. Left alone, the sidebar sits in a 240px column with the
+   dashboard squeezed in beside or below it.
+
+   Give the wrapper that holds them both the class cc-portal and it
+   lays out correctly with nothing else to set. The two rules that
+   follow make the builder's own wrappers transparent, so .cc-nav and
+   .cc-main become the flex items rather than the divs around them.
+   ================================================================ */
+
+/*
+ * !important, reluctantly and deliberately.
+ *
+ * Oxygen writes every element's settings as CSS keyed to that element's own
+ * id — #div_block-2-96 { display: flex; flex-direction: column } and so on.
+ * An id outranks any class, so a plain `.cc-portal { flex-direction: row }`
+ * loses and the sidebar stays stacked above the page. There is no class or
+ * attribute selector that can outrank an id, so the only options are this or
+ * asking every user to get three Oxygen settings right by hand.
+ *
+ * Scoped to one opt-in class, so it cannot affect anything that has not
+ * asked for it.
+ */
+.cc-portal {
+	display: flex !important;
+	flex-direction: row !important;
+	flex-wrap: nowrap !important;
+	align-items: flex-start !important;
+	width: 100% !important;
+	max-width: none !important;
+	gap: 0 !important;
+}
+
+.cc-portal > * { min-width: 0; }
+
+/*
+ * Any direct child that merely wraps the sidebar or the page is dissolved,
+ * so the real thing becomes the flex item. Written with :has() rather than
+ * by naming Oxygen's classes, because the Code Block and Inner Content are
+ * often each inside a plain div of their own, and naming classes would miss
+ * those. The :not() guards stop it dissolving the sidebar or the page
+ * itself when they happen to be direct children.
+ */
+.cc-portal > *:has(.cc-nav):not(.cc-nav):not(.cc-main),
+.cc-portal > *:has(.cc-main):not(.cc-nav):not(.cc-main) {
+	display: contents !important;
+}
+
+/*
+ * Oxygen often puts another plain div between the portal and the Inner
+ * Content, so the wrapper to dissolve is not always a direct child. Two more
+ * levels covers every nesting seen so far; deeper than that and the template
+ * wants simplifying rather than more CSS.
+ */
+.cc-portal > * > *:has(.cc-nav):not(.cc-nav):not(.cc-main),
+.cc-portal > * > *:has(.cc-main):not(.cc-nav):not(.cc-main),
+.cc-portal > * > * > *:has(.cc-nav):not(.cc-nav):not(.cc-main),
+.cc-portal > * > * > *:has(.cc-main):not(.cc-nav):not(.cc-main) {
+	display: contents !important;
+}
+
+/* Older browsers without :has() still get the two Oxygen wrappers by name. */
+.cc-portal .ct-code-block,
+.cc-portal .oxy-code-block,
+.cc-portal .ct-inner-content,
+.cc-portal .oxy-inner-content {
+	display: contents !important;
+}
+
+@media (max-width: 860px) {
+	/*
+	 * The sidebar is a drawer here, so the wrapper goes back to a plain
+	 * block. Needs !important for the same reason as above — and without it
+	 * the menu button, which becomes a flex item once its wrapper is
+	 * dissolved, sits beside the page and pushes it off screen.
+	 */
+	.cc-portal {
+		display: block !important;
+		max-width: none !important;
+		width: 100% !important;
+	}
+}
+
+/*
+ * Paragraphs on this screen are laid out with flex gaps, not margins. The
+ * base `.cc p` rule has a bottom margin and one class plus one element beats
+ * a single class, so every `.cc-…` paragraph rule here would lose to it and
+ * quietly add 8px. Reset once, at the top, rather than fight it per rule.
+ */
+.cc-main p { margin: 0; }
+
+/*
+ * Same story for headings. `.cc h2` and `.cc h3` set the display face, and
+ * one class plus one element outranks a single class, so `.cc-band-head`
+ * and `.cc-promo-title` would silently render in EB Garamond. On this screen
+ * only the page H1 is the display face; every other heading is Inter.
+ */
+.cc-main h2,
+.cc-main h3 {
+	font-family: var(--cc-font-ui);
+	margin: 0;
+}
+
+/*
+ * The size and weight come from the same base rules, so the two heading
+ * classes below are written with .cc-main in front to outrank them. Without
+ * it, "Get started" renders 18/24 instead of 16/22 and a promo title renders
+ * 600 16/22 instead of 500 14/20 — both wrong, both silent.
+ */
+.cc-main .cc-band-head {
+	font-size: var(--cc-h4-size);
+	line-height: 22px;
+	letter-spacing: -0.0125em;
+	font-weight: var(--cc-weight-semi);
+}
+
+.cc-main .cc-promo-title {
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	font-weight: var(--cc-weight-medium);
+}
+
+/* ---------------- page header ---------------- */
+
+.cc-page-head { display: flex; flex-direction: column; gap: var(--cc-space-4); }
+
+.cc-page-title {
+	margin: 0;
+	font-family: var(--cc-font-display);
+	font-size: var(--cc-h1-size);
+	line-height: var(--cc-h1-line);
+	letter-spacing: var(--cc-h1-track);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-page-sub {
+	margin: 0;
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	letter-spacing: -0.0075em;
+	color: var(--cc-text-secondary);
+}
+
+/* ---------------- "Get started" band ---------------- */
+
+.cc-band { display: flex; flex-direction: column; gap: var(--cc-space-12); }
+
+.cc-band-head {
+	margin: 0;
+	font-family: var(--cc-font-ui);
+	font-size: var(--cc-h4-size);
+	line-height: 22px;
+	letter-spacing: -0.0125em;
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary);
+}
+
+.cc-band-row {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+	gap: var(--cc-space-12);
+}
+
+.cc-promo {
+	position: relative;
+	display: flex;
+	align-items: stretch;
+	gap: var(--cc-space-12);
+	min-height: 148px;
+	padding: var(--cc-space-12);
+	border-radius: var(--cc-radius-lg);
+	background: var(--cc-bg-subtle);
+	overflow: hidden;
+}
+
+.cc-promo-body {
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	gap: var(--cc-space-12);
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.cc-promo-text { display: flex; flex-direction: column; gap: var(--cc-space-2); }
+
+/* 161 and 124 wide in the frame, not the full column. */
+.cc-promo-body .cc-btn { align-self: flex-start; }
+
+.cc-promo-title {
+	margin: 0;
+	font-family: var(--cc-font-ui);
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-promo-sub {
+	margin: 0;
+	max-width: 24ch;
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-secondary);
+}
+
+/* The drawing bleeds to the card's edge, as it does in the frame. */
+.cc-promo-art {
+	flex: 0 0 auto;
+	align-self: center;
+	margin: calc(var(--cc-space-12) * -1) calc(var(--cc-space-12) * -1) calc(var(--cc-space-12) * -1) 0;
+	pointer-events: none;
+}
+
+.cc-promo-art svg { display: block; height: 149px; width: auto; }
+
+/* ---------------- buttons ---------------- */
+
+.cc-btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--cc-space-6);
+	min-height: 36px;
+	padding: var(--cc-space-8) var(--cc-space-12);
+	border: 0;
+	border-radius: var(--cc-radius-md);
+	font-family: var(--cc-font-ui);
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	letter-spacing: -0.0075em;
+	font-weight: var(--cc-weight-medium);
+	text-decoration: none;
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.cc-btn:focus-visible { outline: 2px solid var(--cc-border-focus); outline-offset: 2px; }
+
+.cc-btn-icon { flex: 0 0 16px; width: 16px; height: 16px; }
+
+/* The primary button is the one place the frame uses radius 12, not 8. */
+.cc-btn-primary {
+	border-radius: var(--cc-radius-lg);
+	background: var(--cc-accent-default);
+	color: #fff;
+}
+
+.cc-btn-primary:hover { background: var(--cc-accent-hover); color: #fff; }
+
+.cc-btn-secondary {
+	background: var(--cc-bg-emphasis);
+	color: var(--cc-text-primary);
+}
+
+.cc-btn-secondary:hover { background: var(--cc-border-default); color: var(--cc-text-primary); }
+
+.cc-btn-quiet {
+	background: var(--cc-bg-muted);
+	color: var(--cc-text-primary);
+}
+
+.cc-btn-quiet:hover { background: var(--cc-bg-emphasis); color: var(--cc-text-primary); }
+.cc-btn-quiet .cc-btn-icon { color: var(--cc-icon-default); }
+
+/* ---------------- toolbar ---------------- */
+
+.cc-toolbar {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--cc-space-12);
+	flex-wrap: wrap;
+}
+
+.cc-seg {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--cc-space-2);
+	padding: var(--cc-space-2);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-bg-muted);
+}
+
+.cc-seg-item {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--cc-space-6);
+	min-height: 34px;
+	padding: var(--cc-space-8) var(--cc-space-10);
+	border-radius: var(--cc-radius-sm);
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	letter-spacing: -0.0075em;
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-secondary);
+	text-decoration: none;
+}
+
+.cc-seg-item:hover { color: var(--cc-text-primary); }
+
+.cc-seg-item.is-on {
+	background: var(--cc-surface-default);
+	color: var(--cc-text-primary);
+	box-shadow: var(--cc-shadow-xs);
+}
+
+.cc-seg-icon { flex: 0 0 16px; width: 16px; height: 16px; }
+
+.cc-seg-count {
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-tertiary);
+}
+
+.cc-seg-item.is-on .cc-seg-count { color: var(--cc-text-secondary); }
+
+.cc-filters { display: flex; align-items: center; gap: var(--cc-space-8); }
+
+.cc-drop { position: relative; }
+
+.cc-drop-menu {
+	position: absolute;
+	right: 0;
+	top: calc(100% + var(--cc-space-4));
+	z-index: 5;
+	min-width: 180px;
+	max-height: 280px;
+	overflow-y: auto;
+	padding: var(--cc-space-4);
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-surface-default);
+	box-shadow: var(--cc-shadow-md);
+}
+
+.cc-drop-menu[hidden] { display: none; }
+
+.cc-drop-menu a {
+	display: block;
+	padding: var(--cc-space-6) var(--cc-space-8);
+	border-radius: var(--cc-radius-sm);
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-primary);
+	text-decoration: none;
+}
+
+.cc-drop-menu a:hover { background: var(--cc-bg-muted); }
+
+/* ---------------- the card grid ---------------- */
+
+.cc-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
+	gap: var(--cc-space-20);
+}
+
+.cc-ctile {
+	display: flex;
+	flex-direction: column;
+	min-height: 260px;
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-lg);
+	background: var(--cc-surface-default);
+	overflow: hidden;
+}
+
+/* --- the preview: a miniature of the card itself --- */
+
+.cc-ctile-preview {
+	position: relative;
+	flex: 0 0 188px;
+	height: 188px;
+	border-bottom: 1px solid var(--cc-border-subtle);
+	background: var(--cc-bg-subtle);
+	overflow: hidden;
+}
+
+/* 150x192 inside a 188-tall preview, so the foot of the card is cut off —
+   which is what makes it read as a card standing in a frame. */
+.cc-ctile-paper {
+	position: absolute;
+	top: 46px;
+	left: 50%;
+	transform: translateX(-50%);
+	width: 150px;
+	height: 192px;
+	padding: 17px 19px;
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: var(--cc-radius-xs);
+	background: var(--cc-paper);
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	gap: var(--cc-space-8);
+}
+
+.cc-ctile-msg {
+	margin: 0;
+	font-family: var(--cc-font-handwritten);
+	font-size: 19px;
+	line-height: 23px;
+	color: var(--cc-text-primary);
+	display: -webkit-box;
+	-webkit-line-clamp: 4;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+}
+
+/* Nothing written yet: ruled lines rather than an empty rectangle. */
+.cc-ctile-msg.is-blank {
+	display: flex;
+	flex-direction: column;
+	gap: var(--cc-space-8);
+	padding-top: var(--cc-space-4);
+}
+
+.cc-ctile-msg.is-blank span {
+	height: 3px;
+	border-radius: 2px;
+	background: var(--cc-bg-emphasis);
+}
+
+.cc-ctile-msg.is-blank span:nth-child(2) { width: 85%; }
+.cc-ctile-msg.is-blank span:nth-child(3) { width: 60%; }
+
+.cc-ctile-sign {
+	margin: 0;
+	font-family: var(--cc-font-handwritten);
+	font-size: 19px;
+	line-height: 23px;
+	color: var(--cc-text-secondary);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.cc-ctile-badge { position: absolute; top: 14px; right: 17px; }
+
+/* --- the details strip --- */
+
+.cc-ctile-details {
+	display: flex;
+	flex-direction: column;
+	gap: var(--cc-space-8);
+	padding: var(--cc-space-12) var(--cc-space-16);
+}
+
+.cc-ctile-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--cc-space-8);
+	margin: 0;
+}
+
+.cc-ctile-name {
+	min-width: 0;
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.cc-ctile-meta {
+	min-width: 0;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-secondary);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.cc-ctile-meta-row { align-items: baseline; }
+
+.cc-ctile-count {
+	flex: 0 0 auto;
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-tertiary);
+}
+
+/* The badge in the details strip repeats the one on the preview, as the
+   frame has it; one of the two is enough for a screen reader. */
+.cc-ctile-badge { pointer-events: none; }
+
+/* --- the "create a card" tile --- */
+
+.cc-ctile-new {
+	align-items: center;
+	justify-content: center;
+	gap: var(--cc-space-8);
+	padding: var(--cc-space-24);
+	border-color: var(--cc-border-strong);
+	background: var(--cc-bg-app);
+	text-align: center;
+	text-decoration: none;
+}
+
+.cc-ctile-new:hover { background: var(--cc-bg-subtle); }
+
+.cc-ctile-plus {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 44px;
+	height: 44px;
+	margin-bottom: var(--cc-space-4);
+	border-radius: var(--cc-radius-full);
+	background: var(--cc-green-100);
+	color: var(--cc-accent-default);
+}
+
+.cc-ctile-plus-icon { width: 16px; height: 16px; }
+
+.cc-ctile-new-title {
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-ctile-new-body {
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-secondary);
+}
+
+/* ---------------- status badge ---------------- */
+
+.cc-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--cc-space-6);
+	height: 20px;
+	padding: var(--cc-space-2) var(--cc-space-8);
+	border-radius: var(--cc-radius-full);
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	font-weight: var(--cc-weight-medium);
+	white-space: nowrap;
+}
+
+.cc-badge-dot {
+	flex: 0 0 6px;
+	width: 6px;
+	height: 6px;
+	border-radius: var(--cc-radius-full);
+	background: currentColor;
+}
+
+/* Only the info badge is measured from the frame (fill #EBF3FE, dot #2563C9,
+   label #1D4FA3). The other tones follow the same construction on the status
+   families already in the tokens, and want checking against the design
+   system's own badge set before launch. */
+/*
+ * The label is a darker shade than the dot — measured #1D4FA3 text against a
+ * #2563C9 dot on the card tile, and #17663A on the Occasions pill. Using the
+ * dot colour for both, as the first build did, makes every badge read a shade
+ * too light.
+ */
+.cc-badge.is-info    { background: var(--cc-status-info-bg);    color: var(--cc-blue-700); }
+.cc-badge.is-success { background: var(--cc-status-success-bg); color: var(--cc-success-700); }
+.cc-badge.is-warning { background: var(--cc-status-warning-bg); color: var(--cc-amber-700); }
+.cc-badge.is-error   { background: var(--cc-status-error-bg);   color: var(--cc-status-error-solid); }
+
+/* The dot keeps the brighter solid. */
+.cc-badge.is-info .cc-badge-dot    { background: var(--cc-status-info-solid); }
+.cc-badge.is-success .cc-badge-dot { background: var(--cc-status-success-solid); }
+.cc-badge.is-warning .cc-badge-dot { background: var(--cc-status-warning-solid); }
+.cc-badge.is-neutral { background: var(--cc-bg-muted);          color: var(--cc-text-secondary); }
+
+/* Draft: outline only, no fill and no dot, as the Campaigns frame draws it. */
+.cc-badge.is-outline {
+	background: transparent;
+	border: 1px solid var(--cc-border-strong);
+	color: var(--cc-text-secondary);
+}
+
+.cc-badge.is-outline .cc-badge-dot { display: none; }
+.cc-badge.is-neutral .cc-badge-dot { background: var(--cc-text-tertiary); }
+
+/* ================================================================
+   Campaigns. Frames 7:4419 (filled) and 14:14055 (empty). Same
+   shell as the dashboard; everything below is this screen only.
+   ================================================================ */
+
+.cc-page-head-row {
+	flex-direction: row;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var(--cc-space-16);
+}
+
+.cc-page-head-text { display: flex; flex-direction: column; gap: var(--cc-space-4); min-width: 0; }
+
+/* This screen's buttons are radius 8, not the dashboard's 12. */
+.cc-main .cc-btn-r8 { border-radius: var(--cc-radius-md); }
+
+/* ---------------- tabs ---------------- */
+
+.cc-tabs {
+	display: flex;
+	align-items: stretch;
+	gap: var(--cc-space-24);
+	border-bottom: 1px solid var(--cc-border-default);
+	overflow-x: auto;
+}
+
+.cc-tab {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--cc-space-8);
+	padding: var(--cc-space-8) 0 var(--cc-space-12);
+	margin-bottom: -1px;
+	border-bottom: 1px solid transparent;
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-secondary);
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.cc-tab:hover { color: var(--cc-text-primary); }
+
+.cc-tab.is-on {
+	border-bottom-color: var(--cc-accent-default);
+	color: var(--cc-text-primary);
+}
+
+.cc-tab-count {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 20px;
+	height: 20px;
+	padding: 0 var(--cc-space-6);
+	border-radius: var(--cc-radius-full);
+	background: var(--cc-green-100);
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-accent-default);
+}
+
+/* ---------------- campaign rows ---------------- */
+
+.cc-camps { display: flex; flex-direction: column; gap: var(--cc-space-12); }
+
+.cc-camp {
+	display: flex;
+	align-items: center;
+	gap: var(--cc-space-20);
+	min-height: 130px;
+	padding: var(--cc-space-16) var(--cc-space-20) var(--cc-space-16) var(--cc-space-16);
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-lg);
+	background: var(--cc-surface-default);
+}
+
+/* The only row that changes colour, and its text changes with it. */
+.cc-camp.needs-review { border-color: var(--cc-status-warning-solid); }
+.cc-camp.needs-review .cc-camp-progress-label,
+.cc-camp.needs-review .cc-camp-progress-note { color: var(--cc-amber-700); }
+
+.cc-camp-cover {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 88px;
+	width: 88px;
+	height: 96px;
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-bg-subtle);
+	overflow: hidden;
+}
+
+.cc-camp-cover img,
+.cc-camp-cover-blank {
+	width: 58px;
+	height: 78px;
+	border-radius: 2px;
+	box-shadow: var(--cc-shadow-xs);
+}
+
+.cc-camp-cover img { object-fit: cover; }
+
+.cc-camp-cover-blank {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: var(--cc-space-6);
+	background: var(--cc-illus-ink);
+	text-align: center;
+}
+
+.cc-camp-cover-blank span {
+	font-family: var(--cc-font-display);
+	font-size: 11px;
+	line-height: 13px;
+	color: #fff;
+	overflow: hidden;
+	display: -webkit-box;
+	-webkit-line-clamp: 4;
+	-webkit-box-orient: vertical;
+	overflow-wrap: anywhere;
+}
+
+.cc-camp-body {
+	display: flex;
+	flex-direction: column;
+	gap: var(--cc-space-4);
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.cc-camp-head { display: flex; align-items: center; gap: var(--cc-space-8); min-width: 0; }
+
+.cc-camp-name {
+	font-size: var(--cc-h4-size);
+	line-height: 22px;
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.cc-camp-meta,
+.cc-camp-offer-text {
+	min-width: 0;
+	color: var(--cc-text-secondary);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.cc-camp-meta { font-size: var(--cc-body-s-size); line-height: var(--cc-body-s-line); }
+.cc-camp-offer-text { font-size: var(--cc-caption-size); line-height: var(--cc-caption-line); }
+
+.cc-camp-offer {
+	display: flex;
+	align-items: center;
+	gap: var(--cc-space-6);
+	padding-top: var(--cc-space-2);
+	min-width: 0;
+}
+
+.cc-chip {
+	flex: 0 0 auto;
+	padding: var(--cc-space-2) var(--cc-space-8);
+	border-radius: var(--cc-radius-full);
+	background: var(--cc-amber-50-soft);
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+/* ---------------- the progress column ---------------- */
+
+.cc-camp-progress {
+	display: flex;
+	flex-direction: column;
+	gap: var(--cc-space-6);
+	flex: 0 0 300px;
+	width: 300px;
+}
+
+.cc-camp-progress-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--cc-space-8);
+}
+
+.cc-camp-progress-label,
+.cc-camp-progress-pct {
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	font-weight: var(--cc-weight-medium);
+}
+
+.cc-camp-progress-label { color: var(--cc-text-primary); }
+.cc-camp-progress-pct { color: var(--cc-text-secondary); }
+
+.cc-bar {
+	height: 6px;
+	border-radius: 3px;
+	background: var(--cc-bg-muted);
+	overflow: hidden;
+}
+
+.cc-bar-fill { display: block; height: 100%; border-radius: 3px; background: var(--cc-accent-default); }
+
+.cc-camp-progress-note {
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-tertiary);
+}
+
+/* ---------------- the row's button ---------------- */
+
+.cc-btn-small {
+	flex: 0 0 auto;
+	min-height: 32px;
+	padding: var(--cc-space-6) var(--cc-space-10);
+	border-radius: var(--cc-radius-md);
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+}
+
+.cc-btn-outline {
+	background: var(--cc-surface-default);
+	border: 1px solid var(--cc-border-strong);
+	color: var(--cc-text-primary);
+}
+
+.cc-btn-outline:hover { background: var(--cc-bg-subtle); color: var(--cc-text-primary); }
+
+/* ---------------- "Recently finished" ---------------- */
+
+.cc-finished {
+	display: flex;
+	flex-direction: column;
+	gap: var(--cc-space-12);
+	padding-top: var(--cc-space-16);
+}
+
+.cc-finished-head {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--cc-space-16);
+}
+
+.cc-finished-title {
+	font-size: var(--cc-h3-size);
+	line-height: var(--cc-h3-line);
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary);
+}
+
+.cc-link {
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-illus-ink);
+	text-decoration: none;
+}
+
+.cc-link:hover { text-decoration: underline; }
+
+.cc-table-wrap {
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-lg);
+	overflow: hidden;
+}
+
+.cc-table { width: 100%; border-collapse: collapse; }
+
+.cc-table th {
+	padding: var(--cc-space-10) var(--cc-space-16);
+	background: var(--cc-bg-subtle);
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-tertiary);
+	text-align: left;
+}
+
+.cc-table td {
+	padding: var(--cc-space-14) var(--cc-space-16);
+	border-top: 1px solid var(--cc-border-subtle);
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-secondary);
+	vertical-align: middle;
+}
+
+/* Column widths from the frame: 442 / 180 / 120 / 140 / 140 of 1120. */
+.cc-col-name   { width: 40%; }
+.cc-col-aud    { width: 16%; }
+.cc-col-num    { width: 11%; }
+.cc-col-when   { width: 13%; }
+.cc-col-status { width: 13%; }
+
+.cc-table td.cc-col-name {
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-table td.cc-col-num { color: var(--cc-text-primary); }
+
+/* ---------------- the big empty state ---------------- */
+
+.cc-empty-lg { min-height: 0; padding: var(--cc-space-48) var(--cc-space-24); gap: var(--cc-space-12); }
+
+/* The measured illustration replaces the icon-in-a-circle placeholder. */
+.cc-empty-art-figure {
+	width: 204px;
+	height: 153px;
+	background: none;
+	border-radius: 0;
+}
+
+.cc-empty-art-figure svg { width: 204px; height: 153px; }
+
+.cc-main .cc-empty-head {
+	font-family: var(--cc-font-display);
+	font-size: 26px;
+	line-height: 32px;
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-explainers {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(280px, 352px));
+	justify-content: center;
+	gap: var(--cc-space-16);
+	margin-top: var(--cc-space-16);
+	width: 100%;
+	text-align: left;
+}
+
+.cc-explainer {
+	display: flex;
+	align-items: flex-start;
+	gap: var(--cc-space-12);
+	padding: var(--cc-space-16);
+	border-radius: var(--cc-radius-lg);
+	background: var(--cc-bg-subtle);
+}
+
+.cc-explainer-icon {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 36px;
+	width: 36px;
+	height: 36px;
+	border-radius: var(--cc-radius-full);
+	background: var(--cc-surface-default);
+	color: var(--cc-icon-default);
+}
+
+.cc-explainer-text { display: flex; flex-direction: column; gap: var(--cc-space-2); min-width: 0; }
+
+.cc-explainer-title {
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-explainer-body {
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-secondary);
+}
+
+.cc-empty-actions {
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: center;
+	gap: var(--cc-space-10);
+	margin-top: var(--cc-space-16);
+}
+
+/* ---------------- narrow screens ---------------- */
+
+@media (max-width: 860px) {
+	.cc-page-head-row { flex-direction: column; }
+	.cc-camp { flex-wrap: wrap; align-items: flex-start; }
+	.cc-camp-progress { flex-basis: 100%; width: 100%; }
+	.cc-camp-name { white-space: normal; }
+	.cc-table-wrap { overflow-x: auto; }
+	.cc-table { min-width: 620px; }
+}
+
+/* ---------------- the empty state ---------------- */
+
+.cc-empty {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: var(--cc-space-8);
+	min-height: 440px;
+	padding: var(--cc-space-24);
+	border: 1px solid var(--cc-border-strong);
+	border-radius: var(--cc-radius-lg);
+	text-align: center;
+}
+
+.cc-empty-art {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 112px;
+	height: 112px;
+	margin-bottom: var(--cc-space-4);
+	border-radius: var(--cc-radius-full);
+	background: var(--cc-bg-subtle);
+	color: var(--cc-text-disabled);
+}
+
+.cc-empty-icon { width: 40px; height: 40px; }
+
+.cc-empty-title {
+	margin: 0;
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-empty-body {
+	margin: 0 0 var(--cc-space-8);
+	max-width: 34ch;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-secondary);
+}
+
+/* ---------------- the held-cards notice ---------------- */
+
+.cc-notice {
+	padding: var(--cc-space-16);
+	border-radius: var(--cc-radius-lg);
+	border-left: 3px solid var(--cc-status-warning-solid);
+	background: var(--cc-status-warning-bg);
+}
+
+.cc-notice-title {
+	margin: 0 0 var(--cc-space-2);
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	font-weight: var(--cc-weight-medium);
+}
+
+.cc-notice-body {
+	margin: 0;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-secondary);
+}
+
+.cc-notice-list {
+	list-style: none;
+	margin: var(--cc-space-8) 0 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--cc-space-4);
+	font-size: var(--cc-body-s-size);
+}
+
+.cc-notice-list li { display: flex; gap: var(--cc-space-8); }
+.cc-notice-who { font-weight: var(--cc-weight-medium); }
+.cc-notice-why { color: var(--cc-text-secondary); }
+
+/* ---------------- narrow screens ---------------- */
+
+@media (max-width: 860px) {
+	.cc-main { padding: var(--cc-space-20) var(--cc-space-16) var(--cc-space-32); gap: var(--cc-space-20); }
+	.cc-page-title { font-size: 26px; line-height: 32px; }
+	.cc-promo { flex-direction: column; }
+	.cc-promo-art { align-self: flex-end; margin: 0 calc(var(--cc-space-12) * -1) calc(var(--cc-space-12) * -1) 0; }
+	.cc-promo-art svg { height: 120px; }
+	.cc-toolbar { align-items: stretch; }
+	.cc-seg { overflow-x: auto; }
+	.cc-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--cc-space-12); }
+}
+
+/* ================================================================
+   The sidebar.
+
+   Measured off the Sidebar component in the approved Figma:
+     width            240px fixed, full height
+     background       bg/subtle      #F8F8F6
+     right border     border/default #E3E2DD
+     padding          8px
+     nav item         32px tall, radius 8px, padding 6/10, gap 10
+     item gap         4px
+     active item      bg/emphasis    #EBEAE6
+     label            Inter 500, 14/20, -0.75%
+   ================================================================ */
+
+.cc-nav {
+	position: sticky;
+	top: 0;
+	width: 240px;
+	flex: 0 0 240px;
+	height: 100vh;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	padding: var(--cc-space-8);
+	background: var(--cc-bg-subtle);
+	border-right: 1px solid var(--cc-border-default);
+	overflow-y: auto;
+	overscroll-behavior: contain;
+}
+
+/* ---------------------------------------------------------------
+   Header: logo · search · collapse, as the Side Bar frame has it.
+   --------------------------------------------------------------- */
+
+.cc-nav-header {
+	display: flex;
+	align-items: center;
+	gap: var(--cc-space-4);
+	margin-bottom: var(--cc-space-12);
+}
+
+/* the wordmark at the top, as the design has it */
+.cc-nav-logo {
+	display: flex;
+	align-items: center;
+	flex: 1 1 auto;
+	min-width: 0;
+	min-height: 40px;
+	padding: 0 var(--cc-space-10);
+	text-decoration: none;
+}
+
+/* 28px was sized against a logo file with no padding. A real export usually
+   carries transparent margin, which eats into the box and leaves the mark
+   looking undersized and indented. 32px with the cropped file reads right;
+   if yours still looks small, the file has margin in it — crop it rather
+   than raising this, or the sidebar grows to swallow the empty space. */
+/* An explicit height, not max-height. With height:auto a logo smaller than
+   the cap is simply drawn at its own size and the cap does nothing — the
+   bundled wordmark is 105x28 intrinsically, so it stayed at 28 however high
+   the maximum was set. The rail's square mark is unaffected: its own
+   max-height still wins over this. */
+.cc-nav-logo img {
+	display: block;
+	width: auto;
+	height: 32px;
+	max-width: 100%;
+}
+
+/* The square mark is the rail's logo, so it is out of the way until then.
+   Qualified with .cc-nav-logo on purpose: a bare .cc-nav-mark loses to the
+   .cc-nav-logo img rule above and the mark shows in both states. */
+.cc-nav-logo .cc-nav-mark { display: none; }
+
+.cc-nav-logo span {
+	font-family: var(--cc-font-display);
+	font-size: var(--cc-h4-size);
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary);
+}
+
+.cc-nav-list,
+.cc-nav-recent {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--cc-space-4);
+}
+
+.cc-nav-link {
+	display: flex;
+	align-items: center;
+	gap: var(--cc-space-10);
+	min-height: 32px;
+	padding: var(--cc-space-6) var(--cc-space-10);
+	border-radius: var(--cc-radius-md);
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	letter-spacing: -0.0075em;
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+	text-decoration: none;
+	transition: background .15s ease;
+}
+
+.cc-nav-link:hover { background: var(--cc-bg-muted); }
+.cc-nav-link.is-here { background: var(--cc-bg-emphasis); }
+
+.cc-nav-link:focus-visible {
+	outline: 2px solid var(--cc-border-focus);
+	outline-offset: 1px;
+}
+
+.cc-nav-icon {
+	flex: 0 0 18px;
+	width: 18px;
+	height: 18px;
+	color: var(--cc-icon-default);
+}
+
+.cc-nav-link.is-here .cc-nav-icon { color: var(--cc-text-primary); }
+
+.cc-nav-label { flex: 1 1 auto; }
+
+/* The count is campaigns needing review, not every campaign. */
+.cc-nav-count {
+	flex: 0 0 auto;
+	min-width: 20px;
+	padding: 0 var(--cc-space-6);
+	border-radius: var(--cc-radius-full);
+	background: var(--cc-bg-emphasis);
+	color: var(--cc-text-secondary);
+	font-size: var(--cc-caption-size);
+	line-height: 20px;
+	font-weight: var(--cc-weight-medium);
+	text-align: center;
+}
+
+.cc-nav-link.is-here .cc-nav-count {
+	background: var(--cc-accent-default);
+	color: #fff;
+}
+
+/* ---------------------------------------------------------------
+   The small icon buttons: header actions, section actions, footer.
+   One class, two sizes, so they all hover and focus identically.
+   --------------------------------------------------------------- */
+
+.cc-nav-actions {
+	display: flex;
+	align-items: center;
+	flex: 0 0 auto;
+	gap: var(--cc-space-2);
+}
+
+.cc-nav-ibtn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+	width: 28px;
+	height: 28px;
+	padding: 0;
+	border: 0;
+	border-radius: var(--cc-radius-sm);
+	background: transparent;
+	color: var(--cc-icon-default);
+	text-decoration: none;
+	cursor: pointer;
+	transition: background .15s ease, color .15s ease;
+}
+
+.cc-nav-ibtn.is-small { width: 24px; height: 24px; }
+
+.cc-nav-ibtn:hover,
+.cc-nav-ibtn[aria-expanded="false"]:hover {
+	background: var(--cc-bg-emphasis);
+	color: var(--cc-text-primary);
+}
+
+.cc-nav-ibtn.is-here {
+	background: var(--cc-bg-emphasis);
+	color: var(--cc-text-primary);
+}
+
+.cc-nav-ibtn:focus-visible {
+	outline: 2px solid var(--cc-border-focus);
+	outline-offset: 1px;
+}
+
+.cc-nav-glyph {
+	width: 18px;
+	height: 18px;
+	flex: 0 0 18px;
+}
+
+.cc-nav-ibtn.is-small .cc-nav-glyph { width: 16px; height: 16px; flex-basis: 16px; }
+
+/* ---------------------------------------------------------------
+   The search box the magnifiers open. It filters what is already in
+   the sidebar — the nav items and the recent campaigns — which is
+   all there is to search until there is a search endpoint behind it.
+   --------------------------------------------------------------- */
+
+.cc-nav-find {
+	display: flex;
+	align-items: center;
+	gap: var(--cc-space-6);
+	margin: 0 0 var(--cc-space-8);
+	padding: 0 var(--cc-space-8);
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-surface-default);
+	color: var(--cc-icon-default);
+}
+
+.cc-nav-find[hidden] { display: none; }
+
+.cc-nav-find:focus-within {
+	border-color: var(--cc-border-focus);
+	box-shadow: 0 0 0 1px var(--cc-border-focus);
+}
+
+.cc-nav-find input {
+	flex: 1 1 auto;
+	min-width: 0;
+	height: 30px;
+	padding: 0;
+	border: 0;
+	background: transparent;
+	font-family: var(--cc-font-ui);
+	font-size: var(--cc-body-m-size);
+	color: var(--cc-text-primary);
+}
+
+.cc-nav-find input:focus { outline: none; }
+
+.cc-nav-nothing {
+	margin: var(--cc-space-8) 0 0;
+	padding: 0 var(--cc-space-10);
+	font-size: var(--cc-body-s-size);
+	color: var(--cc-text-tertiary);
+}
+
+.cc-nav-nothing[hidden] { display: none; }
+
+/* ---------------------------------------------------------------
+   "Recent campaigns" · search · + · …
+   --------------------------------------------------------------- */
+
+.cc-nav-section { position: relative; }
+
+.cc-nav-heading {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--cc-space-8);
+	margin: var(--cc-space-24) 0 var(--cc-space-8);
+	padding: var(--cc-space-16) var(--cc-space-6) 0 var(--cc-space-10);
+	border-top: 1px solid var(--cc-border-subtle);
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-tertiary);
+}
+
+.cc-nav-heading-actions {
+	display: flex;
+	align-items: center;
+	flex: 0 0 auto;
+	gap: var(--cc-space-2);
+	margin: -2px 0;
+}
+
+.cc-nav-more {
+	position: absolute;
+	right: var(--cc-space-6);
+	z-index: 5;
+	min-width: 170px;
+	padding: var(--cc-space-4);
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-surface-default);
+	box-shadow: var(--cc-shadow-md);
+}
+
+.cc-nav-more[hidden] { display: none; }
+
+.cc-nav-more a {
+	display: block;
+	padding: var(--cc-space-6) var(--cc-space-8);
+	border-radius: var(--cc-radius-sm);
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-primary);
+	text-decoration: none;
+}
+
+.cc-nav-more a:hover { background: var(--cc-bg-muted); }
+
+.cc-nav-recent a {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: var(--cc-space-6) var(--cc-space-10);
+	border-radius: var(--cc-radius-md);
+	text-decoration: none;
+}
+
+.cc-nav-recent a:hover { background: var(--cc-bg-muted); }
+
+.cc-nav-recent-name {
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-nav-recent-line {
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-secondary);
+}
+
+.cc-nav-recent-line.is-warn { color: var(--cc-status-warning-solid); }
+.cc-nav-recent-line.is-good { color: var(--cc-status-success-solid); }
+
+/* ---------------------------------------------------------------
+   Footer: the upgrade link on the left, the three icons on the
+   right. The design puts them on one line, space-between.
+   --------------------------------------------------------------- */
+
+.cc-nav-foot {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--cc-space-8);
+	flex: 0 0 auto;
+	margin-top: var(--cc-space-12);
+	padding: var(--cc-space-8) var(--cc-space-6) var(--cc-space-4);
+	border-top: 1px solid var(--cc-border-subtle);
+}
+
+/* Nothing on the left, so the icons sit to the right on their own. */
+.cc-nav-foot > .cc-nav-actions:only-child { margin-left: auto; }
+
+.cc-nav-upgrade {
+	display: flex;
+	align-items: center;
+	gap: var(--cc-space-6);
+	min-width: 0;
+	padding: var(--cc-space-4) var(--cc-space-4);
+	border-radius: var(--cc-radius-sm);
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-accent-text);
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.cc-nav-upgrade:hover { background: var(--cc-accent-subtle); }
+.cc-nav-upgrade .cc-nav-glyph { width: 16px; height: 16px; flex-basis: 16px; }
+
+/* ---------------------------------------------------------------
+   Collapsed to a rail.
+
+   The design marks the rail itself "(to design)", so this is the
+   obvious reading and not a signed-off screen: the sidebar keeps its
+   icons and drops everything that needs width. Flagged for review.
+   --------------------------------------------------------------- */
+
+@media (min-width: 861px) {
+	.cc-nav.is-rail { width: 56px; flex-basis: 56px; }
+
+	.cc-nav.is-rail .cc-nav-header { flex-direction: column; gap: var(--cc-space-8); }
+	.cc-nav.is-rail .cc-nav-actions { justify-content: center; }
+
+	/* Without a square mark there is nothing to put in a 56px rail, so the
+	   logo link goes rather than sit there as an empty 32px gap. */
+	.cc-nav.is-rail .cc-nav-logo { display: none; }
+
+	.cc-nav.is-rail.has-mark .cc-nav-logo {
+		display: flex;
+		justify-content: center;
+		min-height: 32px;
+		padding: 0;
+	}
+
+	/* the wordmark steps aside for the square mark */
+	.cc-nav.is-rail .cc-nav-logo .cc-nav-wordmark { display: none; }
+	.cc-nav.is-rail .cc-nav-logo .cc-nav-mark { display: block; max-height: 24px; max-width: 24px; }
+
+	.cc-nav.is-rail .cc-nav-link { justify-content: center; padding: var(--cc-space-6); }
+
+	.cc-nav.is-rail .cc-nav-label,
+	.cc-nav.is-rail .cc-nav-count,
+	.cc-nav.is-rail .cc-nav-find,
+	.cc-nav.is-rail .cc-nav-section,
+	.cc-nav.is-rail .cc-nav-recent,
+	.cc-nav.is-rail .cc-nav-nothing,
+	.cc-nav.is-rail .cc-nav-upgrade span,
+	.cc-nav.is-rail .cc-nav-logo span,
+	.cc-nav.is-rail [data-cc-find-toggle] { display: none; }
+
+	.cc-nav.is-rail .cc-nav-foot { flex-direction: column; padding-left: 0; padding-right: 0; }
+	.cc-nav.is-rail .cc-nav-foot .cc-nav-actions { flex-direction: column; }
+}
+
+/* the menu button and the close, both desktop-hidden */
+.cc-nav-toggle,
+.cc-nav-shut { display: none; }
+
+.cc-nav-veil { display: none; }
+
+/* ---------------------------------------------------------------
+   On a phone it becomes a drawer, as the component describes.
+   --------------------------------------------------------------- */
+
+@media (max-width: 860px) {
+	.cc-nav-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--cc-space-8);
+		min-height: 44px;
+		padding: var(--cc-space-8) var(--cc-space-12);
+		border: 1px solid var(--cc-border-default);
+		border-radius: var(--cc-radius-md);
+		background: var(--cc-surface-default);
+		font-family: var(--cc-font-ui);
+		font-size: var(--cc-body-m-size);
+		font-weight: var(--cc-weight-medium);
+		color: var(--cc-text-primary);
+		cursor: pointer;
+	}
+
+	.cc-nav-toggle svg { width: 20px; height: 20px; }
+
+	.cc-nav {
+		position: fixed;
+		top: 0;
+		left: 0;
+		z-index: 9998;
+		height: 100%;
+		max-width: 86vw;
+		transform: translateX(-100%);
+		transition: transform .2s ease;
+		box-shadow: var(--cc-shadow-lg);
+	}
+
+	.cc-nav.is-open { transform: translateX(0); }
+
+	.cc-nav-veil {
+		display: block;
+		position: fixed;
+		inset: 0;
+		z-index: 9997;
+		background: rgba(29, 28, 26, .45);
+	}
+
+	.cc-nav-veil[hidden] { display: none; }
+
+	/* A drawer has no rail to collapse into, so the collapse button goes
+	   and the close button takes its place. */
+	.cc-nav-collapse { display: none; }
+
+	.cc-nav-shut {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 36px;
+		height: 36px;
+		padding: 0;
+		border: 0;
+		border-radius: var(--cc-radius-md);
+		background: transparent;
+		color: var(--cc-icon-default);
+		cursor: pointer;
+	}
+
+	.cc-nav-shut:hover { background: var(--cc-bg-emphasis); color: var(--cc-text-primary); }
+	.cc-nav-shut .cc-nav-glyph { width: 20px; height: 20px; flex-basis: 20px; }
+
+	body.cc-nav-open { overflow: hidden; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.cc-nav { transition: none; }
+}
+
+/* The frame's 16px "more" control at the end of a campaign row. */
+.cc-camp-more {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 28px;
+	width: 28px;
+	height: 28px;
+	border-radius: var(--cc-radius-sm);
+	color: var(--cc-icon-default);
+	text-decoration: none;
+}
+
+.cc-camp-more:hover { background: var(--cc-bg-muted); color: var(--cc-text-primary); }
+.cc-camp-more:focus-visible { outline: 2px solid var(--cc-border-focus); outline-offset: 1px; }
+
+/* ================================================================
+   Occasions. Frame 253:56252.
+   ================================================================ */
+
+.cc-occ-cols {
+	display: grid;
+	grid-template-columns: minmax(0, 776fr) 320px;
+	gap: var(--cc-space-24);
+	align-items: start;
+}
+
+.cc-occ-list { display: flex; flex-direction: column; gap: var(--cc-space-12); min-width: 0; }
+
+.cc-occ {
+	display: flex;
+	align-items: center;
+	gap: var(--cc-space-16);
+	min-height: 102px;
+	padding: var(--cc-space-14) var(--cc-space-16) var(--cc-space-14) var(--cc-space-14);
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-lg);
+	background: var(--cc-surface-default);
+}
+
+.cc-occ-art {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 96px;
+	width: 96px;
+	height: 72px;
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-bg-subtle);
+	overflow: hidden;
+}
+
+.cc-occ-art img { width: 100%; height: 100%; object-fit: cover; }
+.cc-occ-art-blank { width: 56px; height: 40px; border-radius: 3px; background: var(--cc-bg-emphasis); }
+
+.cc-occ-body { display: flex; flex-direction: column; gap: 3px; flex: 1 1 auto; min-width: 0; }
+
+.cc-occ-head { display: flex; align-items: center; gap: var(--cc-space-8); min-width: 0; }
+
+.cc-occ-name {
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* A coming-soon row is muted, name included. */
+.cc-occ.is-soon .cc-occ-name { color: var(--cc-text-secondary); }
+
+.cc-occ-blurb {
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-secondary);
+}
+
+/* The stat line is the strong colour once an occasion is running, and the
+   quiet one while it is still something you could set up. */
+.cc-occ-stat {
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-tertiary);
+}
+
+.cc-occ-stat.is-strong { color: var(--cc-text-primary); }
+
+.cc-occ-btn { flex: 0 0 auto; min-height: 38px; }
+
+/* ---------------- the pill ---------------- */
+
+/* Distinct from .cc-badge: the frame's pills here carry no dot. */
+.cc-pill {
+	display: inline-flex;
+	align-items: center;
+	flex: 0 0 auto;
+	height: 20px;
+	padding: var(--cc-space-2) var(--cc-space-8);
+	border-radius: var(--cc-radius-full);
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	font-weight: var(--cc-weight-medium);
+	white-space: nowrap;
+}
+
+.cc-pill.is-success { background: var(--cc-status-success-bg); color: var(--cc-success-700); }
+.cc-pill.is-info    { background: var(--cc-status-info-bg);    color: var(--cc-blue-700); }
+.cc-pill.is-neutral { background: var(--cc-bg-muted);          color: var(--cc-text-secondary); }
+.cc-pill.is-error   { background: var(--cc-status-error-bg);   color: var(--cc-status-error-solid); }
+
+/* A draft is unfinished, not wrong — warm rather than red, and quieter than
+   the green an active occasion gets. */
+.cc-pill.is-draft   { background: var(--cc-amber-50);          color: var(--cc-amber-700); }
+
+/* ---------------- "Coming up" ---------------- */
+
+.cc-coming {
+	display: flex;
+	flex-direction: column;
+	gap: var(--cc-space-12);
+	padding: var(--cc-space-20);
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-lg);
+	background: var(--cc-surface-default);
+}
+
+.cc-coming-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--cc-space-8); }
+
+.cc-coming-title {
+	font-size: var(--cc-h3-size);
+	line-height: var(--cc-h3-line);
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary);
+}
+
+.cc-coming-when {
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-tertiary);
+}
+
+.cc-up {
+	display: flex;
+	align-items: center;
+	gap: var(--cc-space-10);
+	min-height: 50px;
+	padding: var(--cc-space-8) var(--cc-space-10);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-bg-subtle);
+}
+
+.cc-up-date { display: flex; flex-direction: column; flex: 0 0 30px; width: 30px; text-align: center; }
+
+.cc-up-day {
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-up-month {
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-tertiary);
+}
+
+.cc-up-text { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+
+.cc-up-who,
+.cc-up-what {
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.cc-up-who { font-weight: var(--cc-weight-medium); color: var(--cc-text-primary); }
+.cc-up-what { color: var(--cc-text-secondary); }
+
+.cc-coming-none {
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-tertiary);
+}
+
+.cc-coming-all {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--cc-space-6);
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-illus-ink);
+	text-decoration: none;
+}
+
+.cc-coming-all:hover { text-decoration: underline; }
+
+@media (max-width: 1100px) {
+	.cc-occ-cols { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 860px) {
+	.cc-occ { flex-wrap: wrap; }
+	.cc-occ-name { white-space: normal; }
+	.cc-occ-btn { margin-left: auto; }
+}
+
+/* ================================================================
+   The occasion set-up wizard. Frames 253:56833 and 253:56964.
+
+   A full-page flow with no sidebar:
+     header  61 tall   name + saved state · stepper · Save and exit
+     body   768 tall   content from x=64, a 281 rail at x=1105
+     footer  71 tall   Back · state · Continue
+
+   Positions below come from the frames' own text coordinates, so the
+   padding figures are derived: content starts at x=64 of 1440, the
+   rail's label column at 1135, its panel at 1105.
+   ================================================================ */
+
+.cc-wz {
+	display: flex;
+	flex-direction: column;
+	min-height: 100vh;
+	width: 100%;
+	background: var(--cc-bg-app);
+}
+
+/* ---------------- top bar ---------------- */
+
+.cc-wz-top {
+	display: flex;
+	align-items: center;
+	gap: var(--cc-space-24);
+	flex: 0 0 auto;
+	min-height: 61px;
+	padding: var(--cc-space-10) var(--cc-space-24) var(--cc-space-10) 64px;
+	border-bottom: 1px solid var(--cc-border-subtle);
+	background: var(--cc-surface-default);
+}
+
+.cc-wz-who {
+	display: flex;
+	flex-direction: column;
+	flex: 0 0 auto;
+	/* The frame's stepper starts at x=399 whatever the occasion is called,
+	   so this column has a width rather than taking the name's. */
+	min-width: 301px;
+}
+
+.cc-wz-name {
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-wz-saved {
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-tertiary);
+}
+
+/* The stepper is centred in the bar, as the frame has it. */
+.cc-wz-steps {
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	/* 36, measured: the frame's seven steps span 399 to 1088. */
+	gap: 36px;
+	flex: 1 1 auto;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	overflow-x: auto;
+}
+
+.cc-wz-step a,
+.cc-wz-step > span {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--cc-space-8);
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.cc-wz-num {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 20px;
+	height: 20px;
+	border-radius: var(--cc-radius-full);
+	background: var(--cc-bg-muted);
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-tertiary);
+}
+
+.cc-wz-label {
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-tertiary);
+}
+
+/*
+ * Three states in the frame, same language as the rail: a filled green disc
+ * with a tick for a finished step, a green ring around the number for the
+ * one on screen, a plain grey disc for the rest.
+ */
+.cc-wz-step.is-on .cc-wz-num {
+	background: var(--cc-surface-default);
+	box-shadow: inset 0 0 0 2px var(--cc-accent-default);
+	color: var(--cc-accent-default);
+}
+.cc-wz-step.is-on .cc-wz-label { color: var(--cc-text-primary); }
+
+.cc-wz-step.is-done .cc-wz-num {
+	background: var(--cc-accent-default);
+	color: #FFFFFF;
+}
+
+.cc-wz-num-tick { width: 13px; height: 13px; stroke-width: 3; }
+.cc-wz-step.is-done .cc-wz-label { color: var(--cc-text-secondary); }
+.cc-wz-step.is-done a:hover .cc-wz-label { color: var(--cc-text-primary); }
+
+.cc-wz-exit {
+	flex: 0 0 auto;
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+	text-decoration: none;
+}
+
+.cc-wz-exit:hover { text-decoration: underline; }
+
+/* ---------------- body ---------------- */
+
+.cc-wz-body {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 311px;
+	gap: var(--cc-space-24);
+	flex: 1 1 auto;
+	padding: var(--cc-space-32) var(--cc-space-24) var(--cc-space-40) 64px;
+	align-items: start;
+}
+
+.cc-wz-content { min-width: 0; display: flex; flex-direction: column; }
+
+/* Same reset as .cc-main: the base `.cc p` rule has a bottom margin and
+   beats every single-class rule in this block. */
+.cc-wz p { margin: 0; }
+
+.cc-wz-of {
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-accent-default);
+	margin-bottom: var(--cc-space-10);
+}
+
+.cc-wz .cc-wz-head {
+	margin: 0 0 var(--cc-space-8);
+	font-family: var(--cc-font-display);
+	font-size: var(--cc-h1-size);
+	line-height: var(--cc-h1-line);
+	letter-spacing: var(--cc-h1-track);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+/* 48 below the sub-heading: the frame's grid starts there, and anything
+   less puts every card too high. Written with .cc-wz in front so it is not
+   overridden by the base paragraph rule. */
+.cc-wz .cc-wz-sub { margin-bottom: 26px; }
+.cc-wz .cc-wz-of { margin-bottom: var(--cc-space-10); }
+.cc-wz .cc-wz-rail-head { margin-bottom: 26px; }
+.cc-wz .cc-wz-price { margin-top: var(--cc-space-6); }
+.cc-wz .cc-wz-price-note { margin-top: var(--cc-space-4); }
+.cc-wz .cc-wz-note { margin-top: 37px; margin-left: 38px; }
+
+.cc-wz-sub {
+	max-width: 951px;
+	margin: 0;
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	color: var(--cc-text-secondary);
+}
+
+.cc-wz-error {
+	margin-bottom: var(--cc-space-16);
+	padding: var(--cc-space-12) var(--cc-space-16);
+	border-radius: var(--cc-radius-md);
+	border-left: 3px solid var(--cc-status-error-solid);
+	background: var(--cc-status-error-bg);
+	font-size: var(--cc-body-s-size);
+	color: var(--cc-text-primary);
+}
+
+.cc-wz-form { display: contents; }
+
+/* ---------------- step 1: the choice grid ---------------- */
+
+.cc-wz-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+	gap: var(--cc-space-16);
+	max-width: 951px;   /* three 305 cards plus two 18 gaps, as the frame */
+}
+
+.cc-pick {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: var(--cc-space-4);
+	padding: var(--cc-space-10);
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-lg);
+	background: var(--cc-surface-default);
+	cursor: pointer;
+}
+
+.cc-pick:hover { border-color: var(--cc-border-strong); }
+
+/* Chosen: the wash and the accent border from the frame. */
+.cc-pick.is-chosen {
+	background: var(--cc-green-100);
+	border-color: var(--cc-accent-default);
+}
+
+.cc-pick.is-soon { cursor: default; }
+.cc-pick.is-soon .cc-pick-name { color: var(--cc-text-secondary); }
+.cc-pick.is-soon:hover { border-color: var(--cc-border-default); }
+
+/* The radio is the control; the card is its label. */
+.cc-pick input {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	opacity: 0;
+	pointer-events: none;
+}
+
+.cc-pick:focus-within { outline: 2px solid var(--cc-border-focus); outline-offset: 2px; }
+
+.cc-pick-art {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 132px;
+	margin-bottom: var(--cc-space-6);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-bg-subtle);
+	overflow: hidden;
+}
+
+.cc-pick.is-chosen .cc-pick-art { background: var(--cc-surface-default); }
+.cc-pick-art img { width: 100%; height: 100%; object-fit: cover; }
+.cc-pick-art-blank { width: 92px; height: 62px; border-radius: 3px; background: var(--cc-bg-emphasis); }
+
+.cc-pick-head { display: flex; align-items: center; justify-content: space-between; gap: var(--cc-space-8); min-width: 0; }
+
+.cc-pick-name {
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-pick-blurb {
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-secondary);
+}
+
+.cc-pick-stat {
+	margin-top: var(--cc-space-2);
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-pick-stat.is-quiet { color: var(--cc-text-tertiary); font-weight: var(--cc-weight-regular); }
+
+/* The note under the grid, in the frame's info blue. It sits at x=102 and
+   y=764 in the frame — indented 38 from the content edge, with no panel or
+   icon I can find in the export to explain the indent. Matched to the
+   measurement; worth asking the designer whether an icon belongs there. */
+.cc-wz-note {
+	margin-left: 38px;
+	margin-top: 61px;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-blue-700);
+}
+
+/* ---------------- step 2: upload, counts, table ---------------- */
+
+.cc-up-panel {
+	max-width: 951px;
+	padding: var(--cc-space-16) var(--cc-space-20);
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-lg);
+	background: var(--cc-surface-default);
+}
+
+.cc-up-panel-head {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: var(--cc-space-16);
+	margin-bottom: var(--cc-space-16);
+}
+
+.cc-up-panel-title {
+	font-size: var(--cc-h3-size);
+	line-height: var(--cc-h3-line);
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary);
+}
+
+.cc-up-panel-sub {
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-secondary);
+}
+
+.cc-up-file {
+	display: flex;
+	align-items: center;
+	gap: var(--cc-space-12);
+	padding: var(--cc-space-12) var(--cc-space-16);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-bg-subtle);
+}
+
+.cc-up-file-icon { display: flex; color: var(--cc-icon-default); }
+.cc-up-file-text { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
+
+.cc-up-file-name {
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-up-file-meta {
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-secondary);
+}
+
+.cc-counts {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: var(--cc-space-16);
+	max-width: 951px;
+	margin: 3px 0 16px;
+}
+
+.cc-count {
+	display: flex;
+	flex-direction: column;
+	gap: var(--cc-space-2);
+	padding: var(--cc-space-12) var(--cc-space-16);
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-lg);
+	background: var(--cc-surface-default);
+}
+
+.cc-count-n {
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-count-label {
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-secondary);
+}
+
+.cc-wz-content .cc-table-wrap { max-width: 951px; }
+.cc-people th, .cc-people td { width: 33.33%; }
+.cc-people td { padding-top: 10px; padding-bottom: 10px; }
+.cc-people td { font-size: var(--cc-body-s-size); color: var(--cc-text-primary); }
+.cc-people-name { font-weight: var(--cc-weight-medium); }
+.cc-people-missing { color: var(--cc-amber-700); }
+
+.cc-people-foot {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--cc-space-16);
+	max-width: 951px;
+	margin-top: var(--cc-space-12);
+}
+
+.cc-people-showing {
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-tertiary);
+}
+
+/* ---------------- the summary rail ---------------- */
+
+.cc-wz-rail {
+	display: flex;
+	flex-direction: column;
+	position: sticky;
+	top: var(--cc-space-24);
+}
+
+
+
+.cc-wz-rail-head {
+	font-size: var(--cc-h4-size);
+	line-height: 22px;
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary);
+}
+
+.cc-wz-rail-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+/*
+ * 73px from one step's label to the next, and a rule under every row —
+ * including the last, which is what separates the list from the price.
+ * The frame's rules sit at 187, 260, 333, 406, 479, 552, 625 against a
+ * first label at 141, so the row is 36 of content, 10 of breathing room,
+ * the rule, then 26 before the next label begins.
+ *
+ * The dot lives in a 30px gutter, which is the inset the labels sit at;
+ * the rule still runs the rail's full 311 because the row does.
+ */
+.cc-wz-rail-row {
+	display: grid;
+	grid-template-columns: 30px minmax(0, 1fr) auto;
+	align-items: start;
+	min-height: 36px;
+	padding-bottom: 10px;
+	border-bottom: 1px solid var(--cc-border-subtle);
+	margin-bottom: 26px;
+}
+
+.cc-wz-rail-text {
+	display: flex;
+	flex-direction: column;
+	gap: var(--cc-space-2);
+	min-width: 0;
+}
+
+/* 20px ring against a 16px label line: nudged up so it reads as centred on
+   the label rather than hanging below it. */
+.cc-wz-rail-dot {
+	width: 20px;
+	height: 20px;
+	margin-top: -2px;
+	border: 2px solid var(--cc-border-default);
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+}
+
+.cc-wz-rail-row.is-on .cc-wz-rail-dot { border-color: var(--cc-accent-default); }
+
+.cc-wz-rail-row.is-done .cc-wz-rail-dot {
+	background: var(--cc-accent-default);
+	border-color: var(--cc-accent-default);
+	color: #FFFFFF;
+}
+
+.cc-wz-rail-tick { width: 12px; height: 12px; stroke-width: 3; }
+
+/* 28x39 in the frame, hard against the rail's right edge. */
+.cc-wz-rail-thumb {
+	width: 28px;
+	height: 39px;
+	object-fit: cover;
+	border-radius: 2px;
+	align-self: start;
+	box-shadow: 0 1px 3px rgba(20, 35, 27, .16);
+}
+
+.cc-wz-rail-label {
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-tertiary);
+}
+
+.cc-wz-rail-row.is-on .cc-wz-rail-label { color: var(--cc-accent-default); }
+
+.cc-wz-rail-value {
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-secondary);
+}
+
+.cc-wz-price {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: var(--cc-space-8);
+	padding-top: var(--cc-space-16);
+	border-top: 1px solid var(--cc-border-subtle);
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-secondary);
+}
+
+.cc-wz-price-value { color: var(--cc-text-tertiary); }
+
+.cc-wz-price-note {
+	margin-top: var(--cc-space-4);
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-tertiary);
+}
+
+/* ---------------- footer bar ---------------- */
+
+.cc-wz-foot {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--cc-space-16);
+	flex: 0 0 auto;
+	min-height: 71px;
+	padding: var(--cc-space-16) var(--cc-space-24) var(--cc-space-16) var(--cc-space-24);
+	border-top: 1px solid var(--cc-border-subtle);
+	background: var(--cc-surface-default);
+}
+
+.cc-wz-state {
+	flex: 1 1 auto;
+	text-align: right;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-secondary);
+}
+
+.cc-btn-ghost { background: transparent; color: var(--cc-text-primary); }
+.cc-btn-ghost:hover { background: var(--cc-bg-muted); color: var(--cc-text-primary); }
+
+.cc-wz-foot .cc-btn[disabled] { opacity: .45; pointer-events: none; }
+
+/* Text for screen readers only: off the page but still announced, and still
+   reachable by a keyboard, which display:none would not be. */
+.cc-sr {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+/* ==========================================================================
+   Step 3 — choosing a card
+   ========================================================================== */
+
+/*
+ * The source pills. The frame draws a 261x32 trough at y=213 with the live
+ * pill inset 3 all round, which is where the 26px radius and the 6/3 padding
+ * come from rather than a round number.
+ */
+.cc-src-tabs {
+	align-self: flex-start;
+	display: flex;
+	gap: 0;
+	padding: 3px;
+	background: var(--cc-bg-muted);
+	border-radius: 9px;
+}
+
+.cc-src-tab {
+	display: inline-flex;
+	align-items: center;
+	height: 26px;
+	padding: 0 12px;
+	border-radius: 6px;
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-tertiary);
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.cc-src-tab:hover { color: var(--cc-text-primary); }
+
+.cc-src-tab.is-on {
+	background: var(--cc-surface-default);
+	color: var(--cc-text-primary);
+	box-shadow: 0 1px 2px rgba(20, 35, 27, .06);
+}
+
+/*
+ * Five tiles from x=64 on a 192 pitch — 176 wide with a 16 gutter. Written
+ * as a fixed track rather than auto-fill so the row keeps the frame's rhythm
+ * instead of stretching to whatever space is going.
+ */
+.cc-card-picker {
+	list-style: none;
+	margin: 24px 0 0;
+	padding: 0;
+	display: grid;
+	grid-template-columns: repeat(5, 176px);
+	gap: 16px;
+}
+
+.cc-card-pick {
+	position: relative;
+	min-width: 0;
+}
+
+.cc-card-pick-label {
+	display: flex;
+	flex-direction: column;
+	height: 269px;
+	padding: 10px;
+	background: var(--cc-surface-default);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: 10px;
+	cursor: pointer;
+}
+
+.cc-card-pick-label:hover { border-color: var(--cc-border-default); }
+
+.cc-card-pick.is-on .cc-card-pick-label {
+	background: var(--cc-green-100);
+	border-color: var(--cc-accent-default);
+	box-shadow: inset 0 0 0 1px var(--cc-accent-default);
+}
+
+/* The radio carries the state; the tile is the visible control. Kept in the
+   page rather than display:none so it stays reachable by keyboard. */
+.cc-card-pick-input {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+.cc-card-pick-input:focus-visible + .cc-card-pick-art {
+	outline: 2px solid var(--cc-accent-default);
+	outline-offset: 2px;
+}
+
+.cc-card-pick-art {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 200px;
+	/* #F6F6F6 in the frame; stone-50 is the token that sits on it. */
+	background: var(--cc-bg-subtle);
+	border-radius: 6px;
+	overflow: hidden;
+}
+
+.cc-card-pick-art img {
+	display: block;
+	max-width: 82%;
+	max-height: 88%;
+	width: auto;
+	height: auto;
+	box-shadow: 0 1px 4px rgba(20, 35, 27, .12);
+}
+
+.cc-card-pick-blank {
+	width: 82%;
+	height: 88%;
+	background: var(--cc-surface-default);
+	border: 1px solid var(--cc-border-subtle);
+}
+
+.cc-card-pick-meta {
+	display: flex;
+	flex-direction: column;
+	gap: 3px;
+	/* 11.5 in the frame between the artwork and the card's name. */
+	margin-top: 12px;
+	min-width: 0;
+}
+
+.cc-card-pick-name {
+	padding-right: 22px;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-card-pick-sub {
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-tertiary);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* One slot at the right of the name: a tick when this card is the one, an
+   eye to look at it closely when it is not. */
+.cc-card-pick-mark,
+.cc-card-pick-eye {
+	position: absolute;
+	right: 12px;
+	top: 223px;
+	width: 18px;
+	height: 18px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.cc-card-pick-mark {
+	border-radius: 50%;
+	background: var(--cc-accent-default);
+	color: #FFFFFF;
+	opacity: 0;
+}
+
+.cc-card-pick.is-on .cc-card-pick-mark { opacity: 1; }
+.cc-card-pick.is-on .cc-card-pick-eye { display: none; }
+
+.cc-card-pick-tick { width: 11px; height: 11px; stroke-width: 3; }
+
+.cc-card-pick-eye { color: var(--cc-text-tertiary); }
+.cc-card-pick-eye:hover { color: var(--cc-text-primary); }
+.cc-card-pick-eye-icon { width: 15px; height: 15px; }
+
+.cc-wz-empty {
+	margin-top: 24px;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-tertiary);
+}
+
+/* ==========================================================================
+   Step 4 — the message
+   ========================================================================== */
+
+/* A 628 preview beside a 300 summary, 24 apart, both starting at y=213 —
+   which here is 24 under the lede. */
+.cc-msg {
+	display: grid;
+	grid-template-columns: 628px 300px;
+	gap: 24px;
+	align-items: start;
+}
+
+.cc-msg-preview {
+	display: flex;
+	align-items: flex-start;
+	justify-content: center;
+	gap: 20px;
+	height: 356px;
+	padding: 28px 0;
+	background: var(--cc-bg-subtle);
+	border-radius: 12px;
+}
+
+/* The card and the written page are both 300 tall; the card is 214 wide and
+   keeps its shape, the page sits beside it at the same height. */
+.cc-msg-card,
+.cc-msg-paper {
+	width: 214px;
+	height: 300px;
+	flex: 0 0 214px;
+}
+
+.cc-msg-card {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	border-radius: 2px;
+	box-shadow: 0 1px 6px rgba(20, 35, 27, .14);
+}
+
+.cc-msg-card img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+.cc-msg-card-blank { display: block; width: 100%; height: 100%; background: var(--cc-bg-muted); }
+
+.cc-msg-paper {
+	padding: 29px 24px;
+	background: #F9F9F9;
+	border-radius: 2px;
+	box-shadow: 0 1px 6px rgba(20, 35, 27, .08);
+	overflow: hidden;
+}
+
+/* The written message is set in the display face at 17/23, which is the
+   stand-in the frame uses for a handwriting sample. */
+.cc-msg-paper p {
+	margin: 0 0 14px;
+	font-family: var(--cc-font-display);
+	font-style: italic;
+	font-size: 17px;
+	line-height: 23px;
+	color: var(--cc-accent-default);
+}
+
+.cc-msg-paper p:last-child { margin-bottom: 0; }
+.cc-msg-none { font-style: normal !important; color: var(--cc-text-tertiary) !important; }
+
+.cc-msg-sum {
+	padding: 21px;
+	background: var(--cc-surface-default);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: 12px;
+}
+
+.cc-msg-sum .cc-msg-sum-head {
+	margin: 0 0 13px;
+	font-family: var(--cc-font-display);
+	font-size: 18px;
+	line-height: 24px;
+	color: var(--cc-text-primary);
+}
+
+/* Label then value, 50 from one field's label to the next. */
+.cc-msg-fields { margin: 0; display: flex; flex-direction: column; gap: 13px; }
+.cc-msg-field { display: flex; flex-direction: column; gap: 3px; }
+
+.cc-msg-field dt {
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-tertiary);
+}
+
+.cc-msg-field dd {
+	margin: 0;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-primary);
+	overflow-wrap: anywhere;
+}
+
+.cc-msg-over { color: var(--cc-danger-default, #9B2C2C); font-weight: var(--cc-weight-medium); }
+
+.cc-msg-write {
+	display: flex;
+	justify-content: center;
+	width: 100%;
+	height: 36px;
+	margin-top: 13px;
+}
+
+.cc-msg-sum .cc-msg-note {
+	display: flex;
+	gap: 8px;
+	margin-top: 14px;
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-tertiary);
+}
+
+.cc-msg-note-icon { flex: 0 0 auto; padding-top: 1px; }
+.cc-msg-note-glyph { width: 14px; height: 14px; }
+
+@media (max-width: 1100px) {
+	.cc-msg { grid-template-columns: minmax(0, 1fr); }
+	.cc-msg-preview { max-width: 628px; }
+}
+
+@media (max-width: 620px) {
+	.cc-msg-preview {
+		height: auto;
+		flex-direction: column;
+		align-items: center;
+		padding: 20px;
+	}
+}
+
+/*
+ * The picker keeps the frame's 176px tile down to the point where five of
+ * them no longer fit, then drops a column at a time rather than shrinking
+ * the card art, which is the thing people are actually looking at.
+ */
+@media (max-width: 1240px) {
+	.cc-card-picker { grid-template-columns: repeat(4, minmax(0, 176px)); }
+}
+
+@media (max-width: 1100px) {
+	.cc-card-picker { grid-template-columns: repeat(auto-fill, minmax(156px, 176px)); }
+}
+
+@media (max-width: 560px) {
+	.cc-card-picker { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+	.cc-card-pick-label { height: auto; }
+	.cc-card-pick-art { height: 160px; }
+	.cc-card-pick-mark,
+	.cc-card-pick-eye { top: auto; bottom: 14px; }
+	.cc-src-tabs { align-self: stretch; }
+	.cc-src-tab { flex: 1 1 auto; justify-content: center; }
+}
+
+@media (max-width: 1100px) {
+	.cc-wz-body { grid-template-columns: minmax(0, 1fr); padding-left: var(--cc-space-20); padding-right: var(--cc-space-20); }
+	.cc-wz-rail { position: static; }
+	.cc-wz-top { padding-left: var(--cc-space-20); }
+	.cc-wz-foot { padding-left: var(--cc-space-20); }
+	.cc-wz-steps { justify-content: flex-start; }
+}
+
+@media (max-width: 860px) {
+	.cc-wz-top { flex-wrap: wrap; gap: var(--cc-space-12); }
+	.cc-wz-steps { order: 3; width: 100%; }
+	.cc-counts { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* --------------------------------------------------------------------------
+   Confirm your email
+   A band, not a barrier: the product stays usable unconfirmed right up to
+   turning a programme on or paying.
+   -------------------------------------------------------------------------- */
+
+.cc-verify-band {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 12px;
+	/* No bottom margin: it is a flex item in .cc-main, whose 24px gap already
+	   separates it from the page heading. */
+	margin: 0;
+	width: 100%;
+	padding: 12px 16px;
+	border: 1px solid #F2E3B8;
+	border-radius: 10px;
+	background: var(--cc-amber-50-soft, #FFFAE6);
+	color: var(--cc-amber-700, #854C04);
+}
+
+.cc-verify-band.is-problem { border-color: #F3C7C1; background: #FDEEEC; color: #C2362B; }
+
+.cc-verify-icon { display: inline-flex; flex: none; }
+
+.cc-verify-text {
+	flex: 1 1 320px;
+	min-width: 0;
+	margin: 0;
+	font: 400 14px/20px var(--cc-font-ui, Inter, sans-serif);
+}
+
+.cc-verify-form { flex: none; margin: 0; }
+
+.cc-verify-resend {
+	min-height: 34px;
+	padding: 7px 14px;
+	border: 1px solid currentColor;
+	border-radius: 8px;
+	background: transparent;
+	font: 500 13px/18px var(--cc-font-ui, Inter, sans-serif);
+	color: inherit;
+	cursor: pointer;
+}
+
+.cc-verify-resend:hover { background: rgba(0, 0, 0, .05); }
+
+/* ==========================================================================
+   Settings
+   ========================================================================== */
+
+/*
+ * Content runs from x=280, which .cc-main's 40 padding already gives us next
+ * to the 240 sidebar. Each section is a 328 label column and a 792 panel —
+ * 1120 together, which is the full content width.
+ */
+.cc-set-tabs {
+	display: flex;
+	gap: 28px;
+	margin-top: 5px;
+	border-bottom: 1px solid var(--cc-border-subtle);
+}
+
+.cc-set-tab {
+	position: relative;
+	padding: 0 0 12px;
+	font-size: var(--cc-body-m-size);
+	line-height: 20px;
+	color: var(--cc-text-tertiary);
+	text-decoration: none;
+}
+
+.cc-set-tab:hover { color: var(--cc-text-primary); }
+
+.cc-set-tab.is-on {
+	color: var(--cc-text-primary);
+	font-weight: var(--cc-weight-medium);
+	box-shadow: inset 0 -2px 0 var(--cc-accent-default);
+}
+
+.cc-set-notice,
+.cc-set-error {
+	margin-top: 20px;
+	padding: 10px 14px;
+	border-radius: 8px;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+}
+
+.cc-set-notice { background: var(--cc-green-100); color: var(--cc-accent-default); }
+.cc-set-error  { background: #FDECEC; color: #9B2C2C; }
+
+.cc-set-form { display: flex; flex-direction: column; }
+
+.cc-set-sec {
+	display: grid;
+	grid-template-columns: 328px minmax(0, 1fr);
+	align-items: start;
+	margin-top: 32px;
+}
+
+/* 35 between the tab rule and the first panel in the frame; .cc-main's own
+   24px gap covers most of it. */
+.cc-set-sec:first-of-type { margin-top: 9px; }
+
+.cc-set-side { padding-right: 40px; }
+
+.cc-set-side h2 {
+	margin: 0 0 8px;
+	font-size: var(--cc-h4-size);
+	line-height: 22px;
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary);
+}
+
+.cc-main .cc-set-side p {
+	margin: 0;
+	font-size: var(--cc-body-s-size);
+	line-height: 18px;
+	color: var(--cc-text-tertiary);
+}
+
+.cc-set-panel {
+	padding: 25px;
+	background: var(--cc-surface-default);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: 12px;
+}
+
+/* Two 363 fields with a 16 gutter, which is the panel's 742 inner width. */
+.cc-set-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 20px 16px;
+}
+
+.cc-main .cc-field { margin: 0; display: flex; flex-direction: column; }
+.cc-field-half { max-width: 363px; }
+
+.cc-field label {
+	margin-bottom: 5px;
+	font-size: var(--cc-body-s-size);
+	line-height: 18px;
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-field input[type="text"],
+.cc-field textarea {
+	width: 100%;
+	padding: 11px 14px;
+	font: inherit;
+	font-size: var(--cc-body-m-size);
+	line-height: 20px;
+	color: var(--cc-text-primary);
+	background: var(--cc-surface-default);
+	border: 1px solid var(--cc-border-default);
+	border-radius: 8px;
+}
+
+.cc-field input[type="text"] { height: 42px; }
+.cc-field textarea { min-height: 112px; resize: vertical; }
+
+.cc-field input:focus,
+.cc-field textarea:focus {
+	outline: none;
+	border-color: var(--cc-accent-default);
+	box-shadow: 0 0 0 3px var(--cc-green-100);
+}
+
+.cc-main .cc-field-help {
+	margin-top: 6px;
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-tertiary);
+}
+
+.cc-set-radios { margin: 28px 0 0; padding: 0; border: 0; }
+
+.cc-set-radios legend {
+	padding: 0;
+	margin-bottom: 12px;
+	font-size: var(--cc-body-s-size);
+	line-height: 18px;
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-radio {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin-bottom: 10px;
+	font-size: var(--cc-body-m-size);
+	line-height: 20px;
+	color: var(--cc-text-primary);
+	cursor: pointer;
+}
+
+.cc-radio:last-child { margin-bottom: 0; }
+.cc-radio input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+.cc-radio-dot {
+	flex: 0 0 auto;
+	width: 18px;
+	height: 18px;
+	border: 2px solid var(--cc-border-default);
+	border-radius: 50%;
+}
+
+.cc-radio input:checked + .cc-radio-dot {
+	border-color: var(--cc-accent-default);
+	border-width: 5px;
+}
+
+.cc-radio input:focus-visible + .cc-radio-dot {
+	outline: 2px solid var(--cc-accent-default);
+	outline-offset: 2px;
+}
+
+.cc-set-return { margin-top: 20px; }
+.cc-set-return.is-hidden { display: none; }
+
+.cc-set-logo {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	padding-bottom: 24px;
+	margin-bottom: 24px;
+	border-bottom: 1px solid var(--cc-border-subtle);
+}
+
+.cc-set-logo-art {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 56px;
+	height: 44px;
+	overflow: hidden;
+	background: var(--cc-bg-inverse);
+	border-radius: 6px;
+}
+
+.cc-set-logo-art img { max-width: 80%; max-height: 72%; }
+.cc-set-logo-blank { width: 60%; height: 50%; background: var(--cc-bg-emphasis); border-radius: 2px; }
+
+.cc-set-logo-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 auto; }
+
+.cc-set-logo-name {
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-set-logo-meta {
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-tertiary);
+}
+
+.cc-set-logo-remove {
+	padding: 0;
+	background: none;
+	border: 0;
+	font: inherit;
+	font-size: var(--cc-body-s-size);
+	color: var(--cc-text-secondary);
+	cursor: pointer;
+}
+
+.cc-set-logo-remove:hover { color: #9B2C2C; }
+
+.cc-set-foot {
+	display: flex;
+	align-items: center;
+	gap: 20px;
+	margin-top: 36px;
+	padding-top: 24px;
+	border-top: 1px solid var(--cc-border-subtle);
+}
+
+.cc-set-saved {
+	flex: 1 1 auto;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-tertiary);
+}
+
+.cc-set-cancel { font-size: var(--cc-body-m-size); color: var(--cc-text-secondary); text-decoration: none; }
+.cc-set-cancel:hover { color: var(--cc-text-primary); text-decoration: underline; }
+
+.cc-set-soon {
+	margin-top: 44px;
+	padding: 28px;
+	background: var(--cc-bg-subtle);
+	border: 1px dashed var(--cc-border-default);
+	border-radius: 12px;
+	max-width: 620px;
+}
+
+.cc-main .cc-set-soon p { margin: 0; font-size: var(--cc-body-m-size); line-height: 22px; color: var(--cc-text-tertiary); }
+
+.cc-main .cc-set-soon-head {
+	margin-bottom: 6px !important;
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary) !important;
+}
+
+@media (max-width: 1100px) {
+	.cc-set-sec { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+	.cc-set-side { padding-right: 0; }
+}
+
+@media (max-width: 700px) {
+	.cc-set-grid { grid-template-columns: minmax(0, 1fr); }
+	.cc-set-panel { padding: 18px; }
+	.cc-set-tabs { gap: 18px; overflow-x: auto; }
+	.cc-set-foot { flex-wrap: wrap; }
+	.cc-set-saved { flex: 1 1 100%; }
+}
+
+/* ==========================================================================
+   Step 5 — shipping
+   ========================================================================== */
+
+/*
+ * This step's content is 952 wide, not the content column's full 1017 — the
+ * frame leaves a 64 gutter before the rail. Two 468 cards and a 16 gutter
+ * is exactly that 952.
+ */
+.cc-ship-modes {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 16px;
+	max-width: 952px;
+}
+
+.cc-ship-mode {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	min-height: 75px;
+	padding: 14px 20px;
+	background: var(--cc-surface-default);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: 12px;
+	cursor: pointer;
+}
+
+.cc-ship-mode:hover { border-color: var(--cc-border-default); }
+
+.cc-ship-mode.is-on {
+	background: var(--cc-green-100);
+	border-color: var(--cc-accent-default);
+	box-shadow: inset 0 0 0 1px var(--cc-accent-default);
+}
+
+/* Same fault as .cc-opt above, and the same reason for its own rule. */
+.cc-ship-mode:has(input:checked) {
+	background: var(--cc-green-100);
+	border-color: var(--cc-accent-default);
+	box-shadow: inset 0 0 0 1px var(--cc-accent-default);
+}
+
+.cc-ship-mode input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+.cc-ship-mode-icon {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 36px;
+	height: 36px;
+	border-radius: 10px;
+	background: var(--cc-bg-muted);
+	color: var(--cc-text-secondary);
+}
+
+.cc-ship-mode.is-on .cc-ship-mode-icon { background: var(--cc-accent-default); color: #FFFFFF; }
+.cc-ship-mode:has(input:checked) .cc-ship-mode-icon { background: var(--cc-accent-default); color: #FFFFFF; }
+.cc-ship-mode-glyph { width: 17px; height: 17px; }
+
+.cc-ship-mode-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 auto; }
+
+.cc-ship-mode-head {
+	font-size: var(--cc-body-m-size);
+	line-height: 20px;
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-ship-mode-sub {
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-tertiary);
+}
+
+.cc-ship-mode-dot {
+	flex: 0 0 auto;
+	width: 18px;
+	height: 18px;
+	border: 2px solid var(--cc-border-default);
+	border-radius: 50%;
+}
+
+.cc-ship-mode.is-on .cc-ship-mode-dot { border-color: var(--cc-accent-default); border-width: 5px; }
+.cc-ship-mode:has(input:checked) .cc-ship-mode-dot { border-color: var(--cc-accent-default); border-width: 5px; }
+.cc-ship-mode input:focus-visible ~ .cc-ship-mode-dot { outline: 2px solid var(--cc-accent-default); outline-offset: 2px; }
+
+/* 952 panel at y=312, which is 24 under the mode cards. */
+.cc-ship-panel {
+	max-width: 952px;
+	margin-top: 24px;
+	padding: 21px;
+	background: var(--cc-surface-default);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: 12px;
+}
+
+/* Shipping to each person uses the addresses already on file, so there is
+   nothing to fill in. */
+.cc-ship-panel.is-off { display: none; }
+
+.cc-ship-head { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 12px; }
+
+.cc-ship-pin {
+	flex: 0 0 auto;
+	width: 9px;
+	height: 9px;
+	margin-top: 8px;
+	border-radius: 50%;
+	background: var(--cc-accent-default);
+}
+
+.cc-ship-title {
+	display: block;
+	font-family: var(--cc-font-display);
+	font-size: 18px;
+	line-height: 24px;
+	color: var(--cc-text-primary);
+}
+
+.cc-ship-source {
+	display: block;
+	margin-top: 2px;
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-tertiary);
+}
+
+/* 74 from one label to the next: a 16 label, 6, a 40 input and a 12 gap. */
+.cc-ship-panel .cc-field { margin-bottom: 14px; }
+
+.cc-ship-panel .cc-field label {
+	margin-bottom: 6px;
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+}
+.cc-ship-panel .cc-field input[type="text"] { height: 40px; }
+.cc-ship-row { display: grid; grid-template-columns: 0.7fr 1fr 1fr 1.1fr; gap: 12px; }
+.cc-ship-row .cc-field { margin-bottom: 0; }
+
+.cc-select { position: relative; display: block; }
+
+.cc-select select {
+	width: 100%;
+	height: 40px;
+	padding: 0 38px 0 14px;
+	font: inherit;
+	font-size: var(--cc-body-m-size);
+	color: var(--cc-text-primary);
+	background: var(--cc-surface-default);
+	border: 1px solid var(--cc-border-default);
+	border-radius: 8px;
+	appearance: none;
+	-webkit-appearance: none;
+	cursor: pointer;
+}
+
+.cc-select select:focus {
+	outline: none;
+	border-color: var(--cc-accent-default);
+	box-shadow: 0 0 0 3px var(--cc-green-100);
+}
+
+.cc-select-glyph {
+	position: absolute;
+	right: 14px;
+	top: 50%;
+	width: 16px;
+	height: 16px;
+	transform: translateY(-50%);
+	pointer-events: none;
+	color: var(--cc-text-tertiary);
+}
+
+@media (max-width: 900px) {
+	.cc-ship-modes { grid-template-columns: minmax(0, 1fr); }
+	.cc-ship-row { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+}
+
+/* ==========================================================================
+   Step 6 — timing
+   ========================================================================== */
+
+.cc-tim { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 952px; }
+
+/* A stacked option: radio on the left, everything else beside it. Taller
+   than step 5's pair because the chosen one carries a chip. */
+.cc-opt {
+	display: grid;
+	grid-template-columns: 20px minmax(0, 1fr);
+	gap: 12px;
+	padding: 17px;
+	background: var(--cc-surface-default);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: 12px;
+	cursor: pointer;
+}
+
+.cc-opt:hover { border-color: var(--cc-border-default); }
+
+.cc-opt.is-on {
+	background: var(--cc-green-100);
+	border-color: var(--cc-accent-default);
+	box-shadow: inset 0 0 0 1px var(--cc-accent-default);
+}
+
+/*
+ * The real radio is invisible and everything the eye reads — the green
+ * panel, the filled dot — hung off a class PHP writes when the page is
+ * built. Clicking checked the radio and moved nothing, so the second
+ * option looked impossible to select when it had in fact been selected.
+ * This follows the radio itself, so the panel keeps up with the click.
+ *
+ * Written as its own rule, not folded into the one above: a browser that
+ * does not know :has() throws away the whole rule it cannot parse, and
+ * folding the two together would cost the state the server renders.
+ */
+.cc-opt:has(input:checked) {
+	background: var(--cc-green-100);
+	border-color: var(--cc-accent-default);
+	box-shadow: inset 0 0 0 1px var(--cc-accent-default);
+}
+
+.cc-opt input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+.cc-opt-dot {
+	width: 20px;
+	height: 20px;
+	margin-top: 1px;
+	border: 2px solid var(--cc-border-default);
+	border-radius: 50%;
+	background: var(--cc-surface-default);
+}
+
+.cc-opt.is-on .cc-opt-dot { border-color: var(--cc-accent-default); border-width: 6px; }
+.cc-opt:has(input:checked) .cc-opt-dot { border-color: var(--cc-accent-default); border-width: 6px; }
+.cc-opt input:focus-visible + .cc-opt-dot { outline: 2px solid var(--cc-accent-default); outline-offset: 2px; }
+
+.cc-opt-text { display: flex; flex-direction: column; min-width: 0; }
+
+.cc-opt-head {
+	font-size: var(--cc-body-m-size);
+	line-height: 20px;
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-opt-sub {
+	margin-top: 4px;
+	font-size: var(--cc-body-s-size);
+	line-height: 18px;
+	color: var(--cc-text-secondary);
+}
+
+/* The 347x32 chip under the chosen option. */
+.cc-opt-chip {
+	display: inline-flex;
+	align-items: center;
+	align-self: flex-start;
+	gap: 8px;
+	height: 32px;
+	margin-top: 3px;
+	padding: 0 12px;
+	background: var(--cc-surface-default);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: 8px;
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-secondary);
+}
+
+.cc-opt-chip-glyph { width: 14px; height: 14px; flex: 0 0 auto; color: var(--cc-accent-default); }
+
+.cc-tim-panel {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	max-width: 952px;
+	margin-top: 24px;
+	padding: 17px;
+	background: var(--cc-surface-default);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: 12px;
+}
+
+.cc-main .cc-tim-title {
+	margin: 0;
+	font-size: var(--cc-body-m-size);
+	line-height: 20px;
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary);
+}
+
+/* Two 453 selects with a 12 gutter — the panel's 918 inner width. */
+.cc-tim-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+
+.cc-tim-row .cc-field { margin-bottom: 0; }
+
+.cc-tim-row .cc-field label {
+	margin-bottom: 6px;
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+}
+
+/* A switch, not a checkbox: these are settings that take effect rather than
+   values waiting to be submitted, and the frame draws them that way. */
+.cc-switch {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	cursor: pointer;
+}
+
+.cc-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+.cc-switch-track {
+	position: relative;
+	flex: 0 0 auto;
+	width: 36px;
+	height: 20px;
+	background: var(--cc-border-default);
+	border-radius: 10px;
+	transition: background .15s ease;
+}
+
+.cc-switch-knob {
+	position: absolute;
+	top: 2px;
+	left: 2px;
+	width: 16px;
+	height: 16px;
+	background: #FFFFFF;
+	border-radius: 50%;
+	box-shadow: 0 1px 2px rgba(20, 35, 27, .25);
+	transition: transform .15s ease;
+}
+
+.cc-switch input:checked + .cc-switch-track { background: var(--cc-accent-default); }
+.cc-switch input:checked + .cc-switch-track .cc-switch-knob { transform: translateX(16px); }
+.cc-switch input:focus-visible + .cc-switch-track { outline: 2px solid var(--cc-accent-default); outline-offset: 2px; }
+
+.cc-switch-text {
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-primary);
+}
+
+@media (max-width: 760px) {
+	.cc-tim-row { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+}
+
+/* ==========================================================================
+   Step 7 — review and pay
+   ========================================================================== */
+
+/* A 608 review card and a 320 pay panel, 24 apart. */
+.cc-rev {
+	display: grid;
+	grid-template-columns: 608px 320px;
+	gap: 24px;
+	align-items: start;
+}
+
+.cc-rev-list {
+	background: var(--cc-surface-default);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: 12px;
+	overflow: hidden;
+}
+
+/* 79 from one row's label to the next: a rule between every pair, none
+   after the last. */
+.cc-rev-row {
+	display: flex;
+	align-items: flex-start;
+	gap: 16px;
+	padding: 13px 17px 11px;
+	border-bottom: 1px solid var(--cc-border-subtle);
+}
+
+.cc-rev-row:last-child { border-bottom: 0; }
+
+.cc-rev-text { flex: 1 1 auto; min-width: 0; }
+
+.cc-wz .cc-rev-label {
+	margin: 0;
+	font-size: var(--cc-caption-size);
+	line-height: 16px;
+	color: var(--cc-text-tertiary);
+}
+
+.cc-wz .cc-rev-value {
+	margin: 3px 0 0;
+	font-size: var(--cc-body-s-size);
+	line-height: 18px;
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+	overflow-wrap: anywhere;
+}
+
+.cc-wz .cc-rev-detail {
+	margin: 1px 0 0;
+	font-size: var(--cc-caption-size);
+	line-height: 16px;
+	color: var(--cc-text-tertiary);
+	overflow-wrap: anywhere;
+}
+
+.cc-rev-edit {
+	flex: 0 0 auto;
+	font-size: var(--cc-body-s-size);
+	line-height: 18px;
+	color: var(--cc-link, #2563A8);
+	text-decoration: none;
+}
+
+.cc-rev-edit:hover { text-decoration: underline; }
+
+.cc-rev-pay {
+	padding: 21px;
+	background: var(--cc-surface-default);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: 12px;
+}
+
+.cc-wz .cc-rev-pay-head {
+	margin: 0;
+	padding-bottom: 12px;
+	font-family: var(--cc-font-display);
+	font-size: 18px;
+	line-height: 24px;
+	color: var(--cc-text-primary);
+}
+
+/* 30 from one money line to the next. */
+.cc-rev-lines { margin: 0; display: flex; flex-direction: column; gap: 12px; }
+
+.cc-rev-line {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+.cc-rev-line dt {
+	font-size: var(--cc-body-s-size);
+	line-height: 18px;
+	color: var(--cc-text-secondary);
+}
+
+.cc-rev-line dd {
+	margin: 0;
+	font-size: var(--cc-body-s-size);
+	line-height: 18px;
+	color: var(--cc-text-primary);
+	white-space: nowrap;
+}
+
+/* The line that answers "what comes off my card today". */
+.cc-rev-due {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 12px;
+	margin-top: 11px;
+	margin-bottom: 11px;
+	padding-top: 14px;
+	border-top: 1px solid var(--cc-border-subtle);
+	font-size: var(--cc-body-s-size);
+	line-height: 18px;
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary);
+}
+
+.cc-wz .cc-rev-note {
+	display: flex;
+	gap: 9px;
+	margin: 0;
+	padding: 10px 12px;
+	background: var(--cc-bg-subtle);
+	border-radius: 8px;
+	font-size: var(--cc-caption-size);
+	line-height: 16px;
+	color: var(--cc-text-secondary);
+}
+
+.cc-rev-note-icon { flex: 0 0 auto; padding-top: 1px; }
+.cc-rev-note-glyph { width: 14px; height: 14px; }
+
+@media (max-width: 1060px) {
+	.cc-rev { grid-template-columns: minmax(0, 1fr); }
+	.cc-rev-pay { max-width: 608px; }
+}
+
+@media (max-width: 620px) {
+	.cc-rev-row { flex-wrap: wrap; }
+}
+
+/* ==========================================================================
+   The Done screen
+   ========================================================================== */
+
+.cc-done {
+	max-width: 952px;
+	padding: 25px;
+	background: var(--cc-surface-default);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: 12px;
+}
+
+.cc-wz .cc-wz-of.is-done { color: var(--cc-accent-default); }
+
+.cc-done-paid { display: flex; align-items: center; gap: 12px; }
+
+.cc-done-mark {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 44px;
+	height: 44px;
+	border-radius: 50%;
+	background: var(--cc-green-100);
+	color: var(--cc-accent-default);
+}
+
+.cc-done-mark-glyph { width: 20px; height: 20px; stroke-width: 2.5; }
+
+.cc-done-paid-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+
+.cc-done-paid-head {
+	font-size: var(--cc-body-m-size);
+	line-height: 20px;
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-done-paid-sub {
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-tertiary);
+}
+
+.cc-wz .cc-done-title {
+	margin: 0;
+	padding: 16px 0 15px;
+	font-size: var(--cc-body-m-size);
+	line-height: 20px;
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary);
+}
+
+.cc-done-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+
+/* 902 x 54 rows on a 70 pitch. */
+.cc-done-row {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	min-height: 54px;
+	padding: 8px 12px;
+	background: var(--cc-bg-subtle);
+	border-radius: 10px;
+}
+
+/* The date reads as a block rather than a sentence, so the day is the thing
+   the eye lands on. */
+.cc-done-date {
+	flex: 0 0 auto;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	width: 34px;
+}
+
+.cc-done-day {
+	font-size: var(--cc-body-s-size);
+	line-height: 18px;
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary);
+}
+
+.cc-done-month {
+	font-size: 11px;
+	line-height: 14px;
+	letter-spacing: .04em;
+	color: var(--cc-text-tertiary);
+}
+
+.cc-done-who { flex: 1 1 auto; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.cc-done-name {
+	font-size: var(--cc-body-s-size);
+	line-height: 18px;
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-done-detail {
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-tertiary);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.cc-wz .cc-done-none {
+	margin: 0;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-tertiary);
+}
+
+/* Amber rather than red: nothing has gone wrong, there is just something
+   left to do. */
+.cc-wz .cc-done-warn {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	margin: 0;
+	padding: 11px 14px;
+	margin-top: 16px;
+	background: var(--cc-amber-50);
+	border: 1px solid var(--cc-amber-500);
+	border-radius: 8px;
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-amber-700);
+}
+
+.cc-done-warn-icon { flex: 0 0 auto; display: flex; }
+.cc-done-warn-glyph { width: 15px; height: 15px; }
+
+@media (max-width: 620px) {
+	.cc-done { padding: 16px; }
+	.cc-done-row { flex-wrap: wrap; }
+}
+
+/* ==========================================================================
+   Step 2 — Add someone by hand
+
+   Occasions_setup frames 08 and 09: two states of one screen, not two
+   screens. The panel is 952 wide at x=64, the two field columns are 449 on a
+   12px gutter, rows sit at y=294 and y=370, and the buttons at y=454. The
+   saved state swaps the panel for a 70px banner at y=213, a list on 54px
+   rows from y=335, and the add-another button at y=413.
+
+   Scoped to .cc-wz throughout. Note that .cc-wz p { margin: 0 } is (0,1,1)
+   and beats a lone class, so the paragraphs here are either reached through
+   .cc-wz as well or spaced with gap instead of margin.
+   ========================================================================== */
+
+.cc-pn-panel {
+	box-sizing: border-box;
+	width: 952px;
+	max-width: 100%;
+	padding: 20px;
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: var(--cc-radius-lg);
+	background: var(--cc-bg-surface);
+}
+
+/* --------------------------------------------------------------- the head */
+
+.cc-pn-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	margin-bottom: 10px;
+}
+
+.cc-wz .cc-pn-title {
+	margin: 0;
+	font-family: var(--cc-font-display);
+	font-size: 18px;
+	line-height: 24px;
+	font-weight: 400;
+	color: var(--cc-text-primary);
+}
+
+.cc-pn-upload {
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-link);
+	text-decoration: none;
+}
+
+.cc-pn-upload:hover { text-decoration: underline; text-underline-offset: 3px; }
+.cc-pn-upload .cc-btn-icon { flex: 0 0 14px; width: 14px; height: 14px; }
+
+/* ------------------------------------------------------------- the fields
+
+   449 + 12 + 449 = 910, which is the panel's 952 less its 21px sides. Two
+   equal columns on a 12px gutter reproduce that at any width. */
+
+.cc-wz .cc-pn-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 14px 12px;
+	margin: 0;
+}
+
+.cc-wz .cc-pn-field {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	margin: 0;
+	min-width: 0;
+}
+
+.cc-wz .cc-pn-field label {
+	font-size: 12px;
+	line-height: 16px;
+	color: var(--cc-text-secondary);
+}
+
+.cc-wz .cc-pn-field input,
+.cc-wz .cc-pn-field select {
+	box-sizing: border-box;
+	width: 100%;
+	height: 40px;
+	padding: 0 13px;
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-bg-surface);
+	font-family: var(--cc-font-ui);
+	font-size: var(--cc-body-m-size);
+	color: var(--cc-text-primary);
+}
+
+.cc-wz .cc-pn-field input:focus,
+.cc-wz .cc-pn-field select:focus {
+	outline: 2px solid var(--cc-border-focus);
+	outline-offset: 1px;
+	border-color: var(--cc-border-focus);
+}
+
+/* ---------------------------------------------------------------- the note */
+
+.cc-wz .cc-pn-note {
+	display: flex;
+	align-items: flex-start;
+	gap: 9px;
+	margin: 14px 0 0;
+	font-size: 12px;
+	line-height: 16px;
+	color: var(--cc-text-secondary);
+}
+
+.cc-pn-note-icon { flex: 0 0 14px; margin-top: 1px; color: var(--cc-icon-default); }
+.cc-pn-note-icon .cc-btn-icon { flex: 0 0 14px; width: 14px; height: 14px; }
+
+/* ------------------------------------------------------------- the actions */
+
+.cc-pn-actions {
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 12px;
+	/* 11, not 14: the note carries an icon and runs 3px taller than the
+	   frame's plain caption, so the gap under it absorbs the difference and
+	   the buttons land on the frame's y=454. */
+	margin-top: 11px;
+}
+
+/* ==========================================================================
+   The saved state
+   ========================================================================== */
+
+.cc-pn-done {
+	display: flex;
+	align-items: flex-start;
+	gap: 14px;
+	box-sizing: border-box;
+	width: 952px;
+	max-width: 100%;
+	min-height: 70px;
+	padding: 14px 20px;
+	border-radius: var(--cc-radius-lg);
+	background: var(--cc-bg-success-subtle, #EBF3EF);
+}
+
+.cc-pn-done-mark { flex: 0 0 18px; margin-top: 1px; color: var(--cc-text-success, #0F5A43); }
+.cc-pn-done-mark .cc-btn-icon { width: 18px; height: 18px; flex: 0 0 18px; }
+
+.cc-pn-done-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+
+.cc-pn-done-title {
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-pn-done-sub {
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-secondary);
+}
+
+/* ------------------------------------------------------------- the list */
+
+.cc-pn-listhead {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 16px;
+	width: 952px;
+	max-width: 100%;
+	margin: 22px 0 2px;
+}
+
+.cc-wz .cc-pn-listtitle {
+	margin: 0;
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-pn-listcount {
+	font-size: 12px;
+	line-height: 16px;
+	color: var(--cc-text-secondary);
+}
+
+.cc-pn-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	width: 952px;
+	max-width: 100%;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.cc-pn-row {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	box-sizing: border-box;
+	min-height: 54px;
+	padding: 8px 20px;
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-bg-surface);
+}
+
+/* The one just added is tinted, which is how the frame distinguishes it
+   from rows that were already there. */
+.cc-pn-row.is-new {
+	border-color: transparent;
+	background: var(--cc-bg-success-subtle, #EBF3EF);
+}
+
+.cc-pn-avatar {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 32px;
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	background: var(--cc-bg-accent, #FFD43B);
+	font-size: 12px;
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-pn-who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.cc-pn-name {
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-pn-meta {
+	font-size: 12px;
+	line-height: 16px;
+	color: var(--cc-text-secondary);
+}
+
+.cc-pn-saved {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	margin-left: auto;
+	font-size: 12px;
+	line-height: 16px;
+	color: var(--cc-text-success, #0F5A43);
+}
+
+.cc-pn-saved .cc-btn-icon { flex: 0 0 14px; width: 14px; height: 14px; }
+
+/* -------------------------------------------------------- add another */
+
+.cc-wz .cc-pn-again { margin: 24px 0 0; }
+
+.cc-pn-again-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	box-sizing: border-box;
+	width: 952px;
+	max-width: 100%;
+	min-height: 38px;
+	padding: 8px 16px;
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-bg-surface);
+	font-family: var(--cc-font-ui);
+	font-size: var(--cc-body-m-size);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+	text-decoration: none;
+}
+
+.cc-pn-again-btn:hover { border-color: var(--cc-border-strong, var(--cc-text-primary)); background: var(--cc-bg-emphasis); }
+.cc-pn-again-btn:focus-visible { outline: 2px solid var(--cc-border-focus); outline-offset: 2px; }
+
+/* ------------------------------------------------------------ narrow */
+
+@media (max-width: 1040px) {
+	.cc-pn-panel,
+	.cc-pn-done,
+	.cc-pn-listhead,
+	.cc-pn-list,
+	.cc-pn-again-btn { width: 100%; }
+}
+
+@media (max-width: 640px) {
+	.cc-wz .cc-pn-grid { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+	.cc-pn-head { flex-direction: column; align-items: flex-start; gap: 10px; }
+	.cc-pn-actions { flex-direction: column-reverse; align-items: stretch; }
+	.cc-pn-actions > * { width: 100%; }
+	.cc-pn-row { flex-wrap: wrap; }
+	.cc-pn-saved { margin-left: 46px; }
+}
+
+/* --------------------------------------------------------------------------
+   Visually hidden, still read aloud.
+
+   Three views already used .screen-reader-text — the dashboard's empty
+   message state, the nav's review badge, and now the writer's field label —
+   and none of them were hidden, because nothing here ever defined the class.
+   WordPress themes supply it; this front end is rendered by Oxygen with no
+   theme stylesheet, so it has to come from us.
+
+   Not display:none, which would take it out of the accessibility tree too.
+   -------------------------------------------------------------------------- */
+
+.cc-main .screen-reader-text,
+.cc-wz .screen-reader-text {
+	position: absolute !important;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	padding: 0;
+	border: 0;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   A note on the headings below.
+
+   The wizard's own base rule, .cc h2, is (0,1,1) and beats any rule with a
+   single class in it. Our panel headings are h2 elements, so each one is
+   scoped through .cc-wz to carry two classes and win. Left alone they all
+   collapsed to --cc-h3-size: the writer's "What would you like to say?"
+   rendered at 18px where the frame has 34.
+
+   Same family as .cc-wz p { margin: 0 }, which has caught three rules in
+   this file already.
+   -------------------------------------------------------------------------- */
+
+/* ==========================================================================
+   The card writer
+
+   Writing_Card frames 00–02. Composer shell 1144 wide with a 1120 field in
+   it, starter chips in two rows, preview panel 1176 holding a 397x533 card.
+
+   Full width: the rail is suppressed for this screen, because the card
+   preview is the point of it and a 320px rail would halve the space.
+   ========================================================================== */
+
+.cc-wz-body.is-wide { grid-template-columns: minmax(0, 1fr); }
+
+.cc-wr {
+	display: flex;
+	flex-direction: column;
+	gap: 18px;
+	width: 100%;
+}
+
+/* ------------------------------------------------------------------ top */
+
+.cc-wr-top {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	flex-wrap: wrap;
+}
+
+.cc-wz .cc-wr-to {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+	margin: 0;
+}
+
+.cc-wr-to-label {
+	font-size: 12px;
+	line-height: 16px;
+	color: var(--cc-text-secondary);
+}
+
+.cc-wr-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	min-height: 30px;
+	padding: 6px 13px;
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: 9999px;
+	background: var(--cc-bg-surface);
+	font-size: 13px;
+	line-height: 18px;
+	color: var(--cc-text-primary);
+}
+
+.cc-wz .cc-wr-when {
+	margin: 0;
+	font-size: 12px;
+	line-height: 16px;
+	color: var(--cc-text-secondary);
+}
+
+/* ---------------------------------------------------------- empty state */
+
+.cc-wr-blank {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 14px;
+	min-height: 340px;
+	padding: 24px;
+	text-align: center;
+}
+
+.cc-wr-blank[hidden] { display: none; }
+
+.cc-wz .cc-wr-blank-h {
+	margin: 0;
+	font-family: var(--cc-font-display);
+	font-size: 34px;
+	line-height: 42px;
+	font-weight: 400;
+	color: var(--cc-text-primary);
+}
+
+.cc-wz .cc-wr-blank-p {
+	max-width: 52ch;
+	margin: 0;
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	color: var(--cc-text-secondary);
+}
+
+/* Two rows in the frame, centred, 32 tall. */
+.cc-wr-starters {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	max-width: 760px;
+	margin-top: 8px;
+}
+
+.cc-wr-starter {
+	min-height: 32px;
+	padding: 7px 15px;
+	border: 1px solid var(--cc-border-default);
+	border-radius: 9999px;
+	background: var(--cc-bg-surface);
+	font-family: var(--cc-font-ui);
+	font-size: 13px;
+	line-height: 18px;
+	color: var(--cc-text-primary);
+	cursor: pointer;
+}
+
+.cc-wr-starter:hover { border-color: var(--cc-text-primary); background: var(--cc-bg-emphasis); }
+.cc-wr-starter:focus-visible { outline: 2px solid var(--cc-border-focus); outline-offset: 2px; }
+
+/* -------------------------------------------------------------- preview */
+
+.cc-wr-preview {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-height: 340px;
+	padding: 28px 24px;
+	border-radius: var(--cc-radius-lg);
+	/* The dotted ground the frame sets the card on. */
+	background-color: var(--cc-bg-emphasis);
+	background-image: radial-gradient(var(--cc-border-subtle) 1px, transparent 1px);
+	background-size: 18px 18px;
+}
+
+.cc-wr-preview[hidden] { display: none; }
+
+/* 397 x 533 in the frame. */
+.cc-wr-card {
+	display: flex;
+	flex-direction: column;
+	box-sizing: border-box;
+	width: 397px;
+	max-width: 100%;
+	min-height: 533px;
+	padding: 44px 40px;
+	border-radius: 4px;
+	background: var(--cc-bg-card, #FFFCF5);
+	box-shadow: 0 18px 40px rgba(20, 35, 27, .16);
+	/* The frame tilts the card very slightly on its stand. */
+	transform: rotate(-1.1deg);
+}
+
+.cc-wr-hand {
+	flex: 1 1 auto;
+	font-family: var(--cc-font-handwritten);
+	font-size: 25px;
+	line-height: 36px;
+	color: var(--cc-ink-blue, #2A3F8F);
+	overflow-wrap: break-word;
+}
+
+.cc-wz .cc-wr-hand p { margin: 0 0 2px; }
+
+.cc-wz .cc-wr-sign {
+	margin: 18px 0 0;
+	font-family: var(--cc-font-handwritten);
+	font-size: 25px;
+	line-height: 34px;
+	color: var(--cc-ink-blue, #2A3F8F);
+	text-align: right;
+}
+
+.cc-wr-sign[hidden] { display: none; }
+
+/* ------------------------------------------------------------- composer */
+
+.cc-wr-bar {
+	box-sizing: border-box;
+	width: 100%;
+	max-width: 1144px;
+	margin: 0 auto;
+	padding: 12px;
+	border-radius: var(--cc-radius-lg);
+	background: var(--cc-bg-emphasis);
+}
+
+.cc-wr-bar-head,
+.cc-wr-bar-foot {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 0 4px;
+}
+
+.cc-wr-bar-head { margin-bottom: 10px; }
+.cc-wr-bar-foot { margin-top: 10px; }
+
+.cc-wr-bar-label,
+.cc-wr-bar-note,
+.cc-wr-count {
+	font-size: 12px;
+	line-height: 16px;
+	color: var(--cc-text-secondary);
+}
+
+.cc-wr-count.is-over { color: var(--cc-text-danger, #C2362B); }
+
+.cc-wr-clear {
+	padding: 0;
+	border: 0;
+	background: none;
+	font-family: var(--cc-font-ui);
+	font-size: 12px;
+	line-height: 16px;
+	color: var(--cc-text-secondary);
+	cursor: pointer;
+}
+
+.cc-wr-clear:hover { color: var(--cc-text-primary); text-decoration: underline; text-underline-offset: 3px; }
+
+.cc-wr-field {
+	display: flex;
+	align-items: flex-end;
+	gap: 10px;
+	box-sizing: border-box;
+	padding: 10px 10px 10px 16px;
+	border: 1px solid transparent;
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-bg-surface);
+}
+
+.cc-wr-field:focus-within { border-color: var(--cc-border-focus); }
+.cc-wr.is-over .cc-wr-field { border-color: var(--cc-text-danger, #C2362B); }
+
+.cc-wz .cc-wr-field textarea {
+	flex: 1 1 auto;
+	box-sizing: border-box;
+	width: 100%;
+	min-height: 38px;
+	max-height: 180px;
+	margin: 0;
+	padding: 8px 0;
+	border: 0;
+	background: none;
+	font-family: var(--cc-font-ui);
+	font-size: var(--cc-body-m-size);
+	line-height: 22px;
+	color: var(--cc-text-primary);
+	resize: vertical;
+}
+
+.cc-wz .cc-wr-field textarea:focus { outline: none; }
+
+.cc-wr-go {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 38px;
+	width: 38px;
+	height: 38px;
+	padding: 0;
+	border: 0;
+	border-radius: 50%;
+	background: var(--cc-green-600, #0F5A43);
+	color: #FFFFFF;
+	cursor: pointer;
+}
+
+.cc-wr-go:hover:not(:disabled) { background: var(--cc-green-700, #0C4836); }
+.cc-wr-go:disabled { opacity: .35; cursor: not-allowed; }
+.cc-wr-go:focus-visible { outline: 2px solid var(--cc-border-focus); outline-offset: 2px; }
+.cc-wr-go .cc-btn-icon { width: 17px; height: 17px; }
+
+/* ------------------------------------------------------------- sign-off */
+
+.cc-wr-sign-row {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 10px;
+	width: 100%;
+	max-width: 1144px;
+	margin: 0 auto;
+	padding: 0 4px;
+}
+
+.cc-wr-sign-row label {
+	font-size: 12px;
+	line-height: 16px;
+	color: var(--cc-text-secondary);
+}
+
+.cc-wr-sign-row input {
+	box-sizing: border-box;
+	width: 260px;
+	height: 36px;
+	padding: 0 12px;
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-bg-surface);
+	font-family: var(--cc-font-ui);
+	font-size: var(--cc-body-s-size);
+	color: var(--cc-text-primary);
+}
+
+.cc-wr-sign-row input:focus {
+	outline: 2px solid var(--cc-border-focus);
+	outline-offset: 1px;
+	border-color: var(--cc-border-focus);
+}
+
+.cc-wr-sign-hint {
+	font-size: 12px;
+	line-height: 16px;
+	color: var(--cc-text-secondary);
+}
+
+/* ---------------------------------------------------------- breakpoints */
+
+@media (max-width: 720px) {
+	.cc-wz .cc-wr-blank-h { font-size: 26px; line-height: 32px; }
+	.cc-wr-blank, .cc-wr-preview { min-height: 0; }
+	.cc-wr-preview { padding: 20px 12px; }
+	.cc-wr-card { width: 100%; min-height: 0; padding: 32px 26px; transform: none; }
+	.cc-wr-hand, .cc-wz .cc-wr-sign { font-size: 21px; line-height: 30px; }
+	.cc-wr-sign-row input { width: 100%; }
+	.cc-wr-top { flex-direction: column; align-items: flex-start; gap: 8px; }
+}
+
+/* --------------------------------------------------------------------------
+   Step 2 — the upload row
+
+   The file input is hidden behind its label so the row keeps the frame's
+   shape: icon, two lines of text, and a link on the right. Hidden with the
+   screen-reader-text rule rather than display:none, so it stays focusable
+   and the label still drives it from the keyboard.
+   -------------------------------------------------------------------------- */
+
+.cc-up-choose {
+	position: relative;
+	cursor: pointer;
+}
+
+.cc-up-choose:focus-within {
+	outline: 2px solid var(--cc-border-focus);
+	outline-offset: 3px;
+	border-radius: 4px;
+}
+
+.cc-up-go { margin-left: 10px; }
+.cc-up-go[hidden] { display: none; }
+
+.cc-wz .cc-up-report {
+	margin: 0 0 16px;
+	padding: 12px 16px;
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-bg-success-subtle, #EBF3EF);
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-primary);
+}
+
+/* --------------------------------------------------------------------------
+   Step 6 — occasions whose date is fixed, or has none at all
+
+   The per-person screen (two stacked options and a settings panel) is in the
+   block above. These two are different questions: which seasonal occasion
+   this is for, or what day a promotion should land on.
+   -------------------------------------------------------------------------- */
+
+.cc-tim-pick {
+	margin: 0 0 16px;
+	padding: 0;
+	border: 0;
+}
+
+.cc-wz .cc-tim-legend {
+	padding: 0;
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-wz .cc-tim-note,
+.cc-wz .cc-tim-lede {
+	margin: 4px 0 0;
+	font-size: 12px;
+	line-height: 16px;
+	color: var(--cc-text-secondary);
+}
+
+.cc-wz .cc-tim-lede {
+	margin: 0 0 16px;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+}
+
+/* Eleven seasonal occasions, so a grid rather than a stack. */
+.cc-tim-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(216px, 1fr));
+	gap: 10px;
+	margin-top: 14px;
+}
+
+.cc-tim-chip {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	box-sizing: border-box;
+	min-height: 62px;
+	padding: 12px 16px;
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-bg-surface);
+	cursor: pointer;
+}
+
+.cc-tim-chip:hover { border-color: var(--cc-text-primary); }
+
+.cc-tim-chip.is-on {
+	border-color: var(--cc-green-600, #0F5A43);
+	box-shadow: inset 0 0 0 1px var(--cc-green-600, #0F5A43);
+	background: var(--cc-bg-success-subtle, #EBF3EF);
+}
+
+/* Same fault as .cc-opt above, and the same reason for its own rule. */
+.cc-tim-chip:has(input:checked) {
+	border-color: var(--cc-green-600, #0F5A43);
+	box-shadow: inset 0 0 0 1px var(--cc-green-600, #0F5A43);
+	background: var(--cc-bg-success-subtle, #EBF3EF);
+}
+
+/* The radio drives the label and nothing else needs to see it. */
+.cc-tim-chip input {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	opacity: 0;
+	pointer-events: none;
+}
+
+.cc-tim-chip:focus-within {
+	outline: 2px solid var(--cc-border-focus);
+	outline-offset: 2px;
+}
+
+.cc-tim-chip-name {
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-tim-chip-when {
+	font-size: 12px;
+	line-height: 16px;
+	color: var(--cc-text-secondary);
+}
+
+/* ------------------------------------------------------------- the panel */
+
+.cc-wz .cc-tim-row {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 12px;
+	margin: 0 0 14px;
+}
+
+.cc-wz .cc-tim-row label {
+	flex: 0 0 220px;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-primary);
+}
+
+.cc-wz .cc-tim-row select,
+.cc-wz .cc-tim-row input[type="date"] {
+	box-sizing: border-box;
+	flex: 0 1 260px;
+	height: 40px;
+	padding: 0 13px;
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-bg-surface);
+	font-family: var(--cc-font-ui);
+	font-size: var(--cc-body-m-size);
+	color: var(--cc-text-primary);
+}
+
+.cc-wz .cc-tim-row select:focus,
+.cc-wz .cc-tim-row input[type="date"]:focus {
+	outline: 2px solid var(--cc-border-focus);
+	outline-offset: 1px;
+	border-color: var(--cc-border-focus);
+}
+
+/* The line that answers "so when does it actually turn up?" */
+.cc-wz .cc-tim-when {
+	margin: 18px 0 0;
+	padding-top: 14px;
+	border-top: 1px solid var(--cc-border-subtle);
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+@media (max-width: 640px) {
+	.cc-tim-grid { grid-template-columns: 1fr; }
+	.cc-wz .cc-tim-row label { flex: 1 1 100%; }
+	.cc-wz .cc-tim-row select,
+	.cc-wz .cc-tim-row input[type="date"] { flex: 1 1 100%; }
+}
+
+/* ------------------------------------------------------------ orders */
+
+/*
+ * Measured from the Orders frame. Content runs 280 to 1400 inside a 1440
+ * frame, so the widths below are the frame's own: three 362.67 stat cards
+ * on a 16 gap come to 1120, and so does the table.
+ */
+
+.cc-orders .cc-page-head-row { align-items: flex-start; }
+
+/* The frame draws this one at 172x38, a touch bigger than a stock button. */
+.cc-ord-dl { height: 38px; padding: 0 var(--cc-space-14); }
+
+/* --- the three figures --- */
+
+.cc-ord-stats {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: var(--cc-space-16);
+	margin-top: var(--cc-space-24);
+}
+
+.cc-ord-stat {
+	min-height: 142px;
+	padding: var(--cc-space-24) var(--cc-space-20);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: var(--cc-radius-lg);
+	background: var(--cc-bg-card);
+}
+
+.cc-ord-stat-label {
+	margin: 0;
+	color: var(--cc-text-secondary);
+	font-size: var(--cc-body-sm-size);
+}
+
+.cc-ord-stat-n {
+	margin: var(--cc-space-10) 0 0;
+	color: var(--cc-text-primary);
+	font-family: var(--cc-font-display);
+	font-size: 34px;
+	line-height: 1.1;
+}
+
+.cc-ord-stat-sub {
+	margin: var(--cc-space-12) 0 0;
+	color: var(--cc-text-secondary);
+	font-size: var(--cc-caption-size);
+}
+
+/* --- tabs, search and the period --- */
+
+.cc-ord-filters {
+	display: flex;
+	align-items: center;
+	gap: var(--cc-space-12);
+	margin-top: var(--cc-space-24);
+}
+
+.cc-ord-tabs {
+	display: inline-flex;
+	gap: var(--cc-space-4);
+	padding: var(--cc-space-4);
+	border-radius: var(--cc-radius-full);
+	background: var(--cc-bg-muted);
+}
+
+.cc-ord-tab {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	height: 26px;
+	padding: 0 var(--cc-space-10);
+	border-radius: var(--cc-radius-full);
+	color: var(--cc-text-secondary);
+	/* 13px, not the 14 the rest of the screen uses: the frame draws the
+	   whole control at 270 and 14 will not fit four tabs inside it. */
+	font-size: 13px;
+	text-decoration: none;
+	white-space: nowrap;
+}
+
+.cc-ord-tab:hover { color: var(--cc-text-primary); }
+
+/* The frame puts a white pill under the tab you are on. */
+.cc-ord-tab.is-on {
+	background: var(--cc-bg-card);
+	color: var(--cc-text-primary);
+	box-shadow: 0 1px 2px rgba(20, 35, 27, 0.08);
+}
+
+.cc-ord-tab-n {
+	color: var(--cc-text-tertiary, var(--cc-text-secondary));
+	font-variant-numeric: tabular-nums;
+}
+
+.cc-ord-search {
+	position: relative;
+	flex: 1 1 280px;
+	max-width: 280px;
+}
+
+.cc-ord-search-glyph {
+	position: absolute;
+	top: 50%;
+	left: var(--cc-space-12);
+	width: 16px;
+	height: 16px;
+	color: var(--cc-text-secondary);
+	transform: translateY(-50%);
+	pointer-events: none;
+}
+
+.cc-ord-search input {
+	width: 100%;
+	height: 36px;
+	padding: 0 var(--cc-space-12) 0 var(--cc-space-32);
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-bg-card);
+	color: var(--cc-text-primary);
+	font-size: var(--cc-body-sm-size);
+}
+
+.cc-ord-search input:focus-visible {
+	border-color: var(--cc-border-focus);
+	outline: none;
+}
+
+.cc-ord-window {
+	height: 32px;
+	padding: 0 var(--cc-space-10);
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-bg-card);
+	color: var(--cc-text-primary);
+	font-size: var(--cc-body-sm-size);
+}
+
+/* --- the table --- */
+
+.cc-ord-table {
+	margin-top: var(--cc-space-24);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: var(--cc-radius-lg);
+	background: var(--cc-bg-card);
+	overflow: hidden;
+}
+
+/*
+ * One grid, shared by the header and every row, so the columns line up
+ * without being told their widths twice. Cards and Total are right-aligned
+ * because they are figures somebody compares down the column.
+ */
+.cc-ord-head,
+.cc-ord-row {
+	display: grid;
+	/*
+	 * Straight from the frame. Inside the 1120 card, 16 of padding each
+	 * side leaves 1088; five 12 gaps leave 1028 of column. The widths
+	 * below are what put Type at 173, Description at 299, Status at 807
+	 * and the Total's right edge on 1105, which is where they are drawn.
+	 */
+	grid-template-columns: 144px 114px minmax(180px, 1fr) 50px 176px 110px;
+	gap: var(--cc-space-12);
+	align-items: center;
+	padding: 0 var(--cc-space-16);
+}
+
+.cc-ord-head {
+	height: 40px;
+	border-bottom: 1px solid var(--cc-border-subtle);
+	color: var(--cc-text-secondary);
+	font-size: var(--cc-caption-size);
+}
+
+.cc-ord-row {
+	min-height: 61px;
+	border-bottom: 1px solid var(--cc-border-subtle);
+}
+
+.cc-ord-row:last-of-type { border-bottom: 0; }
+
+.cc-ord-c-ref,
+.cc-ord-c-desc {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.cc-ord-c-cards,
+.cc-ord-c-total { text-align: right; }
+
+.cc-ord-ref,
+.cc-ord-title {
+	color: var(--cc-text-primary);
+	font-size: var(--cc-body-sm-size);
+}
+
+.cc-ord-when,
+.cc-ord-detail {
+	color: var(--cc-text-secondary);
+	font-size: var(--cc-caption-size);
+}
+
+/* A description can be long; the row height is fixed, so it has to stop. */
+.cc-ord-title,
+.cc-ord-detail {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.cc-ord-c-cards,
+.cc-ord-c-total {
+	color: var(--cc-text-primary);
+	font-size: var(--cc-body-sm-size);
+	font-variant-numeric: tabular-nums;
+}
+
+/* Not yet priced, rather than priced at nothing. */
+.cc-ord-pending {
+	color: var(--cc-text-secondary);
+	font-size: var(--cc-caption-size);
+}
+
+/* --- showing, pages, rows per page --- */
+
+.cc-ord-foot {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--cc-space-12);
+	padding: var(--cc-space-16);
+	border-top: 1px solid var(--cc-border-subtle);
+	color: var(--cc-text-secondary);
+	font-size: var(--cc-body-sm-size);
+}
+
+.cc-ord-foot p { margin: 0; }
+
+.cc-ord-pages { display: inline-flex; gap: var(--cc-space-4); }
+
+.cc-ord-page {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 32px;
+	height: 32px;
+	padding: 0 var(--cc-space-6);
+	border-radius: var(--cc-radius-md);
+	color: var(--cc-text-secondary);
+	font-size: var(--cc-body-sm-size);
+	text-decoration: none;
+}
+
+.cc-ord-page:hover { background: var(--cc-bg-muted); color: var(--cc-text-primary); }
+
+.cc-ord-page.is-on {
+	background: var(--cc-bg-card);
+	border: 1px solid var(--cc-border-default);
+	color: var(--cc-text-primary);
+}
+
+/* --- nothing to show --- */
+
+.cc-ord-empty { padding: var(--cc-space-48) var(--cc-space-24); text-align: center; }
+
+.cc-ord-empty-head {
+	margin: 0;
+	color: var(--cc-text-primary);
+	font-family: var(--cc-font-display);
+	font-size: var(--cc-h3-size);
+}
+
+.cc-ord-empty-sub {
+	margin: var(--cc-space-6) 0 0;
+	color: var(--cc-text-secondary);
+	font-size: var(--cc-body-sm-size);
+}
+
+/* --- the footnote --- */
+
+.cc-ord-note {
+	display: flex;
+	align-items: center;
+	gap: var(--cc-space-6);
+	margin: var(--cc-space-16) 0 0;
+	color: var(--cc-text-secondary);
+	font-size: var(--cc-caption-size);
+}
+
+.cc-ord-note-icon { display: inline-flex; }
+.cc-ord-note-glyph { width: 14px; height: 14px; }
+
+/* --- narrower --- */
+
+/* Three figures still read at 196 apiece; below that the labels wrap to
+   three lines and the row turns into a wall. */
+@media (max-width: 860px) {
+	.cc-ord-stats { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 1100px) {
+	.cc-ord-filters { flex-wrap: wrap; }
+	.cc-ord-search { max-width: none; flex-basis: 100%; order: 3; }
+
+	/*
+	 * Six columns will not fit, and a table that scrolls sideways on a
+	 * phone is a table nobody reads. Each row becomes a block: the
+	 * reference and description stack, and the figures sit under them.
+	 */
+	.cc-ord-head { display: none; }
+
+	.cc-ord-row {
+		grid-template-columns: 1fr auto;
+		gap: var(--cc-space-6);
+		padding: var(--cc-space-16);
+	}
+
+	.cc-ord-c-ref   { grid-column: 1; grid-row: 1; }
+	.cc-ord-c-total { grid-column: 2; grid-row: 1; }
+	.cc-ord-c-desc  { grid-column: 1 / -1; grid-row: 2; }
+
+	.cc-ord-c-type,
+	.cc-ord-c-cards,
+	.cc-ord-c-status { grid-row: 3; }
+
+	.cc-ord-c-type   { grid-column: 1; }
+	.cc-ord-c-status { grid-column: 1; justify-self: start; margin-left: 96px; }
+	.cc-ord-c-cards  { grid-column: 2; }
+
+	/*
+	 * The column header is gone at this width, so the figure needs to say
+	 * what it is. Without this the row ends in a bare "400" sitting under
+	 * a price, which reads as a second amount.
+	 */
+	.cc-ord-c-cards::after {
+		content: " " attr(data-cc-unit);
+		color: var(--cc-text-secondary);
+		font-size: var(--cc-caption-size);
+	}
+
+	.cc-ord-foot { flex-wrap: wrap; justify-content: flex-start; }
+	.cc-ord-per { margin-left: auto; }
+}
+
+@media (max-width: 640px) {
+	.cc-ord-tabs { width: 100%; justify-content: space-between; }
+	.cc-ord-row { grid-template-columns: 1fr auto; }
+	.cc-ord-c-status { margin-left: 0; grid-row: 4; }
+	.cc-ord-c-type { grid-row: 3; }
+	.cc-ord-c-cards { grid-row: 3; }
+	.cc-ord-per { display: none; }
+}
+
+/*
+ * While a step is being fetched. Deliberately slight: the panel is about
+ * to be replaced by one that looks almost the same, so anything louder
+ * than this reads as a fault rather than as progress. The delay means a
+ * fast reply never flickers it at all.
+ */
+.cc-wz.is-loading {
+	cursor: progress;
+}
+
+.cc-wz.is-loading .cc-wz-body {
+	opacity: 0.55;
+	transition: opacity 120ms ease 140ms;
+	pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.cc-wz.is-loading .cc-wz-body { transition: none; }
+}
+
+/* The logo picker is a label wrapping a file input, so the input itself is
+   out of sight while the label stays a focusable, keyboard-reachable
+   control. */
+.cc-set-logo-pick { position: relative; cursor: pointer; }
+
+.cc-set-logo-pick input[type="file"] {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+.cc-set-logo-pick:focus-within {
+	border-color: var(--cc-border-focus);
+	outline: 2px solid var(--cc-border-focus);
+	outline-offset: 1px;
+}
+
+/* ------------------------------------------------------- team access */
+
+.cc-team { margin: 0; padding: 0; list-style: none; }
+
+.cc-team-row {
+	display: grid;
+	grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.3fr) auto auto;
+	gap: var(--cc-space-12);
+	align-items: center;
+	padding: var(--cc-space-16) 0;
+	border-bottom: 1px solid var(--cc-border-subtle);
+}
+
+.cc-team-row:first-child { padding-top: 0; }
+.cc-team-row:last-child { border-bottom: 0; padding-bottom: 0; }
+
+.cc-team-who,
+.cc-team-role {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+	/* Without this a pill stretches to the whole column, and "Owner" ends
+	   up a 500px-wide chip. */
+	align-items: flex-start;
+}
+
+.cc-team-name {
+	display: flex;
+	align-items: center;
+	gap: var(--cc-space-6);
+	color: var(--cc-text-primary);
+	font-size: var(--cc-body-sm-size);
+}
+
+.cc-team-you {
+	padding: 0 var(--cc-space-6);
+	border-radius: var(--cc-radius-full);
+	background: var(--cc-bg-muted);
+	color: var(--cc-text-secondary);
+	font-size: var(--cc-caption-size);
+}
+
+.cc-team-email {
+	max-width: 100%;
+	overflow: hidden;
+	color: var(--cc-text-secondary);
+	font-size: var(--cc-caption-size);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+/* This one wraps rather than truncating: cutting it leaves "write car…",
+   which tells somebody less than the whole sentence on two lines. */
+.cc-team-can {
+	color: var(--cc-text-secondary);
+	font-size: var(--cc-caption-size);
+}
+
+.cc-team-role select {
+	max-width: 160px;
+	height: 32px;
+	padding: 0 var(--cc-space-8);
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-bg-card);
+	font-size: var(--cc-body-sm-size);
+}
+
+.cc-team-do { display: flex; gap: var(--cc-space-8); justify-content: flex-end; }
+
+.cc-team-btn {
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--cc-accent-default);
+	font-size: var(--cc-body-sm-size);
+	cursor: pointer;
+}
+
+.cc-team-btn:hover { text-decoration: underline; }
+.cc-team-btn.is-quiet { color: var(--cc-text-secondary); }
+
+.cc-team-note,
+.cc-team-invite { margin: 0; }
+
+.cc-team-invite {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--cc-space-16);
+	align-items: flex-end;
+}
+
+.cc-team-invite .cc-field { flex: 1 1 220px; margin: 0; }
+
+.cc-team-note {
+	margin-top: var(--cc-space-16);
+	color: var(--cc-text-secondary);
+	font-size: var(--cc-body-sm-size);
+}
+
+/* An invitation nobody has accepted sits quieter than a real colleague. */
+.cc-team-row.is-pending .cc-team-name { color: var(--cc-text-secondary); }
+
+@media (max-width: 760px) {
+	.cc-team-row { grid-template-columns: 1fr auto; row-gap: var(--cc-space-8); }
+	.cc-team-who   { grid-column: 1; }
+	.cc-team-state { grid-column: 2; justify-self: end; }
+	.cc-team-role  { grid-column: 1 / -1; }
+	.cc-team-do    { grid-column: 1 / -1; justify-content: flex-start; }
+	.cc-team-invite .cc-field { flex-basis: 100%; }
+}

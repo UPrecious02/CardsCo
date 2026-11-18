@@ -1,0 +1,189 @@
+/*
+ * CardsCo design tokens.
+ *
+ * Taken from the approved Dashboard pages in the Figma on 2 Nov 2026, which
+ * are the spec. The CSS variable naming is the one the design system itself
+ * specifies: var(--cc-bg-app), var(--cc-text-primary), and so on.
+ *
+ * A NOTE ON WHERE THESE CAME FROM
+ *
+ * These were first built from the Design System · Foundations page, which is
+ * marked "v0.1 · placeholder brand" and carries an ink-blue accent. That page
+ * is out of date. The approved Dashboard and Marketing pages both use
+ * CardsCo green, and that is what shipped, so green is the brand.
+ *
+ * Confirmed by reading the Dashboard frames directly:
+ *   accent/default  #0F5A43   on the primary button
+ *   text/primary    #14231B   on the H1
+ *   bg/subtle       #F8F8F6   on the card tiles
+ *   bg/muted        #F2F2EF   on the page
+ *   border/strong   #D1CFC9   on the card borders
+ *
+ * The neutral ramp matched Foundations, so only the accent family changed.
+ *
+ * Still provisional: the handwriting face. Caveat stands in until the Arthur
+ * licence is confirmed. Everything points at a primitive, so that swap is a
+ * one-line change. Nothing in the dashboard should hard-code a hex value.
+ *
+ * @package CardsCo
+ */
+
+:root {
+	/* ------------------------------------------------------------------
+	 * Primitives. Change these when the real brand lands.
+	 * --------------------------------------------------------------- */
+
+	/* stone — warm off-white neutrals that read like paper */
+	--cc-stone-0:    #FFFFFF;
+	--cc-stone-50:   #F8F8F6;
+	--cc-stone-100:  #F2F2EF;
+	--cc-stone-150:  #EBEAE6;
+	--cc-stone-200:  #E3E2DD;
+	--cc-stone-300:  #D1CFC9;
+	--cc-stone-400:  #A8A6A0;
+	--cc-stone-500:  #6F6D67;
+	--cc-stone-600:  #57554F;
+	--cc-stone-900:  #1D1C1A;
+	--cc-ink-text:   #14231B;   /* text/primary — a green-black, not stone/900 */
+
+	/* CardsCo green — the accent, confirmed from the approved Dashboard. */
+	--cc-green-50:   #EBF3EF;   /* derived: a pale wash of the accent */
+	--cc-green-100:  #EEF5F1;   /* measured: the circle behind the + on the Create tile */
+	--cc-green-600:  #0F5A43;   /* accent/default, read off the button */
+	--cc-green-700:  #0C4836;   /* derived: the pressed / hover state */
+
+	/* Card stock. The preview inside a card tile is warmer than the page. */
+	--cc-paper:      #FFFCF5;   /* measured: "Inside page" in the card tile */
+
+	/* Illustration palette. Only the two get-started drawings use these, and
+	   they are baked into the SVGs; named here so nothing else reaches for
+	   them by accident. */
+	--cc-illus-ink:    #2340B0;
+	--cc-illus-accent: #FFD43B;
+
+	/* status families */
+	--cc-success-50:  #EDF7F0;
+	--cc-success-600: #1E7F46;
+	--cc-success-700: #17663A;   /* measured: the label on a success badge */
+	--cc-amber-50:   #FEF6E7;
+	--cc-amber-50-soft: #FFFAE6;  /* measured: the "Offer" chip on a campaign row */
+	--cc-amber-500:  #D98C0B;
+	--cc-amber-700:  #854C04;     /* measured: the needs-review label and caption */
+	--cc-red-50:     #FDEEEC;
+	--cc-red-600:    #C2362B;
+	--cc-blue-50:    #EBF3FE;
+	--cc-blue-600:   #2563C9;
+	--cc-blue-700:   #1D4FA3;   /* measured: the label on an info badge */
+
+	/* ------------------------------------------------------------------
+	 * Semantic colour. Use these, never the primitives above.
+	 * --------------------------------------------------------------- */
+
+	/* background and surface */
+	--cc-bg-app:          var(--cc-stone-0);
+	--cc-bg-subtle:       var(--cc-stone-50);
+	--cc-bg-muted:        var(--cc-stone-100);
+	--cc-bg-emphasis:     var(--cc-stone-150);
+	--cc-bg-inverse:      var(--cc-stone-900);
+	--cc-surface-default: var(--cc-stone-0);
+
+	/* text and icon */
+	--cc-text-primary:   var(--cc-ink-text);
+	--cc-text-secondary: var(--cc-stone-600);
+	--cc-text-tertiary:  var(--cc-stone-500);
+	--cc-text-disabled:  var(--cc-stone-400);
+	--cc-text-link:      var(--cc-green-600);
+	--cc-icon-default:   var(--cc-stone-500);
+
+	/* border */
+	--cc-border-subtle:  var(--cc-stone-150);
+	--cc-border-default: var(--cc-stone-200);
+	--cc-border-strong:  var(--cc-stone-300);
+	--cc-border-focus:   var(--cc-green-600);
+
+	/* accent — one accent, used sparingly */
+	--cc-accent-default: var(--cc-green-600);
+	--cc-accent-hover:   var(--cc-green-700);
+	--cc-accent-subtle:  var(--cc-green-50);
+	--cc-accent-text:    var(--cc-green-600);
+
+	/* status */
+	--cc-status-success-solid: var(--cc-success-600);
+	--cc-status-success-bg:    var(--cc-success-50);
+	--cc-status-warning-solid: var(--cc-amber-500);
+	--cc-status-warning-bg:    var(--cc-amber-50);
+	--cc-status-error-solid:   var(--cc-red-600);
+	--cc-status-error-bg:      var(--cc-red-50);
+	--cc-status-info-solid:    var(--cc-blue-600);
+	--cc-status-info-bg:       var(--cc-blue-50);
+
+	/* ------------------------------------------------------------------
+	 * Type. Inter for all interface text; the handwriting face is for card
+	 * previews only and never for interface copy.
+	 * --------------------------------------------------------------- */
+
+	--cc-font-ui:          'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+	/* Headings on the dashboard are EB Garamond, as on the marketing page. */
+	--cc-font-display:     'EB Garamond', Georgia, 'Times New Roman', serif;
+	--cc-font-handwritten: 'Caveat', 'Segoe Script', cursive;
+
+	--cc-weight-regular: 400;
+	--cc-weight-medium:  500;
+	--cc-weight-semi:    600;
+
+	/* size / line-height / letter-spacing, exactly as the sheet sets them */
+	--cc-display-l-size: 48px;  --cc-display-l-line: 56px;  --cc-display-l-track: -0.02em;
+	--cc-display-m-size: 36px;  --cc-display-m-line: 44px;  --cc-display-m-track: -0.015em;
+	--cc-h1-size:        34px;  --cc-h1-line:        40px;  --cc-h1-track:        -0.005em;
+	--cc-h2-size:        22px;  --cc-h2-line:        28px;  --cc-h2-track:        -0.005em;
+	--cc-h3-size:        18px;  --cc-h3-line:        24px;  --cc-h3-track:        -0.0025em;
+	--cc-h4-size:        16px;  --cc-h4-line:        22px;  --cc-h4-track:        0;
+	--cc-body-l-size:    16px;  --cc-body-l-line:    24px;
+	--cc-body-m-size:    14px;  --cc-body-m-line:    20px;
+	--cc-body-s-size:    13px;  --cc-body-s-line:    18px;
+	--cc-caption-size:   12px;  --cc-caption-line:   16px;
+	--cc-hand-l-size:    26px;  --cc-hand-l-line:    32px;
+	--cc-hand-m-size:    20px;  --cc-hand-m-line:    26px;
+
+	/* ------------------------------------------------------------------
+	 * Spacing. 4px base, with 2 and 6 for tight UI.
+	 * --------------------------------------------------------------- */
+
+	--cc-space-2:  2px;
+	--cc-space-4:  4px;
+	--cc-space-6:  6px;
+	--cc-space-8:  8px;
+	--cc-space-10: 10px;
+	--cc-space-12: 12px;
+	--cc-space-14: 14px;   /* the finished-campaigns table's row padding */
+	--cc-space-16: 16px;
+	--cc-space-20: 20px;
+	--cc-space-24: 24px;
+	--cc-space-32: 32px;
+	--cc-space-40: 40px;
+	--cc-space-48: 48px;
+	--cc-space-64: 64px;
+	--cc-space-80: 80px;
+	--cc-space-96: 96px;
+
+	/* ------------------------------------------------------------------
+	 * Radius and elevation.
+	 * --------------------------------------------------------------- */
+
+	--cc-radius-none: 0;
+	--cc-radius-xs:   4px;
+	--cc-radius-sm:   6px;
+	--cc-radius-md:   8px;
+	--cc-radius-lg:   12px;   /* the dashboard's primary button uses this */
+	--cc-radius-xl:   16px;
+	--cc-radius-full: 9999px;
+
+	/* Named for what the sheet says each is for. The sheet gives the roles
+	   rather than the blur values, so these are matched to the look and
+	   should be checked against the design before launch. */
+	--cc-shadow-xs: 0 1px 2px rgba(29, 28, 26, 0.05);                                   /* buttons, inputs */
+	--cc-shadow-sm: 0 1px 3px rgba(29, 28, 26, 0.08), 0 1px 2px rgba(29, 28, 26, 0.04); /* cards on hover */
+	--cc-shadow-md: 0 4px 12px rgba(29, 28, 26, 0.10);                                  /* dropdowns, popovers */
+	--cc-shadow-lg: 0 12px 32px rgba(29, 28, 26, 0.14);                                 /* modals */
+	--cc-focus-ring: 0 0 0 3px rgba(59, 94, 194, 0.35);                                 /* keyboard focus */
+}

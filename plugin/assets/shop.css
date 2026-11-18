@@ -1,0 +1,1085 @@
+/* ==========================================================================
+   CardsCo — WooCommerce front end
+   Single product, cart, checkout and the shop archive.
+
+   WHY THIS FILE EXISTS
+
+   WooCommerce ships its own stylesheets and they do load on this site, but
+   they are not applying. The body carries `woocommerce-uses-block-theme` and
+   `woocommerce-block-theme-has-button-styles`, which is Woo detecting a block
+   theme and deliberately standing down from its own button and layout styling
+   on the understanding that the theme supplies it. Oxygen supplies nothing
+   for WooCommerce, so the page lands in the gap between the two and renders
+   with browser defaults.
+
+   Rather than force Woo's classic styles back on — which would give us stock
+   Woo, not CardsCo — this sheet styles the shop in the brand system. The
+   tokens below are the same ones catalogue.css declares locally, repeated
+   here for the same reason: these pages are not rendered by an Oxygen
+   template, so nothing guarantees tokens.css is on the page.
+
+   Everything is scoped under body.woocommerce so it cannot leak into the
+   portal, which is scoped to .cc-main and .cc-wz.
+
+   @package CardsCo
+   ========================================================================== */
+
+body.woocommerce,
+body.woocommerce-page {
+	--cc-green-600: #0F5A43;
+	--cc-green-700: #0C4836;
+	--cc-ink:       #14231B;
+	--cc-body:      #57554F;
+	--cc-quiet:     #6F6D67;
+	--cc-line:      #D1CFC9;
+	--cc-line-soft: #EBEAE6;
+	--cc-wash:      #F2F2EF;
+	--cc-subtle:    #F8F8F6;
+	--cc-paper:     #FFFCF5;
+
+	--cc-font-ui:      'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+	--cc-font-display: 'EB Garamond', Georgia, 'Times New Roman', serif;
+
+	--cc-shop-max:  1360px;
+	--cc-shop-pad:  clamp(20px, 5vw, 40px);
+}
+
+/* --------------------------------------------------------------------------
+   Shared shell
+
+   None of these pages sit inside an Oxygen template, so there is no container
+   constraining them — content was running the full 1520px of the viewport.
+   Each top-level WooCommerce block gets the catalogue's container instead.
+   -------------------------------------------------------------------------- */
+
+body.woocommerce .woocommerce-notices-wrapper,
+body.single-product div.product,
+body.woocommerce .woocommerce-products-header,
+body.woocommerce ul.products,
+body.woocommerce nav.woocommerce-pagination,
+body.woocommerce .cart-empty,
+body.woocommerce .return-to-shop,
+body.woocommerce .woocommerce-cart-form,
+body.woocommerce .cart-collaterals,
+body.woocommerce .woocommerce-checkout,
+body.woocommerce .woocommerce-order,
+body.woocommerce .woocommerce-MyAccount-navigation,
+body.woocommerce .woocommerce-MyAccount-content {
+	box-sizing: border-box;
+	width: 100%;
+	max-width: var(--cc-shop-max);
+	margin-left: auto;
+	margin-right: auto;
+	padding-left: var(--cc-shop-pad);
+	padding-right: var(--cc-shop-pad);
+	font-family: var(--cc-font-ui);
+	color: var(--cc-ink);
+}
+
+body.woocommerce .woocommerce-notices-wrapper:empty { padding: 0; }
+
+body.woocommerce *,
+body.woocommerce *::before,
+body.woocommerce *::after { box-sizing: border-box; }
+
+/* --------------------------------------------------------------------------
+   Single product
+   -------------------------------------------------------------------------- */
+
+body.single-product div.product {
+	display: grid;
+	/* A card is portrait — 600x852 as printed — so a wide gallery column runs
+	   away from the summary beside it. 480 keeps the art generous and the two
+	   columns within sight of each other. */
+	grid-template-columns: minmax(0, 480px) minmax(0, 1fr);
+	/* Row 1 takes exactly the summary's height, row 2 absorbs whatever the
+	   gallery has left over. Both tracks have to be spelled out: left to
+	   themselves, the two rows share the spanning gallery's spare height
+	   between them and the tabs drift ~70px away from the copy above them.
+	   A flexible second track is what stops that — an `auto` one is
+	   intrinsic, so it takes a share of the overflow instead of all of it. */
+	grid-template-rows: min-content 1fr;
+	column-gap: clamp(32px, 5vw, 72px);
+	row-gap: 40px;
+	align-items: start;
+	padding-top: clamp(32px, 5vw, 56px);
+	padding-bottom: clamp(48px, 6vw, 80px);
+}
+
+/* A card is taller than its summary, so a gallery in a row of its own leaves
+   a dead column half a screen high beside the price. The gallery spans two
+   rows instead and the description tabs take the second one, which puts the
+   copy where the eye already is. Related products still span the full width
+   underneath. */
+body.single-product div.product > * { grid-column: 1 / -1; min-width: 0; }
+
+body.single-product div.product > .woocommerce-product-gallery {
+	grid-column: 1;
+	grid-row: 1 / span 2;
+	align-self: start;
+}
+
+body.single-product div.product > .summary { grid-column: 2; grid-row: 1; }
+
+body.single-product div.product > .woocommerce-tabs { grid-column: 2; grid-row: 2; }
+
+/* ------------------------------------------------------------------ gallery
+
+   Woo prints the gallery with inline `opacity: 0` and fades it in from
+   wc-single-product.js. That script, flexslider, photoswipe and zoom are all
+   absent here, because gallery theme support is never declared — so the image
+   loads correctly and then sits invisible for ever. Hence the override: it is
+   doing the job the missing script would have done.
+
+   One card has one image, so a slider buys us nothing. If a card ever gets a
+   second image the thumbnails below simply stack as a grid. */
+
+body.woocommerce .woocommerce-product-gallery {
+	opacity: 1 !important;
+	margin: 0;
+	float: none;
+	width: auto;
+}
+
+body.woocommerce .woocommerce-product-gallery__wrapper {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	display: grid;
+	gap: 16px;
+}
+
+body.woocommerce .woocommerce-product-gallery__image {
+	margin: 0;
+	border: 1px solid var(--cc-line-soft);
+	border-radius: 14px;
+	background: var(--cc-subtle);
+	overflow: hidden;
+}
+
+body.woocommerce .woocommerce-product-gallery__image a,
+body.woocommerce .woocommerce-product-gallery__image > div { display: block; }
+
+body.woocommerce .woocommerce-product-gallery img {
+	display: block;
+	width: 100%;
+	height: auto;
+	margin: 0;
+}
+
+/* Thumbnails, when flexslider is not there to turn them into a nav. */
+body.woocommerce .woocommerce-product-gallery .flex-control-thumbs {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+	gap: 10px;
+	margin: 14px 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+body.woocommerce .flex-control-thumbs li { margin: 0; }
+
+body.woocommerce .flex-control-thumbs img {
+	display: block;
+	width: 100%;
+	height: auto;
+	border: 1px solid var(--cc-line-soft);
+	border-radius: 8px;
+	cursor: pointer;
+}
+
+/* The lightbox trigger is useless without photoswipe loaded. */
+body.woocommerce .woocommerce-product-gallery__trigger { display: none; }
+
+/* ------------------------------------------------------------------ summary */
+
+/* Capped rather than filling the column: a 700px-wide measure for a product
+   title and a price reads as a layout accident. */
+body.woocommerce .summary { margin: 0; width: auto; max-width: 560px; float: none; }
+
+body.woocommerce .product_title {
+	margin: 0 0 14px;
+	font: 400 clamp(26px, 3.2vw, 36px) / 1.15 var(--cc-font-display);
+	letter-spacing: -.005em;
+	color: var(--cc-ink);
+}
+
+body.woocommerce .summary .price,
+body.woocommerce .summary .price ins {
+	display: block;
+	margin: 0 0 20px;
+	font: 500 22px/28px var(--cc-font-ui);
+	color: var(--cc-ink);
+	text-decoration: none;
+	background: none;
+}
+
+body.woocommerce .summary .price del {
+	margin-right: 8px;
+	font-weight: 400;
+	color: var(--cc-quiet);
+}
+
+body.woocommerce .summary .price .woocommerce-Price-currencySymbol { font-weight: 500; }
+
+body.woocommerce .woocommerce-product-details__short-description {
+	max-width: 56ch;
+	margin: 0 0 26px;
+	font: 400 16px/26px var(--cc-font-ui);
+	color: var(--cc-body);
+}
+
+body.woocommerce .woocommerce-product-details__short-description p { margin: 0 0 12px; }
+body.woocommerce .woocommerce-product-details__short-description p:last-child { margin-bottom: 0; }
+
+/* ------------------------------------------------------------ add to cart */
+
+body.woocommerce form.cart {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 12px;
+	margin: 0 0 24px;
+}
+
+body.woocommerce .quantity { margin: 0; }
+
+body.woocommerce .quantity input.qty {
+	width: 76px;
+	height: 46px;
+	padding: 0 10px;
+	border: 1px solid var(--cc-line);
+	border-radius: 10px;
+	background: #FFFFFF;
+	font: 400 15px/46px var(--cc-font-ui);
+	color: var(--cc-ink);
+	text-align: center;
+	-moz-appearance: textfield;
+}
+
+body.woocommerce .quantity input.qty:focus {
+	outline: 2px solid var(--cc-green-600);
+	outline-offset: 1px;
+	border-color: var(--cc-green-600);
+}
+
+/* --------------------------------------------------------------------------
+   Buttons
+
+   Woo has stood down from styling these, so every one of them is a browser
+   default. The shape matches .cc-btn in the portal: 10px radius, 15px Inter
+   medium, green fill for the primary action.
+   -------------------------------------------------------------------------- */
+
+body.woocommerce a.button,
+body.woocommerce button.button,
+body.woocommerce input.button,
+body.woocommerce #respond input#submit,
+body.woocommerce .woocommerce-message a.button,
+body.woocommerce a.added_to_cart {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	min-height: 46px;
+	padding: 12px 22px;
+	border: 1px solid var(--cc-line);
+	border-radius: 10px;
+	background: #FFFFFF;
+	font: 500 15px/1.2 var(--cc-font-ui);
+	color: var(--cc-ink);
+	text-decoration: none;
+	text-transform: none;
+	letter-spacing: 0;
+	cursor: pointer;
+	transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+
+body.woocommerce a.button:hover,
+body.woocommerce button.button:hover,
+body.woocommerce input.button:hover,
+body.woocommerce #respond input#submit:hover {
+	background: var(--cc-subtle);
+	border-color: var(--cc-ink);
+	color: var(--cc-ink);
+}
+
+/* The primary action. Woo marks it .alt; the checkout button and the
+   place-order button carry it too, which is exactly what we want. */
+body.woocommerce a.button.alt,
+body.woocommerce button.button.alt,
+body.woocommerce input.button.alt,
+body.woocommerce button.single_add_to_cart_button,
+body.woocommerce #respond input#submit.alt,
+body.woocommerce #place_order {
+	border-color: var(--cc-green-600);
+	background: var(--cc-green-600);
+	color: #FFFFFF;
+}
+
+body.woocommerce a.button.alt:hover,
+body.woocommerce button.button.alt:hover,
+body.woocommerce input.button.alt:hover,
+body.woocommerce button.single_add_to_cart_button:hover,
+body.woocommerce #respond input#submit.alt:hover,
+body.woocommerce #place_order:hover {
+	border-color: var(--cc-green-700);
+	background: var(--cc-green-700);
+	color: #FFFFFF;
+}
+
+body.woocommerce a.button:focus-visible,
+body.woocommerce button.button:focus-visible,
+body.woocommerce input.button:focus-visible,
+body.woocommerce #place_order:focus-visible {
+	outline: 2px solid var(--cc-green-600);
+	outline-offset: 2px;
+}
+
+body.woocommerce .button.disabled,
+body.woocommerce .button:disabled,
+body.woocommerce .button[disabled] { opacity: .45; cursor: not-allowed; }
+
+/* The "View cart" link Woo drops in after an ajax add. */
+body.woocommerce a.added_to_cart {
+	min-height: 0;
+	padding: 0;
+	border: 0;
+	background: none;
+	color: var(--cc-green-600);
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
+/* ------------------------------------------------------------------- meta */
+
+body.woocommerce .product_meta {
+	margin: 0;
+	padding-top: 20px;
+	border-top: 1px solid var(--cc-line-soft);
+	font: 400 13px/22px var(--cc-font-ui);
+	color: var(--cc-quiet);
+}
+
+body.woocommerce .product_meta > span { display: block; }
+body.woocommerce .product_meta a { color: var(--cc-body); text-decoration: underline; text-underline-offset: 2px; }
+body.woocommerce .product_meta a:hover { color: var(--cc-ink); }
+
+/* --------------------------------------------------------------------------
+   Tabs — description, reviews
+   -------------------------------------------------------------------------- */
+
+body.woocommerce .woocommerce-tabs {
+	max-width: 560px;
+	margin-top: 0;
+	padding-top: 0;
+}
+
+body.woocommerce .woocommerce-tabs ul.tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px;
+	margin: 0 0 28px;
+	padding: 0;
+	list-style: none;
+	border-bottom: 1px solid var(--cc-line-soft);
+}
+
+body.woocommerce .woocommerce-tabs ul.tabs::before,
+body.woocommerce .woocommerce-tabs ul.tabs::after { display: none; }
+
+body.woocommerce .woocommerce-tabs ul.tabs li {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: none;
+}
+
+body.woocommerce .woocommerce-tabs ul.tabs li::before,
+body.woocommerce .woocommerce-tabs ul.tabs li::after { display: none; }
+
+body.woocommerce .woocommerce-tabs ul.tabs li a {
+	display: block;
+	padding: 12px 14px;
+	border-bottom: 2px solid transparent;
+	font: 500 14px/20px var(--cc-font-ui);
+	color: var(--cc-body);
+	text-decoration: none;
+}
+
+body.woocommerce .woocommerce-tabs ul.tabs li a:hover { color: var(--cc-ink); }
+
+body.woocommerce .woocommerce-tabs ul.tabs li.active a {
+	border-bottom-color: var(--cc-green-600);
+	color: var(--cc-ink);
+}
+
+body.woocommerce .woocommerce-tabs .panel {
+	max-width: 68ch;
+	margin: 0;
+	font: 400 16px/26px var(--cc-font-ui);
+	color: var(--cc-body);
+}
+
+body.woocommerce .woocommerce-tabs .panel h2 {
+	margin: 0 0 14px;
+	font: 400 24px/1.2 var(--cc-font-display);
+	color: var(--cc-ink);
+}
+
+/* --------------------------------------------------------------------------
+   Reviews
+   -------------------------------------------------------------------------- */
+
+body.woocommerce #reviews #comments { margin: 0 0 32px; }
+body.woocommerce #reviews .commentlist { margin: 0; padding: 0; list-style: none; }
+
+body.woocommerce #review_form_wrapper label {
+	display: block;
+	margin: 0 0 6px;
+	font: 500 14px/20px var(--cc-font-ui);
+	color: var(--cc-ink);
+}
+
+body.woocommerce #review_form_wrapper .comment-form-rating,
+body.woocommerce #review_form_wrapper .comment-form-comment { margin: 0 0 18px; }
+
+/* --------------------------------------------------------------------------
+   Form fields — review, cart coupon, checkout
+   -------------------------------------------------------------------------- */
+
+body.woocommerce input[type="text"],
+body.woocommerce input[type="email"],
+body.woocommerce input[type="tel"],
+body.woocommerce input[type="password"],
+body.woocommerce input[type="search"],
+body.woocommerce textarea,
+body.woocommerce select,
+body.woocommerce .select2-container .select2-selection--single {
+	width: 100%;
+	min-height: 46px;
+	padding: 11px 13px;
+	border: 1px solid var(--cc-line);
+	border-radius: 10px;
+	background: #FFFFFF;
+	font: 400 15px/22px var(--cc-font-ui);
+	color: var(--cc-ink);
+}
+
+body.woocommerce textarea { min-height: 120px; resize: vertical; }
+
+body.woocommerce input[type="text"]:focus,
+body.woocommerce input[type="email"]:focus,
+body.woocommerce input[type="tel"]:focus,
+body.woocommerce input[type="password"]:focus,
+body.woocommerce textarea:focus,
+body.woocommerce select:focus {
+	outline: 2px solid var(--cc-green-600);
+	outline-offset: 1px;
+	border-color: var(--cc-green-600);
+}
+
+body.woocommerce .select2-container .select2-selection--single {
+	display: flex;
+	align-items: center;
+}
+
+body.woocommerce .select2-container--default .select2-selection--single .select2-selection__rendered {
+	padding: 0;
+	line-height: 22px;
+	color: var(--cc-ink);
+}
+
+body.woocommerce .select2-container--default .select2-selection--single .select2-selection__arrow { top: 50%; transform: translateY(-50%); }
+
+/* --------------------------------------------------------------------------
+   Notices
+   -------------------------------------------------------------------------- */
+
+body.woocommerce .woocommerce-message,
+body.woocommerce .woocommerce-info,
+body.woocommerce .woocommerce-error {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 12px;
+	margin: 24px 0;
+	padding: 14px 18px;
+	border: 1px solid var(--cc-line-soft);
+	border-left-width: 3px;
+	border-radius: 10px;
+	background: var(--cc-subtle);
+	font: 400 15px/22px var(--cc-font-ui);
+	color: var(--cc-ink);
+	list-style: none;
+}
+
+body.woocommerce .woocommerce-message::before,
+body.woocommerce .woocommerce-info::before,
+body.woocommerce .woocommerce-error::before { display: none; }
+
+body.woocommerce .woocommerce-message { border-left-color: var(--cc-green-600); background: #EBF3EF; }
+body.woocommerce .woocommerce-info    { border-left-color: #2563C9; background: #EBF3FE; }
+body.woocommerce .woocommerce-error   { border-left-color: #C2362B; background: #FDEEEC; }
+body.woocommerce .woocommerce-error li { margin: 0; }
+
+body.woocommerce .woocommerce-message .button,
+body.woocommerce .woocommerce-info .button {
+	margin-left: auto;
+	min-height: 38px;
+	padding: 9px 16px;
+	font-size: 14px;
+}
+
+/* --------------------------------------------------------------------------
+   Cart
+   -------------------------------------------------------------------------- */
+
+body.woocommerce table.shop_table {
+	width: 100%;
+	margin: 24px 0 32px;
+	border: 1px solid var(--cc-line-soft);
+	border-radius: 14px;
+	border-collapse: separate;
+	border-spacing: 0;
+	overflow: hidden;
+	font: 400 15px/22px var(--cc-font-ui);
+	color: var(--cc-ink);
+}
+
+/* Column headers only. The totals tables put <th> in the body as row labels,
+   and the uppercase grey treatment is wrong for those. */
+body.woocommerce table.shop_table thead th {
+	padding: 14px 16px;
+	border-bottom: 1px solid var(--cc-line-soft);
+	background: var(--cc-subtle);
+	font: 500 13px/18px var(--cc-font-ui);
+	color: var(--cc-quiet);
+	text-align: left;
+	text-transform: uppercase;
+	letter-spacing: .04em;
+}
+
+body.woocommerce table.shop_table tbody th,
+body.woocommerce table.shop_table tfoot th {
+	width: 50%;
+	padding: 16px;
+	border-bottom: 1px solid var(--cc-line-soft);
+	background: none;
+	font: 400 15px/22px var(--cc-font-ui);
+	color: var(--cc-body);
+	text-align: left;
+	text-transform: none;
+	letter-spacing: 0;
+}
+
+body.woocommerce table.shop_table tfoot th { font-weight: 500; color: var(--cc-ink); }
+body.woocommerce table.shop_table tr:last-child th { border-bottom: 0; }
+
+body.woocommerce table.shop_table td {
+	padding: 16px;
+	border-bottom: 1px solid var(--cc-line-soft);
+	vertical-align: middle;
+}
+
+body.woocommerce table.shop_table td.product-price,
+body.woocommerce table.shop_table td.product-subtotal,
+body.woocommerce table.shop_table td.product-total,
+body.woocommerce table.shop_table tbody td:last-child,
+body.woocommerce table.shop_table tfoot td { text-align: right; }
+
+/* Coupon on the left, update on the right, one line. */
+body.woocommerce table.shop_table td.actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	text-align: left;
+}
+
+body.woocommerce table.shop_table tr:last-child td { border-bottom: 0; }
+
+body.woocommerce table.shop_table .product-thumbnail img {
+	display: block;
+	width: 64px;
+	height: auto;
+	border: 1px solid var(--cc-line-soft);
+	border-radius: 8px;
+}
+
+body.woocommerce table.shop_table .product-name a { color: var(--cc-ink); text-decoration: none; }
+body.woocommerce table.shop_table .product-name a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+body.woocommerce table.shop_table td.product-remove a.remove {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 26px;
+	border-radius: 50%;
+	background: var(--cc-wash);
+	color: var(--cc-body) !important;
+	font-size: 17px;
+	line-height: 1;
+	text-decoration: none;
+}
+
+body.woocommerce td.product-remove a.remove:hover { background: #FDEEEC; color: #C2362B !important; }
+
+body.woocommerce .cart-collaterals { padding-bottom: 56px; }
+
+body.woocommerce .cart_totals h2 {
+	margin: 0 0 14px;
+	font: 400 24px/1.2 var(--cc-font-display);
+	color: var(--cc-ink);
+}
+
+body.woocommerce .coupon {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	align-items: center;
+}
+
+body.woocommerce .coupon input[type="text"] { width: auto; min-width: 180px; flex: 0 1 220px; }
+
+/* --------------------------------------------------------------------------
+   Checkout
+   -------------------------------------------------------------------------- */
+
+body.woocommerce .woocommerce-checkout { padding-bottom: 64px; }
+
+body.woocommerce .col2-set {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+	gap: clamp(24px, 4vw, 48px);
+	width: auto;
+}
+
+body.woocommerce .col2-set .col-1,
+body.woocommerce .col2-set .col-2 { width: auto; float: none; }
+
+body.woocommerce .woocommerce-billing-fields h3,
+body.woocommerce .woocommerce-shipping-fields h3,
+body.woocommerce #order_review_heading {
+	margin: 0 0 18px;
+	font: 400 24px/1.2 var(--cc-font-display);
+	color: var(--cc-ink);
+}
+
+body.woocommerce .form-row {
+	display: block;
+	margin: 0 0 16px;
+	padding: 0;
+}
+
+body.woocommerce .form-row label {
+	display: block;
+	margin: 0 0 6px;
+	font: 500 14px/20px var(--cc-font-ui);
+	color: var(--cc-ink);
+}
+
+body.woocommerce .form-row .required { color: #C2362B; text-decoration: none; }
+
+body.woocommerce #payment {
+	border: 1px solid var(--cc-line-soft);
+	border-radius: 14px;
+	background: var(--cc-subtle);
+	padding: 20px;
+}
+
+body.woocommerce #payment ul.payment_methods {
+	margin: 0 0 18px;
+	padding: 0 0 18px;
+	border-bottom: 1px solid var(--cc-line-soft);
+	list-style: none;
+}
+
+body.woocommerce #payment ul.payment_methods li { margin: 0 0 10px; }
+
+body.woocommerce #payment div.payment_box {
+	margin: 10px 0 0;
+	padding: 14px;
+	border-radius: 10px;
+	background: #FFFFFF;
+	font: 400 14px/21px var(--cc-font-ui);
+	color: var(--cc-body);
+}
+
+body.woocommerce #payment div.payment_box::before { display: none; }
+
+body.woocommerce #place_order { width: 100%; }
+
+/* --------------------------------------------------------------------------
+   Product grids — shop archive, related products, upsells
+   Mirrors the catalogue tiles so the two never read as different sites.
+   -------------------------------------------------------------------------- */
+
+body.woocommerce .related,
+body.woocommerce .upsells {
+	margin-top: clamp(40px, 5vw, 64px);
+	padding-top: clamp(32px, 4vw, 48px);
+	border-top: 1px solid var(--cc-line-soft);
+}
+
+body.woocommerce .related > h2,
+body.woocommerce .upsells > h2,
+body.woocommerce .woocommerce-products-header h1 {
+	margin: 0 0 8px;
+	font: 400 clamp(24px, 3vw, 30px) / 1.2 var(--cc-font-display);
+	color: var(--cc-ink);
+}
+
+body.woocommerce ul.products {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 40px 24px;
+	margin: 28px 0 0;
+	padding-left: 0;
+	padding-right: 0;
+	list-style: none;
+}
+
+body.woocommerce .related ul.products,
+body.woocommerce .upsells ul.products { padding-left: 0; padding-right: 0; }
+
+body.woocommerce ul.products::before,
+body.woocommerce ul.products::after { display: none; }
+
+body.woocommerce ul.products li.product {
+	width: auto;
+	margin: 0;
+	float: none;
+	min-width: 0;
+	text-align: left;
+}
+
+body.woocommerce ul.products li.product a img {
+	display: block;
+	width: 100%;
+	height: auto;
+	margin: 0 0 14px;
+	border: 1px solid var(--cc-line-soft);
+	border-radius: 12px;
+	background: var(--cc-subtle);
+}
+
+body.woocommerce ul.products li.product .woocommerce-loop-product__title {
+	margin: 0 0 4px;
+	padding: 0;
+	font: 500 15px/22px var(--cc-font-ui);
+	color: var(--cc-ink);
+}
+
+body.woocommerce ul.products li.product a { text-decoration: none; color: inherit; }
+
+body.woocommerce ul.products li.product .price {
+	display: block;
+	margin: 0 0 12px;
+	font: 400 15px/22px var(--cc-font-ui);
+	color: var(--cc-body);
+}
+
+body.woocommerce ul.products li.product .price del { color: var(--cc-quiet); margin-right: 6px; }
+body.woocommerce ul.products li.product .price ins { background: none; text-decoration: none; color: var(--cc-ink); }
+
+body.woocommerce ul.products li.product .button {
+	min-height: 38px;
+	padding: 9px 16px;
+	font-size: 14px;
+}
+
+body.woocommerce span.onsale {
+	top: 10px;
+	left: 10px;
+	right: auto;
+	min-height: 0;
+	min-width: 0;
+	padding: 4px 10px;
+	border-radius: 9999px;
+	background: var(--cc-green-600);
+	font: 500 12px/16px var(--cc-font-ui);
+	color: #FFFFFF;
+}
+
+/* --------------------------------------------------------------------------
+   Breakpoints
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 1100px) {
+	body.woocommerce ul.products { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 36px 20px; }
+}
+
+@media (max-width: 900px) {
+	body.single-product div.product {
+		grid-template-columns: minmax(0, 1fr);
+		row-gap: 28px;
+	}
+	body.single-product div.product > .woocommerce-product-gallery,
+	body.single-product div.product > .summary,
+	body.single-product div.product > .woocommerce-tabs { grid-column: 1 / -1; grid-row: auto; }
+
+	body.woocommerce .summary,
+	body.woocommerce .woocommerce-tabs { max-width: none; }
+
+	/* Stacked, the tabs need the rule back to separate them from the summary. */
+	body.woocommerce .woocommerce-tabs {
+		padding-top: 24px;
+		border-top: 1px solid var(--cc-line-soft);
+	}
+
+	/* A card is portrait, so full-bleed art on a narrow screen is too tall.
+	   Cap it and centre it instead. */
+	body.woocommerce .woocommerce-product-gallery__wrapper {
+		max-width: 420px;
+		margin-inline: auto;
+	}
+}
+
+@media (max-width: 820px) {
+	body.woocommerce ul.products { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 16px; }
+}
+
+/* 860, not a phone width: the cart is a six-column table, and its columns'
+   own minimums push it past the container well before a phone — it overflowed
+   by 52px at 768. Stacking it early is cheaper than a scroll region. */
+@media (max-width: 860px) {
+	/* Woo's own responsive table CSS is part of the stylesheet that is not
+	   applying, so the tables need their own stacked layout. Each row becomes
+	   a card: the thumbnail and the remove control sit together on a header
+	   line, and every other cell is a label/value pair.
+
+	   data-title is what Woo prints on each cell for exactly this purpose. */
+	body.woocommerce table.shop_table { border-radius: 12px; }
+	body.woocommerce table.shop_table thead { display: none; }
+
+	body.woocommerce table.shop_table tr {
+		display: block;
+		border-bottom: 1px solid var(--cc-line-soft);
+	}
+
+	body.woocommerce table.shop_table tr:last-child { border-bottom: 0; }
+
+	body.woocommerce table.shop_table td,
+	body.woocommerce table.shop_table tbody th,
+	body.woocommerce table.shop_table tfoot th {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 16px;
+		width: auto;
+		border-bottom: 0;
+		padding: 9px 16px;
+		text-align: right;
+	}
+
+	body.woocommerce table.shop_table td::before {
+		content: attr(data-title);
+		flex: 0 0 auto;
+		font: 500 13px/18px var(--cc-font-ui);
+		color: var(--cc-quiet);
+		text-align: left;
+	}
+
+	/* Not every cell carries one — the order review's product cell does not.
+	   Without this the empty pseudo-element still takes a flex slot and
+	   space-between pushes the product name into the middle of the row. */
+	body.woocommerce table.shop_table td:not([data-title])::before { display: none; }
+	body.woocommerce table.shop_table td:not([data-title]) { justify-content: space-between; }
+
+	/* A totals row is already a label in its <th>, so the <td> must not
+	   print a second one, and the pair stays on one line. Scoped by the
+	   containers Woo puts totals in rather than by :has(), which is the
+	   same result without the browser-support question. */
+	body.woocommerce table.shop_table tbody th + td::before,
+	body.woocommerce table.shop_table tfoot th + td::before { content: ''; display: none; }
+
+	body.woocommerce .cart_totals table.shop_table tr,
+	body.woocommerce .woocommerce-checkout-review-order-table tfoot tr {
+		display: flex;
+		align-items: baseline;
+		justify-content: space-between;
+		gap: 16px;
+	}
+
+	body.woocommerce .cart_totals table.shop_table th,
+	body.woocommerce .cart_totals table.shop_table td,
+	body.woocommerce .woocommerce-checkout-review-order-table tfoot th,
+	body.woocommerce .woocommerce-checkout-review-order-table tfoot td {
+		flex: 0 1 auto;
+		padding: 14px 16px;
+	}
+
+	/* The thumbnail and the remove control share one line at the top of the
+	   row rather than taking a full-height row each. */
+	body.woocommerce table.shop_table tr.cart_item { position: relative; padding-top: 14px; }
+	body.woocommerce table.shop_table td.product-thumbnail { padding: 0 16px 10px; justify-content: flex-start; }
+	body.woocommerce table.shop_table td.product-thumbnail::before { content: ''; display: none; }
+	body.woocommerce table.shop_table td.product-thumbnail img { width: 56px; }
+
+	body.woocommerce table.shop_table td.product-remove {
+		position: absolute;
+		top: 14px;
+		right: 12px;
+		padding: 0;
+	}
+
+	body.woocommerce table.shop_table td.product-remove::before { content: ''; display: none; }
+
+	body.woocommerce table.shop_table td.actions { display: block; padding: 14px 16px; text-align: left; }
+	body.woocommerce table.shop_table td.actions::before { content: ''; display: none; }
+
+	body.woocommerce .coupon { margin-bottom: 10px; }
+	body.woocommerce .coupon input[type="text"] { flex: 1 1 100%; }
+	body.woocommerce .coupon .button,
+	body.woocommerce table.shop_table td.actions > .button { width: 100%; }
+}
+
+@media (max-width: 520px) {
+	body.woocommerce ul.products { gap: 26px 12px; }
+	body.woocommerce form.cart { gap: 10px; }
+	body.woocommerce form.cart .single_add_to_cart_button { flex: 1 1 auto; }
+	body.woocommerce .woocommerce-message .button,
+	body.woocommerce .woocommerce-info .button { margin-left: 0; width: 100%; }
+}
+
+/* ==========================================================================
+   Checkout (WooCommerce Blocks)
+
+   This site runs the block checkout, not the classic one, so the hooks are
+   wc-block-checkout__* and wc-block-components-* rather than the older
+   #customer_details / #order_review. Written against what the page actually
+   renders, having read it in the browser — the two markups share almost no
+   class names and guessing between them would have styled nothing.
+
+   The card fields inside the payment area belong to Stripe and sit in an
+   iframe. Nothing here reaches into them, and nothing here should: they are
+   styled by Stripe, and a rule that moved them would break the field rather
+   than restyle it.
+   ========================================================================== */
+
+/* The form ran edge to edge, with the first field flush against the window. */
+body.woocommerce-checkout .wc-block-checkout,
+body.woocommerce-checkout .wp-block-woocommerce-checkout {
+	max-width: var(--cc-shop-max);
+	margin: 0 auto;
+	padding: clamp(24px, 4vw, 48px) var(--cc-shop-pad);
+}
+
+body.woocommerce-checkout .wc-block-checkout__main { padding-right: clamp(0px, 3vw, 48px); }
+
+/* --- the step headings --- */
+
+body.woocommerce-checkout .wc-block-components-title,
+body.woocommerce-checkout .wc-block-components-checkout-step__title {
+	color: var(--cc-ink);
+	font-family: var(--cc-font-display);
+	font-size: 22px;
+	font-weight: 500;
+	letter-spacing: -0.01em;
+}
+
+body.woocommerce-checkout .wc-block-components-checkout-step__description {
+	color: var(--cc-quiet);
+	font-family: var(--cc-font-ui);
+	font-size: 14px;
+}
+
+/* --- fields --- */
+
+/*
+ * The [type] is load-bearing. WooCommerce styles these as
+ * `.wc-block-components-text-input input[type="text"]`, which is one class
+ * and one attribute — and beat `body .wc-block-components-text-input input`
+ * on specificity, so the radius below did nothing at all until the
+ * attribute was matched here too.
+ */
+body.woocommerce-checkout .wc-block-components-text-input input[type],
+body.woocommerce-checkout .wc-block-components-select select,
+body.woocommerce-checkout .wc-block-components-textarea {
+	border: 1px solid var(--cc-line);
+	border-radius: 8px;
+	background: #FFFFFF;
+	color: var(--cc-ink);
+	font-family: var(--cc-font-ui);
+	font-size: 15px;
+}
+
+body.woocommerce-checkout .wc-block-components-text-input input[type]:focus,
+body.woocommerce-checkout .wc-block-components-select select:focus,
+body.woocommerce-checkout .wc-block-components-textarea:focus {
+	border-color: var(--cc-green-600);
+	outline: 2px solid rgba(15, 90, 67, 0.18);
+	outline-offset: 0;
+	box-shadow: none;
+}
+
+body.woocommerce-checkout .wc-block-components-text-input label { color: var(--cc-quiet); }
+
+/* --- the order summary --- */
+
+body.woocommerce-checkout .wc-block-checkout__sidebar .wc-block-components-sidebar,
+body.woocommerce-checkout .wc-block-components-order-summary {
+	border: 1px solid var(--cc-line-soft);
+	border-radius: 14px;
+	background: var(--cc-subtle);
+}
+
+body.woocommerce-checkout .wc-block-components-order-summary__content { padding: 4px 18px; }
+
+body.woocommerce-checkout .wc-block-components-totals-item__label { color: var(--cc-body); }
+
+body.woocommerce-checkout .wc-block-components-totals-footer-item .wc-block-components-totals-item__value {
+	color: var(--cc-ink);
+	font-family: var(--cc-font-display);
+	font-size: 26px;
+}
+
+/* --- place order --- */
+
+body.woocommerce-checkout .wc-block-components-checkout-place-order-button {
+	border-radius: 8px;
+	background: var(--cc-green-600);
+	color: #FFFFFF;
+	font-family: var(--cc-font-ui);
+	font-size: 15px;
+	font-weight: 500;
+}
+
+body.woocommerce-checkout .wc-block-components-checkout-place-order-button:hover:not(:disabled) {
+	background: var(--cc-green-700);
+}
+
+body.woocommerce-checkout .wc-block-components-checkout-return-to-cart-button { color: var(--cc-green-600); }
+
+/*
+ * The express buttons — Google Pay, Amazon Pay — arrive full-bleed and
+ * shout louder than the card field most people will use. Given room to
+ * breathe and a quieter divider, not removed: for a phone they are the
+ * fastest way through.
+ */
+body.woocommerce-checkout .wp-block-woocommerce-checkout-express-payment-block {
+	padding-bottom: 8px;
+	border-bottom: 1px solid var(--cc-line-soft);
+	margin-bottom: 20px;
+}
+
+/* --- cart and checkout notices --- */
+
+body.woocommerce-checkout .wc-block-components-notice-banner {
+	border-radius: 10px;
+	font-family: var(--cc-font-ui);
+}
+
+/* --- narrow --- */
+
+@media (max-width: 1000px) {
+	body.woocommerce-checkout .wc-block-checkout__main { padding-right: 0; }
+
+	body.woocommerce-checkout .wc-block-components-totals-footer-item .wc-block-components-totals-item__value {
+		font-size: 22px;
+	}
+}

@@ -1,0 +1,9 @@
+{
+  "intelephense.stubs": [
+    "apache", "bcmath", "Core", "ctype", "curl", "date", "dom", "fileinfo",
+    "filter", "gd", "hash", "iconv", "json", "libxml", "mbstring", "mysqli",
+    "openssl", "pcre", "PDO", "Phar", "Reflection", "session", "SimpleXML",
+    "sodium", "SPL", "standard", "tokenizer", "xml", "zip", "zlib",
+    "wordpress"
+  ]
+}

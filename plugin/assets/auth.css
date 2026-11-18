@@ -1,0 +1,572 @@
+/* ==========================================================================
+   CardsCo — auth pages (login, sign up, invite, password reset)
+   Oxygen: paste into the page's CSS section, or a global stylesheet if you
+   want it on all of them.
+
+   Self-contained on purpose: it declares its own tokens so it works on a
+   page that doesn't enqueue the plugin's tokens.css. The values are the
+   same ones the dashboard uses, so nothing drifts.
+
+   Mobile first. The green panel only appears from 900px up.
+   ========================================================================== */
+
+.cc-auth {
+	--cc-green-600: #0F5A43;
+	--cc-green-700: #0C4836;
+	--cc-green-100: #EEF5F1;
+	--cc-ink:       #14231B;
+	--cc-body:      #57554F;
+	--cc-quiet:     #6F6D67;
+	--cc-faint:     #A8A6A0;
+	--cc-line:      #D1CFC9;
+	--cc-line-soft: #EBEAE6;
+	--cc-line-mid:  #E3E2DD;
+	--cc-wash:      #F8F8F6;
+	--cc-page:      #F2F2EF;
+	--cc-paper:     #FFFCF5;
+
+	--cc-font-ui:      'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+	--cc-font-display: 'EB Garamond', Georgia, 'Times New Roman', serif;
+	--cc-font-hand:    'Caveat', 'Segoe Script', cursive;
+
+	box-sizing: border-box;
+	font-family: var(--cc-font-ui);
+	color: var(--cc-ink);
+	background: #FFFFFF;
+}
+
+.cc-auth *,
+.cc-auth *::before,
+.cc-auth *::after { box-sizing: border-box; }
+
+/* --------------------------------------------------------------------------
+   0. Escaping a page builder's wrapper
+   --------------------------------------------------------------------------
+   These pages are full-bleed and set their own height. A builder that drops
+   Inner Content inside a centred section caps it at a content width and adds
+   padding, which squashes the split layout and leaves the green panel
+   floating in the middle of the page — the same thing that happened to the
+   dashboard. Rather than relying on the template being built a particular
+   way, any ancestor that directly wraps .cc-auth is flattened.
+
+   Scoped by :has(), so it only ever touches a section that actually contains
+   one of these pages. Nothing else on the site is affected. */
+
+.ct-section:has(.cc-auth),
+.ct-section-inner-wrap:has(.cc-auth),
+.ct-inner-content:has(.cc-auth),
+.ct-code-block:has(.cc-auth),
+.ct-div-block:has(.cc-auth),
+.ct-new-columns:has(.cc-auth),
+.oxy-header:has(.cc-auth),
+.entry-content:has(.cc-auth),
+.page-content:has(.cc-auth),
+.site-content:has(.cc-auth) {
+	width: 100% !important;
+	max-width: none !important;
+	padding: 0 !important;
+	margin: 0 !important;
+	border: 0 !important;
+	background: none !important;
+}
+
+.cc-auth { width: 100%; max-width: none; }
+
+/* --------------------------------------------------------------------------
+   1. Split layout — form on the left, green panel on the right
+   -------------------------------------------------------------------------- */
+
+.cc-auth-split { display: flex; flex-direction: column; min-height: 100vh; }
+
+.cc-auth-form {
+	display: flex;
+	flex-direction: column;
+	flex: 999 1 560px;
+	min-width: 0;
+	padding: clamp(20px, 5vw, 36px) clamp(20px, 6vw, 72px) clamp(24px, 4vw, 32px);
+}
+
+.cc-auth-panel { display: none; }
+
+@media (min-width: 900px) {
+	.cc-auth-split { flex-direction: row; flex-wrap: wrap; }
+
+	/* Hold the split near 58/42 rather than letting the form column soak up
+	   every spare pixel. With flex-grow 999 it was 1340px wide on a 1900px
+	   screen, with a 440px form pinned to its left edge and 800px of dead
+	   white before the green started. */
+	.cc-auth-form { flex: 0 1 58%; align-items: center; }
+
+	.cc-auth-panel {
+		display: flex;
+		flex: 0 1 42%;
+		min-width: 0;
+		align-items: center;
+		justify-content: center;
+		padding: 56px 48px;
+		background: var(--cc-green-600);
+	}
+
+	/* Logo, form and footnote share one centred column, so they stay aligned
+	   with each other however wide the window gets. */
+	.cc-auth-form > * { width: 100%; max-width: 440px; }
+	.cc-auth-form > .cc-auth-logo { align-self: auto; }
+	.cc-auth-inner { max-width: 100%; }
+
+	.cc-auth-panel .cc-panel-inner { max-width: 420px; }
+}
+
+/* --------------------------------------------------------------------------
+   2. Centred card layout — reset, check email, new password
+   -------------------------------------------------------------------------- */
+
+.cc-auth-shell {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 28px;
+	min-height: 100vh;
+	padding: clamp(28px, 6vw, 48px) clamp(20px, 5vw, 48px);
+	background: var(--cc-page);
+}
+
+.cc-auth-card {
+	width: 100%;
+	max-width: 460px;
+	padding: clamp(24px, 5vw, 40px);
+	background: #FFFFFF;
+	border: 1px solid var(--cc-line-mid);
+	border-radius: 16px;
+	box-shadow: 0 1px 3px rgba(29, 28, 26, .08), 0 1px 2px rgba(29, 28, 26, .04);
+}
+
+/* --------------------------------------------------------------------------
+   3. Masthead
+   -------------------------------------------------------------------------- */
+
+.cc-auth-logo {
+	display: inline-flex;
+	align-items: center;
+	gap: 10px;
+	align-self: flex-start;
+	text-decoration: none;
+}
+
+.cc-auth-shell .cc-auth-logo { align-self: center; }
+
+.cc-auth-logo-mark {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border-radius: 8px;
+	background: var(--cc-green-600);
+}
+
+.cc-auth-logo-text {
+	font: 600 20px/26px var(--cc-font-display);
+	letter-spacing: -.005em;
+	color: var(--cc-ink);
+}
+
+/* The real logo. Height is fixed and width follows, so a wide lockup and a
+   square mark both sit correctly without the file needing to be a set size;
+   max-width stops a very wide one crowding the form on a phone. */
+.cc-auth-logo-img {
+	display: block;
+	height: 44px;
+	width: auto;
+	max-width: 280px;
+	object-fit: contain;
+	/* An exported logo often carries transparent margin of its own, which
+	   reads as stray padding — most obviously when the lockup is centred.
+	   Nothing CSS can do about whitespace inside the file; crop it there. */
+	object-position: left center;
+}
+
+.cc-auth-shell .cc-auth-logo-img { object-position: center; }
+
+/* --------------------------------------------------------------------------
+   4. Headings and copy
+   -------------------------------------------------------------------------- */
+
+/* On a phone the column is not tall enough to centre anything, so the form
+   ends up sitting right under the logo. The top gap is set separately and
+   larger, and only shrinks back once there is height to centre within. */
+.cc-auth-main {
+	display: flex;
+	flex: 1 1 auto;
+	align-items: center;
+	padding: 44px 0 clamp(28px, 5vw, 48px);
+}
+
+@media (min-width: 900px) {
+	.cc-auth-main { padding-top: clamp(28px, 5vw, 48px); }
+}
+
+.cc-auth-inner { width: 100%; max-width: 440px; }
+
+.cc-auth h1 {
+	margin: 0 0 8px;
+	font: 400 clamp(26px, 4vw, 34px) / 1.18 var(--cc-font-display);
+	letter-spacing: -.005em;
+	color: var(--cc-ink);
+}
+
+.cc-auth-card h1 { font-size: clamp(24px, 4vw, 28px); }
+
+.cc-auth-lede {
+	margin: 0 0 clamp(24px, 4vw, 32px);
+	font: 400 clamp(15px, 1.6vw, 16px) / 1.5 var(--cc-font-ui);
+	color: var(--cc-body);
+}
+
+.cc-auth-foot {
+	margin: 28px 0 0;
+	font: 400 14px/20px var(--cc-font-ui);
+	color: var(--cc-body);
+}
+
+.cc-auth-foot--ruled { padding-top: 20px; border-top: 1px solid var(--cc-line-soft); }
+
+.cc-auth-smallprint {
+	margin: 0;
+	font: 400 12px/18px var(--cc-font-ui);
+	color: var(--cc-quiet);
+}
+
+.cc-auth a { color: var(--cc-green-600); }
+.cc-auth a:hover { color: var(--cc-green-700); }
+
+/* --------------------------------------------------------------------------
+   5. Fields
+   -------------------------------------------------------------------------- */
+
+.cc-auth-fields { display: flex; flex-direction: column; gap: 20px; }
+
+.cc-field { display: flex; flex-direction: column; gap: 6px; }
+
+.cc-field-row {
+	display: flex;
+	align-items: baseline;
+	justify-content: space-between;
+	gap: 12px;
+}
+
+/* "Forgotten it?" sits beside the field's label and belongs at the same
+   size. Without this it inherits 16px from the body and outweighs the thing
+   it is captioning. */
+.cc-field-row a {
+	font: 400 13px/18px var(--cc-font-ui);
+}
+
+.cc-label {
+	font: 500 13px/18px var(--cc-font-ui);
+	color: var(--cc-ink);
+}
+
+.cc-hint {
+	margin: 2px 0 0;
+	font: 400 12px/16px var(--cc-font-ui);
+	color: var(--cc-quiet);
+}
+
+.cc-input {
+	width: 100%;
+	height: 48px;
+	padding: 0 14px;
+	border: 1px solid var(--cc-line);
+	border-radius: 8px;
+	background: #FFFFFF;
+	font: 400 16px/24px var(--cc-font-ui);   /* 16px stops iOS zooming on focus */
+	color: var(--cc-ink);
+}
+
+.cc-input::placeholder { color: var(--cc-faint); }
+
+.cc-input:focus {
+	outline: none;
+	border-color: var(--cc-green-600);
+	box-shadow: 0 0 0 3px rgba(15, 90, 67, .18);
+}
+
+.cc-input[readonly] { background: var(--cc-page); color: var(--cc-body); }
+
+/* Two fields side by side, stacking under 420px of available width. */
+.cc-field-pair { display: flex; flex-wrap: wrap; gap: 16px; }
+.cc-field-pair > * { flex: 1 1 170px; min-width: 0; }
+
+/* Password + reveal */
+.cc-password { position: relative; }
+.cc-password .cc-input { padding-right: 68px; }
+
+.cc-reveal {
+	position: absolute;
+	top: 0;
+	right: 0;
+	height: 48px;
+	padding: 0 14px;
+	border: 0;
+	background: none;
+	cursor: pointer;
+	font: 500 13px/18px var(--cc-font-ui);
+	color: var(--cc-quiet);
+}
+
+.cc-reveal:hover { color: var(--cc-ink); }
+
+.cc-check {
+	display: flex;
+	align-items: flex-start;
+	gap: 10px;
+	font: 400 14px/20px var(--cc-font-ui);
+	color: var(--cc-body);
+	cursor: pointer;
+}
+
+.cc-check input {
+	flex: none;
+	width: 18px;
+	height: 18px;
+	margin: 1px 0 0;
+	accent-color: var(--cc-green-600);
+}
+
+/* --------------------------------------------------------------------------
+   6. Buttons — 48px tall, comfortably over the 44px touch target
+   -------------------------------------------------------------------------- */
+
+.cc-btn,
+.cc-btn-ghost {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	height: 48px;
+	border-radius: 12px;
+	font: 600 16px/24px var(--cc-font-ui);
+	text-decoration: none;
+	cursor: pointer;
+}
+
+/* A button that is an <a> has to out-rank the link colour above.
+   `.cc-auth a` is (0,1,1) and a bare `.cc-btn` only (0,1,0), so the link
+   colour won and the label came out green on green — an apparently empty
+   button. Naming the element alongside the class settles it. */
+.cc-btn,
+.cc-auth a.cc-btn,
+.cc-auth a.cc-btn:hover { border: 0; background: var(--cc-green-600); color: #FFFFFF; }
+.cc-btn:hover { background: var(--cc-green-700); color: #FFFFFF; }
+.cc-auth a.cc-btn:hover { background: var(--cc-green-700); }
+
+.cc-btn-ghost,
+.cc-auth a.cc-btn-ghost,
+.cc-auth a.cc-btn-ghost:hover { border: 1px solid var(--cc-line); background: #FFFFFF; color: var(--cc-ink); font-size: 15px; }
+.cc-btn-ghost:hover { background: var(--cc-wash); }
+.cc-auth a.cc-btn-ghost:hover { background: var(--cc-wash); }
+.cc-btn-ghost:disabled { background: var(--cc-wash); color: var(--cc-quiet); cursor: default; }
+
+/* --------------------------------------------------------------------------
+   7. The green panel
+   -------------------------------------------------------------------------- */
+
+.cc-panel-inner { width: 100%; max-width: 380px; }
+
+.cc-panel-title {
+	margin: 0 0 10px;
+	font: 400 26px/34px var(--cc-font-display);
+	color: #FFFFFF;
+}
+
+.cc-panel-copy {
+	margin: 0;
+	font: 400 15px/24px var(--cc-font-ui);
+	color: rgba(255, 255, 255, .82);
+}
+
+/* The tilted card mock */
+.cc-cardmock { position: relative; height: 300px; margin-bottom: 40px; }
+
+.cc-cardmock-back {
+	position: absolute;
+	left: 34px;
+	top: 34px;
+	width: 290px;
+	height: 206px;
+	border-radius: 10px;
+	background: var(--cc-green-700);
+	transform: rotate(-7deg);
+}
+
+.cc-cardmock-front {
+	position: absolute;
+	left: 18px;
+	top: 16px;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	width: 290px;
+	height: 206px;
+	padding: 26px 28px;
+	border-radius: 10px;
+	background: var(--cc-paper);
+	box-shadow: 0 12px 32px rgba(0, 0, 0, .22);
+	transform: rotate(-3deg);
+}
+
+.cc-cardmock-front p { margin: 0; font-family: var(--cc-font-hand); }
+.cc-cardmock-msg  { font: 400 26px/32px var(--cc-font-hand); color: var(--cc-ink); }
+.cc-cardmock-sign { font: 400 20px/26px var(--cc-font-hand); color: var(--cc-body); }
+
+/* Numbered steps */
+.cc-steps { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 24px; }
+.cc-step { display: flex; gap: 16px; }
+
+.cc-step-n {
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 30px;
+	height: 30px;
+	border-radius: 9999px;
+	background: rgba(255, 255, 255, .16);
+	font: 600 14px/20px var(--cc-font-ui);
+	color: #FFFFFF;
+}
+
+.cc-step-title { display: block; font: 600 15px/22px var(--cc-font-ui); color: #FFFFFF; }
+.cc-step-copy  { display: block; font: 400 14px/22px var(--cc-font-ui); color: rgba(255, 255, 255, .78); }
+
+/* --------------------------------------------------------------------------
+   8. Odds and ends
+   -------------------------------------------------------------------------- */
+
+.cc-pill {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	margin-bottom: 20px;
+	padding: 6px 12px;
+	border-radius: 9999px;
+	background: var(--cc-green-100);
+	font: 500 13px/18px var(--cc-font-ui);
+	color: var(--cc-green-600);
+}
+
+.cc-note {
+	padding: 16px;
+	border-radius: 12px;
+	background: var(--cc-wash);
+}
+
+.cc-note-title { margin: 0 0 6px; font: 500 13px/18px var(--cc-font-ui); color: var(--cc-ink); }
+.cc-note-copy  { margin: 0; font: 400 13px/20px var(--cc-font-ui); color: var(--cc-body); }
+
+/* The red error strip the PHP prints above the form on a failed submit. */
+.cc-alert {
+	margin: 0 0 20px;
+	padding: 12px 14px;
+	border: 1px solid #F3C7C1;
+	border-radius: 8px;
+	background: #FDEEEC;
+	font: 400 14px/20px var(--cc-font-ui);
+	color: #C2362B;
+}
+
+/* --------------------------------------------------------------------------
+   9. The confirmation screens
+   -------------------------------------------------------------------------- */
+
+.cc-auth-card--centred { text-align: center; }
+.cc-auth-card--centred .cc-auth-fields { text-align: left; }
+
+.cc-auth-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 56px;
+	height: 56px;
+	margin-bottom: 20px;
+	border-radius: 9999px;
+	background: var(--cc-green-100);
+}
+
+/* --------------------------------------------------------------------------
+   10. The two password rules
+   -------------------------------------------------------------------------- */
+
+.cc-rules {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	margin: 0;
+	padding: 14px 16px;
+	list-style: none;
+	border-radius: 12px;
+	background: var(--cc-wash);
+}
+
+.cc-rule {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	font: 400 13px/18px var(--cc-font-ui);
+	color: var(--cc-body);
+}
+
+/* Met and unmet differ in lightness as well as colour, so the state does not
+   rest on hue alone. */
+.cc-rule.is-met { color: #17663A; }
+
+.cc-rule-mark {
+	flex: none;
+	width: 16px;
+	height: 16px;
+	border: 2px solid var(--cc-faint);
+	border-radius: 9999px;
+}
+
+.cc-rule.is-met .cc-rule-mark {
+	border-color: #1E7F46;
+	background: #1E7F46 no-repeat center;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+}
+
+/* --------------------------------------------------------------------------
+   11. The invitation panel
+   -------------------------------------------------------------------------- */
+
+.cc-ticks { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 20px; }
+
+.cc-ticks li {
+	position: relative;
+	padding-left: 34px;
+	font: 400 15px/23px var(--cc-font-ui);
+	color: rgba(255, 255, 255, .88);
+}
+
+.cc-ticks li::before {
+	content: "";
+	position: absolute;
+	left: 0;
+	top: 1px;
+	width: 20px;
+	height: 20px;
+	background: no-repeat center / 20px 20px;
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+}
+
+.cc-panel-note {
+	margin: 28px 0 0;
+	padding-top: 24px;
+	border-top: 1px solid rgba(255, 255, 255, .2);
+	font: 400 14px/22px var(--cc-font-ui);
+	color: rgba(255, 255, 255, .72);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.cc-auth * { transition: none !important; animation: none !important; }
+}
