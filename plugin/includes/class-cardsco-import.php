@@ -779,6 +779,24 @@ class CardsCo_Import {
 				$seen_emails[ $lower ] = $record['line'];
 			}
 
+			/*
+			 * The same rules the commit will apply, asked here rather than
+			 * discovered there. The review screen used to count a row like
+			 * this as ready and say nothing was wrong with it, and then the
+			 * commit refused it: the row was counted as an error afterwards,
+			 * with no line number and no reason, so somebody importing a
+			 * staff list was told it was all fine and then quietly ended up
+			 * with fewer people than the file had. Checked through the same
+			 * validator the recipient functions use, so the two cannot
+			 * disagree about what is allowed.
+			 */
+			$valid = CardsCo_Validator::recipient( $recipient );
+
+			if ( is_wp_error( $valid ) ) {
+				self::add_error( $report, $record['line'], $valid->get_error_message(), $name );
+				continue;
+			}
+
 			$existing = self::find_existing( $company_id, $recipient, $hash );
 
 			if ( $existing ) {

@@ -61,8 +61,17 @@ class CardsCo_Queue {
 		global $wpdb;
 
 		$company_id = absint( $data['company_id'] ?? 0 );
+		$source     = in_array( $data['source'] ?? '', array( 'occasion', 'campaign', 'order', 'manual' ), true ) ? $data['source'] : 'occasion';
 
-		if ( ! $company_id ) {
+		/*
+		 * A card bought on the site may have nobody behind it: somebody can
+		 * buy one without an account, and they are invited to make one only
+		 * after they have paid. The card still has to be written, so an
+		 * order is the one source allowed through without a company. Every
+		 * other source comes from a company's own occasions, campaigns or
+		 * staff, so a missing company there is a bug and stays refused.
+		 */
+		if ( ! $company_id && 'order' !== $source ) {
 			return new WP_Error( 'cardsco_queue_company', __( 'A company is required.', 'cardsco' ) );
 		}
 
@@ -75,7 +84,7 @@ class CardsCo_Queue {
 
 		$row = array(
 			'company_id'        => $company_id,
-			'source'            => in_array( $data['source'] ?? '', array( 'occasion', 'campaign', 'order', 'manual' ), true ) ? $data['source'] : 'occasion',
+			'source'            => $source,
 			'occasion_id'       => $occasion_id ? $occasion_id : null,
 			'campaign_id'       => ! empty( $data['campaign_id'] ) ? absint( $data['campaign_id'] ) : null,
 			'order_id'          => ! empty( $data['order_id'] ) ? absint( $data['order_id'] ) : null,

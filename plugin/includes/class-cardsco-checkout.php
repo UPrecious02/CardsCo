@@ -31,6 +31,12 @@ class CardsCo_Checkout {
 	/** Set on an order once its occasion has been turned on, so it is not done twice. */
 	const ACTIVATED = '_cardsco_activated';
 
+	/** The campaign a basket line is paying for. */
+	const CAMPAIGN = '_cardsco_campaign_id';
+
+	/** Set on an order once its campaign has been scheduled. */
+	const SCHEDULED = '_cardsco_scheduled';
+
 	/**
 	 * Hook into WooCommerce.
 	 *
@@ -47,6 +53,9 @@ class CardsCo_Checkout {
 		 */
 		add_action( 'woocommerce_order_status_processing', array( __CLASS__, 'paid' ) );
 		add_action( 'woocommerce_order_status_completed', array( __CLASS__, 'paid' ) );
+		add_action( 'woocommerce_order_status_processing', array( __CLASS__, 'campaign_paid' ) );
+		add_action( 'woocommerce_order_status_completed', array( __CLASS__, 'campaign_paid' ) );
+		add_action( 'woocommerce_thankyou', array( __CLASS__, 'after_paying' ), 5 );
 	}
 
 	/**
@@ -132,13 +141,27 @@ class CardsCo_Checkout {
 		 */
 		self::forget( (int) $programme['id'] );
 
-		$added = WC()->cart->add_to_cart(
-			$product_id,
-			$quantity,
-			0,
-			array(),
-			array( self::PROGRAMME => (int) $programme['id'] )
-		);
+		/*
+		 * Ours, so the shop's guard against buying a bare card lets it by.
+		 * Cleared straight after, whatever happens, so nothing later in the
+		 * request inherits the exemption.
+		 */
+		/* The cap is cleared here, for this product, at the moment it counts. */
+		CardsCo_Catalogue::ensure_uncapped( $product_id );
+
+		CardsCo_Shop::adding_ours( true );
+
+		try {
+			$added = WC()->cart->add_to_cart(
+				$product_id,
+				$quantity,
+				0,
+				array(),
+				array( self::PROGRAMME => (int) $programme['id'] )
+			);
+		} finally {
+			CardsCo_Shop::adding_ours( false );
+		}
 
 		if ( ! $added ) {
 			return new WP_Error( 'cardsco_not_added', __( 'Those cards could not be added to the basket.', 'cardsco' ) );
@@ -147,6 +170,227 @@ class CardsCo_Checkout {
 		self::prefill_billing( $programme );
 
 		return wc_get_checkout_url();
+	}
+
+	/**
+	 * Say what the payment did, and give them a way back.
+	 *
+	 * WooCommerce's order-received page is a receipt: it says an order was
+	 * received and stops there. Somebody who has just turned on an
+	 * occasion or scheduled a campaign is left on a page about a purchase,
+	 * in the same tab their dashboard was in, with no sign of what
+	 * happened to the thing they were setting up and no link back to it.
+	 *
+	 * Opening the checkout in a new tab would be the other way to solve
+	 * it, and a worse one: popup blockers eat it, card payments redirect
+	 * away and back, and on a phone a second tab is somewhere people lose
+	 * things rather than somewhere they return from. The page they land on
+	 * should simply know where they came from.
+	 *
+	 * @param int $order_id The order just paid for.
+	 * @return void
+	 */
+	public static function after_paying( $order_id ) {
+		$order = function_exists( 'wc_get_order' ) ? wc_get_order( $order_id ) : null;
+
+		if ( ! $order ) {
+			return;
+		}
+
+		$programme_id = self::linked_id( $order, self::PROGRAMME );
+		$campaign_id  = self::linked_id( $order, self::CAMPAIGN );
+
+		if ( ! $programme_id && ! $campaign_id ) {
+			return;
+		}
+
+		/*
+		 * There is always somewhere to go. If no portal page has reported
+		 * its address yet — nobody has opened one since this version went
+		 * on — the site's front page still beats a dead end.
+		 */
+		$dash = CardsCo_Shortcodes::page_for( 'cardsco_dashboard' );
+		$dash = $dash ? $dash : home_url( '/' );
+
+		if ( $programme_id ) {
+			$programme = CardsCo_Programme::get( $programme_id );
+			$on        = $programme && 'active' === $programme['status'];
+			$title     = $on
+				? __( 'Your occasion is on', 'cardsco' )
+				: __( 'Thank you — we are setting your occasion up', 'cardsco' );
+			$blurb = $on
+				? __( 'We will write and post every card from now on. You can change anything at any time.', 'cardsco' )
+				: __( 'Payment went through. If anything is still needed we will be in touch.', 'cardsco' );
+			$back  = CardsCo_Shortcodes::page_for( 'cardsco_occasions' );
+			$label = $back ? __( 'Back to your occasions', 'cardsco' ) : '';
+		} else {
+			$campaign = CardsCo_Campaign::get( $campaign_id );
+			$on       = $campaign && 'draft' !== $campaign['status'];
+			$title    = $on
+				? __( 'Your campaign is scheduled', 'cardsco' )
+				: __( 'Thank you — we are scheduling your campaign', 'cardsco' );
+			$blurb = $on && $campaign && ! empty( $campaign['send_date'] )
+				? sprintf(
+					/* translators: %s: the date the cards arrive. */
+					__( 'The cards are written by hand and arrive on %s.', 'cardsco' ),
+					date_i18n( get_option( 'date_format' ), strtotime( $campaign['send_date'] ) )
+				)
+				: __( 'Payment went through. If anything is still needed we will be in touch.', 'cardsco' );
+			$back  = CardsCo_Shortcodes::page_for( 'cardsco_campaigns' );
+			$label = $back ? __( 'Back to your campaigns', 'cardsco' ) : '';
+		}
+
+		include CARDSCO_PATH . 'includes/front/partial-paid.php';
+	}
+
+	/**
+	 * Put a campaign in the basket and hand back the checkout.
+	 *
+	 * The same shape as an occasion: the campaign's id rides on the basket
+	 * line, survives into the order, and the scheduling happens on the back
+	 * of the payment rather than here.
+	 *
+	 * @param array $campaign The campaign being paid for.
+	 * @return string|WP_Error The checkout URL.
+	 */
+	public static function start_campaign( array $campaign ) {
+		if ( ! self::available() ) {
+			return new WP_Error( 'cardsco_no_shop', __( 'The shop is not available right now. Try again shortly.', 'cardsco' ) );
+		}
+
+		$card_id = (int) $campaign['card_id'];
+
+		if ( ! $card_id ) {
+			return new WP_Error( 'cardsco_no_card', __( 'Pick a card before paying.', 'cardsco' ) );
+		}
+
+		$quantity = (int) $campaign['recipient_count'];
+
+		if ( $quantity < 1 ) {
+			return new WP_Error( 'cardsco_no_people', __( 'There is nobody on this campaign yet.', 'cardsco' ) );
+		}
+
+		$product_id = CardsCo_Catalogue::product_for_card( $card_id );
+
+		if ( ! $product_id ) {
+			$made = CardsCo_Catalogue::sync( $card_id );
+
+			if ( ! is_wp_error( $made ) ) {
+				$product_id = (int) $made;
+			}
+		}
+
+		if ( ! $product_id ) {
+			return new WP_Error( 'cardsco_no_product', __( 'That card cannot be bought at the moment. Pick another, or tell us.', 'cardsco' ) );
+		}
+
+		if ( is_null( WC()->cart ) ) {
+			return new WP_Error( 'cardsco_no_cart', __( 'The basket is not ready. Try again shortly.', 'cardsco' ) );
+		}
+
+		/*
+		 * Anything already in the basket for this same campaign goes first,
+		 * or somebody who goes to pay, comes back and goes again is charged
+		 * for the send twice.
+		 */
+		self::forget_campaign( (int) $campaign['id'] );
+
+		/* The cap is cleared here, for this product, at the moment it counts. */
+		CardsCo_Catalogue::ensure_uncapped( $product_id );
+
+		CardsCo_Shop::adding_ours( true );
+
+		try {
+			$added = WC()->cart->add_to_cart(
+				$product_id,
+				$quantity,
+				0,
+				array(),
+				array( self::CAMPAIGN => (int) $campaign['id'] )
+			);
+		} finally {
+			CardsCo_Shop::adding_ours( false );
+		}
+
+		if ( ! $added ) {
+			return new WP_Error( 'cardsco_not_added', __( 'Those cards could not be added to the basket.', 'cardsco' ) );
+		}
+
+		self::prefill_billing_for_company( (int) $campaign['company_id'] );
+
+		return wc_get_checkout_url();
+	}
+
+	/**
+	 * Take a campaign's cards back out of the basket.
+	 *
+	 * @param int $campaign_id The campaign.
+	 * @return void
+	 */
+	public static function forget_campaign( $campaign_id ) {
+		if ( ! self::available() || is_null( WC()->cart ) ) {
+			return;
+		}
+
+		foreach ( WC()->cart->get_cart() as $key => $line ) {
+			if ( isset( $line[ self::CAMPAIGN ] ) && (int) $line[ self::CAMPAIGN ] === (int) $campaign_id ) {
+				WC()->cart->remove_cart_item( $key );
+			}
+		}
+	}
+
+	/**
+	 * Schedule a campaign once its order is paid.
+	 *
+	 * @param int $order_id The order.
+	 * @return void
+	 */
+	public static function campaign_paid( $order_id ) {
+		$order = function_exists( 'wc_get_order' ) ? wc_get_order( $order_id ) : null;
+
+		if ( ! $order || $order->get_meta( self::SCHEDULED ) ) {
+			return;
+		}
+
+		$campaign_id = self::linked_id( $order, self::CAMPAIGN );
+
+		if ( ! $campaign_id ) {
+			return;
+		}
+
+		$campaign = CardsCo_Campaign::get( $campaign_id );
+
+		if ( ! $campaign ) {
+			return;
+		}
+
+		if ( 'draft' !== $campaign['status'] ) {
+			$order->update_meta_data( self::SCHEDULED, 1 );
+			$order->save();
+			return;
+		}
+
+		$done = CardsCo_Campaign::schedule( $campaign_id );
+
+		/*
+		 * The money is already taken, so a refusal cannot go back to
+		 * anybody standing in front of a form. It goes on the order, where
+		 * whoever fulfils it will see it.
+		 */
+		if ( is_wp_error( $done ) ) {
+			$order->add_order_note(
+				sprintf(
+					/* translators: %s: why it could not be scheduled. */
+					__( 'CardsCo: paid, but the campaign could not be scheduled — %s', 'cardsco' ),
+					$done->get_error_message()
+				)
+			);
+			$order->save();
+			return;
+		}
+
+		$order->update_meta_data( self::SCHEDULED, 1 );
+		$order->save();
 	}
 
 	/**
@@ -167,11 +411,41 @@ class CardsCo_Checkout {
 	 * @return void
 	 */
 	public static function prefill_billing( array $programme ) {
+		/*
+		 * The address the cards are posted to, but only when they go to the
+		 * company itself. On an occasion that posts to each person's home
+		 * there is no single address, and none of those are the buyer's.
+		 */
+		$fallback = array();
+
+		if ( 'company' === $programme['shipping_mode'] ) {
+			$fallback = array(
+				'lines'    => (string) $programme['ship_address'],
+				'postcode' => (string) $programme['ship_postcode'],
+				'country'  => (string) $programme['ship_country'],
+			);
+		}
+
+		self::prefill_billing_for_company( (int) $programme['company_id'], $fallback );
+	}
+
+	/**
+	 * The same, for a company on its own.
+	 *
+	 * A campaign has no shipping address of its own — its cards go to the
+	 * people on it — so it passes no fallback and fills in from the
+	 * company's billing address or not at all.
+	 *
+	 * @param int   $company_id The company paying.
+	 * @param array $fallback   An address to use when the company has saved none.
+	 * @return void
+	 */
+	public static function prefill_billing_for_company( $company_id, array $fallback = array() ) {
 		if ( ! is_user_logged_in() || is_null( WC()->customer ) ) {
 			return;
 		}
 
-		$company_id = (int) $programme['company_id'];
+		$company_id = (int) $company_id;
 
 		/* Belt and braces: only ever this person's own company. */
 		if ( ! $company_id || $company_id !== (int) cardsco_get_user_company_id( get_current_user_id() ) ) {
@@ -197,22 +471,17 @@ class CardsCo_Checkout {
 			return '';
 		};
 
-		/*
-		 * The company's own billing address if somebody has set one. If not,
-		 * the address the cards are posted to — but only when they go to the
-		 * company itself. On an occasion that posts to each person's home
-		 * there is no single address, and none of those are the buyer's.
-		 */
+		/* The company's own billing address if somebody has set one. */
 		$lines    = array_pad( array(), 5, '' );
 		$postcode = '';
 		$country  = '';
 
 		if ( '' !== trim( (string) $company['billing_address'] ) ) {
 			$lines = array_slice( array_pad( explode( "\n", (string) $company['billing_address'] ), 5, '' ), 0, 5 );
-		} elseif ( 'company' === $programme['shipping_mode'] ) {
-			$lines    = array_slice( array_pad( explode( "\n", (string) $programme['ship_address'] ), 5, '' ), 0, 5 );
-			$postcode = (string) $programme['ship_postcode'];
-			$country  = (string) $programme['ship_country'];
+		} elseif ( ! empty( $fallback['lines'] ) ) {
+			$lines    = array_slice( array_pad( explode( "\n", (string) $fallback['lines'] ), 5, '' ), 0, 5 );
+			$postcode = (string) ( $fallback['postcode'] ?? '' );
+			$country  = (string) ( $fallback['country'] ?? '' );
 		}
 
 		$name  = $pick( $company['billing_name'], $company['contact_name'], $user->display_name );
@@ -320,6 +589,43 @@ class CardsCo_Checkout {
 		if ( isset( $line[ self::PROGRAMME ] ) ) {
 			$item->add_meta_data( self::PROGRAMME, (int) $line[ self::PROGRAMME ], true );
 		}
+
+		if ( isset( $line[ self::CAMPAIGN ] ) ) {
+			$item->add_meta_data( self::CAMPAIGN, (int) $line[ self::CAMPAIGN ], true );
+		}
+
+		/*
+		 * Whose order this is, written here because this hook fires on both
+		 * checkouts.
+		 *
+		 * It was only ever set in keep_on_order(), on
+		 * woocommerce_checkout_create_order, which the block checkout — the
+		 * one this shop uses — never fires. The Orders screen finds a
+		 * company's orders by this one piece of meta, so every bulk order
+		 * placed through the shop was invisible to the company that placed
+		 * it: paid for, fulfilled, and absent from their own list.
+		 *
+		 * Same shape as the campaign meta beside it, and the same reason:
+		 * the only hooks worth relying on here are the ones the Store API
+		 * calls too.
+		 */
+		if ( ! is_object( $order ) || ! method_exists( $order, 'update_meta_data' ) ) {
+			return;
+		}
+
+		if ( (int) $order->get_meta( '_cardsco_company_id' ) ) {
+			return;
+		}
+
+		$company_id = (int) CardsCo_Access::company_id();
+
+		if ( ! $company_id && method_exists( $order, 'get_customer_id' ) ) {
+			$company_id = (int) cardsco_get_user_company_id( (int) $order->get_customer_id() );
+		}
+
+		if ( $company_id ) {
+			$order->update_meta_data( '_cardsco_company_id', $company_id );
+		}
 	}
 
 	/**
@@ -347,9 +653,61 @@ class CardsCo_Checkout {
 		foreach ( WC()->cart->get_cart() as $line ) {
 			if ( ! empty( $line[ self::PROGRAMME ] ) ) {
 				$order->update_meta_data( self::PROGRAMME, (int) $line[ self::PROGRAMME ] );
-				break;
+			}
+
+			if ( ! empty( $line[ self::CAMPAIGN ] ) ) {
+				$order->update_meta_data( self::CAMPAIGN, (int) $line[ self::CAMPAIGN ] );
 			}
 		}
+	}
+
+	/**
+	 * The occasion or campaign an order is paying for.
+	 *
+	 * Looks at the order first, then at its lines. The order-level note is
+	 * written by woocommerce_checkout_create_order, which the block
+	 * checkout — the one this shop actually uses — never fires: its Store
+	 * API builds the order itself and calls WooCommerce's line-item code
+	 * directly, so the line meta arrives and the order meta does not.
+	 *
+	 * Reading both means it does not matter which checkout took the money.
+	 * Before this, an order placed through the block checkout carried the
+	 * campaign on its line and nothing on the order, so the campaign was
+	 * paid for and never scheduled, and the occasion paid for and never
+	 * turned on, with nothing to say why.
+	 *
+	 * @param object $order WC_Order.
+	 * @param string $key   Which meta to look for.
+	 * @return int
+	 */
+	protected static function linked_id( $order, $key ) {
+		$id = (int) $order->get_meta( $key );
+
+		if ( $id ) {
+			return $id;
+		}
+
+		if ( ! method_exists( $order, 'get_items' ) ) {
+			return 0;
+		}
+
+		foreach ( $order->get_items() as $item ) {
+			if ( ! is_object( $item ) || ! method_exists( $item, 'get_meta' ) ) {
+				continue;
+			}
+
+			$id = (int) $item->get_meta( $key );
+
+			if ( $id ) {
+				/* Put it where it should have been, so later reads are cheap. */
+				$order->update_meta_data( $key, $id );
+				$order->save();
+
+				return $id;
+			}
+		}
+
+		return 0;
 	}
 
 	/**
@@ -370,7 +728,7 @@ class CardsCo_Checkout {
 			return;
 		}
 
-		$programme_id = (int) $order->get_meta( self::PROGRAMME );
+		$programme_id = self::linked_id( $order, self::PROGRAMME );
 
 		if ( ! $programme_id ) {
 			return;
@@ -382,9 +740,34 @@ class CardsCo_Checkout {
 			return;
 		}
 
-		if ( 'active' === $programme['status'] ) {
+		/*
+		 * A recurring occasion is bought a year at a time, so a payment
+		 * against one already running is the next year — not a duplicate
+		 * to be ignored. This returned early on any active programme,
+		 * which would have taken a renewal payment and moved the renewal
+		 * date not one day.
+		 */
+		if ( in_array( (string) $programme['status'], array( 'active', 'paused' ), true ) ) {
+			CardsCo_Renewal::paid( $programme_id );
+
 			$order->update_meta_data( self::ACTIVATED, 1 );
+			$order->add_order_note( __( 'CardsCo: renewed for another year.', 'cardsco' ) );
 			$order->save();
+
+			cardsco_log(
+				array(
+					'company_id'  => (int) $programme['company_id'],
+					'object_type' => 'programme',
+					'object_id'   => $programme_id,
+					'action'      => 'programme_renewed',
+					'summary'     => sprintf(
+						/* translators: %s: an order number. */
+						__( 'Renewed on order %s', 'cardsco' ),
+						$order->get_order_number()
+					),
+				)
+			);
+
 			return;
 		}
 
@@ -406,6 +789,9 @@ class CardsCo_Checkout {
 			$order->save();
 			return;
 		}
+
+		/* The first payment is what starts the year running. */
+		CardsCo_Renewal::paid( $programme_id );
 
 		$order->update_meta_data( self::ACTIVATED, 1 );
 		$order->add_order_note( __( 'CardsCo: the occasion is now running.', 'cardsco' ) );

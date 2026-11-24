@@ -19,13 +19,44 @@ class CardsCo_Programme_Import {
 	 *
 	 * @return array<string, string[]>
 	 */
-	public static function columns() {
+	public static function columns( $occasion_label = '' ) {
+		/*
+		 * The occasion names its own date column.
+		 *
+		 * The template offered on the step heads that column with the
+		 * occasion's label — "Welcome", "Thank You" — and the mapper did
+		 * not know those words, so a file made from our own template came
+		 * back with every date missing and nobody told you why.
+		 */
+		$dates = array( 'birthday', 'date of birth', 'dob', 'birth date', 'date', 'anniversary', 'start date' );
+
+		if ( '' !== (string) $occasion_label ) {
+			array_unshift( $dates, strtolower( (string) $occasion_label ) );
+			$dates[] = strtolower( (string) $occasion_label ) . ' date';
+		}
+
 		return array(
 			'first_name' => array( 'first name', 'firstname', 'first', 'forename', 'given name' ),
 			'last_name'  => array( 'last name', 'lastname', 'last', 'surname', 'family name' ),
 			'full_name'  => array( 'name', 'full name', 'employee name', 'person' ),
-			'date'       => array( 'birthday', 'date of birth', 'dob', 'birth date', 'date', 'anniversary', 'start date' ),
+			'date'       => $dates,
 			'email'      => array( 'email', 'e-mail', 'email address' ),
+
+			/*
+			 * Where the card goes, when the cards go to people rather than
+			 * to one office. These were not read at all, so a list uploaded
+			 * with addresses on it lost them without a word, and step 5
+			 * then had nothing to show.
+			 *
+			 * Three address lines because that is what the recipient form
+			 * holds and what a UK address usually needs; anything beyond
+			 * them is joined on.
+			 */
+			'address_1'  => array( 'address', 'address 1', 'address line 1', 'address1', 'street', 'street address' ),
+			'address_2'  => array( 'address 2', 'address line 2', 'address2' ),
+			'address_3'  => array( 'address 3', 'address line 3', 'address3', 'town', 'city' ),
+			'postcode'   => array( 'postcode', 'post code', 'postal code', 'zip', 'zip code' ),
+			'country'    => array( 'country' ),
 		);
 	}
 
@@ -73,11 +104,31 @@ class CardsCo_Programme_Import {
 			return new WP_Error( 'cardsco_import_programme', __( 'That occasion could not be found.', 'cardsco' ) );
 		}
 
+		$path = self::stash( $file );
+
+		if ( is_wp_error( $path ) ) {
+			return $path;
+		}
+
+		return self::read_file( $programme_id, $path );
+	}
+
+	/**
+	 * Take an uploaded file off the request and put it somewhere readable.
+	 *
+	 * Separate from run() because campaigns need the same checks: that there
+	 * really was an upload, that it is a CSV and not a spreadsheet somebody
+	 * renamed, and that it lands somewhere the reader can open.
+	 *
+	 * @param array $file One entry from $_FILES.
+	 * @return string|WP_Error Absolute path to the saved file.
+	 */
+	public static function stash( array $file ) {
 		if ( empty( $file['tmp_name'] ) || ! is_uploaded_file( $file['tmp_name'] ) ) {
 			return new WP_Error( 'cardsco_import_upload', __( 'No file was uploaded.', 'cardsco' ) );
 		}
 
-		$extension = strtolower( pathinfo( sanitize_file_name( $file['name'] ), PATHINFO_EXTENSION ) );
+		$extension = strtolower( pathinfo( sanitize_file_name( $file['name'] ?? '' ), PATHINFO_EXTENSION ) );
 
 		if ( ! in_array( $extension, array( 'csv', 'txt', 'tsv' ), true ) ) {
 			return new WP_Error(
@@ -98,7 +149,7 @@ class CardsCo_Programme_Import {
 			return new WP_Error( 'cardsco_import_move', __( 'The file could not be saved.', 'cardsco' ) );
 		}
 
-		return self::read_file( $programme_id, $path );
+		return $path;
 	}
 
 	/**
@@ -120,6 +171,64 @@ class CardsCo_Programme_Import {
 			return new WP_Error( 'cardsco_import_programme', __( 'That occasion could not be found.', 'cardsco' ) );
 		}
 
+		$company_id = (int) $programme['company_id'];
+
+		$read = self::read_into_company(
+			$company_id,
+			CardsCo_Category::primary_type( $programme['category'], $company_id ),
+			CardsCo_Category::get( $programme['category'] )['audience'] ?? 'both',
+			$path,
+			$delete
+		);
+
+		if ( is_wp_error( $read ) ) {
+			return $read;
+		}
+
+		CardsCo_Programme::add_recipients( $programme_id, $read['recipient_ids'] );
+
+		/*
+		 * How many of the file's people are on the occasion now.
+		 *
+		 * "Added" counts people created in the company's books and
+		 * "matched" counts people who were already in them, which is a
+		 * distinction about records rather than about this occasion. A
+		 * file of six people who all already existed reported "0 people
+		 * added", which reads as nothing having happened when in fact
+		 * six are on the occasion.
+		 */
+		$read['summary']['on_occasion'] = count( array_unique( $read['recipient_ids'] ) );
+
+		return $read['summary'];
+	}
+
+	/**
+	 * Read a list into a company's people, without binding it to anything.
+	 *
+	 * The reading is the same wherever the file comes from: the same columns,
+	 * the same way of settling whether 03/04 is March or April, the same
+	 * matching of somebody already on the books. What differs is what the
+	 * people are wanted for, so that is left to the caller — an occasion adds
+	 * them to itself, a campaign ticks them on its audience.
+	 *
+	 * Split out when campaigns needed it. Writing a second reader would have
+	 * meant two ideas of how to read a date, and the one in a quieter corner
+	 * would have been the one that got it wrong.
+	 *
+	 * @param int        $company_id Company the people belong to.
+	 * @param array|null $type       Occasion type to date them against, if any.
+	 * @param string     $audience   'employee', 'customer' or 'both'.
+	 * @param string     $path       Absolute path to a readable CSV.
+	 * @param bool       $delete     Remove the file afterwards.
+	 * @return array{summary: array, recipient_ids: int[]}|WP_Error
+	 */
+	public static function read_into_company( $company_id, $type, $audience, $path, $delete = true ) {
+		$company_id = (int) $company_id;
+
+		if ( ! $company_id ) {
+			return new WP_Error( 'cardsco_import_company', __( 'That company could not be found.', 'cardsco' ) );
+		}
+
 		$csv    = new CardsCo_CSV( $path );
 		$opened = $csv->open();
 
@@ -131,7 +240,7 @@ class CardsCo_Programme_Import {
 			return $opened;
 		}
 
-		$map = self::map_headers( $csv->headers() );
+		$map = self::map_headers( $csv->headers(), is_array( $type ) ? (string) $type["label"] : "" );
 
 		if ( empty( $map['first_name'] ) && empty( $map['full_name'] ) ) {
 			if ( $delete ) {
@@ -144,9 +253,6 @@ class CardsCo_Programme_Import {
 			);
 		}
 
-		$company_id = (int) $programme['company_id'];
-		$type       = CardsCo_Category::primary_type( $programme['category'], $company_id );
-		$audience   = CardsCo_Category::get( $programme['category'] )['audience'] ?? 'both';
 		$recipient_type = in_array( $audience, array( 'customer', 'employee' ), true ) ? $audience : 'customer';
 
 		// Read the dates across the whole file before reading any single one,
@@ -157,6 +263,7 @@ class CardsCo_Programme_Import {
 			'total'        => 0,
 			'added'        => 0,
 			'matched'      => 0,
+			'addressed'    => 0,
 			'with_date'    => 0,
 			'missing_date' => 0,
 			'problems'     => array(),
@@ -188,11 +295,62 @@ class CardsCo_Programme_Import {
 			$email = isset( $map['email'] ) ? sanitize_email( (string) ( $data[ $map['email'] ] ?? '' ) ) : '';
 			$email = is_email( $email ) ? $email : '';
 
+			/*
+			 * The address, where the file carries one. Lines are joined
+			 * with newlines because that is how the recipient holds an
+			 * address and how a writer copies it onto an envelope.
+			 */
+			$lines = array();
+
+			foreach ( array( 'address_1', 'address_2', 'address_3' ) as $cardsco_part ) {
+				if ( ! isset( $map[ $cardsco_part ] ) ) {
+					continue;
+				}
+
+				$line = trim( (string) ( $data[ $map[ $cardsco_part ] ] ?? '' ) );
+
+				if ( '' !== $line ) {
+					$lines[] = $line;
+				}
+			}
+
+			$address  = implode( "\n", $lines );
+			$postcode = isset( $map['postcode'] ) ? trim( (string) ( $data[ $map['postcode'] ] ?? '' ) ) : '';
+			$country  = isset( $map['country'] ) ? trim( (string) ( $data[ $map['country'] ] ?? '' ) ) : '';
+
+			if ( '' !== $address || '' !== $postcode ) {
+				$summary['addressed']++;
+			}
+
 			$existing = self::find_person( $company_id, $email, $first, $last );
 
 			if ( $existing ) {
 				$recipient_id = (int) $existing;
 				$summary['matched']++;
+
+				/*
+				 * Somebody already here gets the address the file brings,
+				 * but an empty column never wipes what is on file: a list
+				 * uploaded for the dates should not clear addresses
+				 * somebody typed in by hand.
+				 */
+				$fill = array();
+
+				if ( '' !== $address ) {
+					$fill['address'] = $address;
+				}
+
+				if ( '' !== $postcode ) {
+					$fill['postcode'] = $postcode;
+				}
+
+				if ( '' !== $country ) {
+					$fill['country'] = $country;
+				}
+
+				if ( $fill ) {
+					CardsCo_Recipient::update( $recipient_id, $fill );
+				}
 			} else {
 				$created = CardsCo_Recipient::create(
 					array(
@@ -201,6 +359,9 @@ class CardsCo_Programme_Import {
 						'first_name'      => $first,
 						'last_name'       => $last,
 						'email'           => $email,
+						'address'         => $address,
+						'postcode'        => $postcode,
+						'country'         => $country,
 						'source'          => 'import',
 						'allow_duplicate' => true,
 					)
@@ -255,8 +416,6 @@ class CardsCo_Programme_Import {
 			$summary['with_date']++;
 		}
 
-		CardsCo_Programme::add_recipients( $programme_id, $recipient_ids );
-
 		// The file holds names, so it does not stay on the server.
 		if ( $delete ) {
 			wp_delete_file( $path );
@@ -266,7 +425,10 @@ class CardsCo_Programme_Import {
 		$summary['problem_count'] = count( $summary['problems'] );
 		$summary['problems']      = array_slice( $summary['problems'], 0, 20 );
 
-		return $summary;
+		return array(
+			'summary'       => $summary,
+			'recipient_ids' => $recipient_ids,
+		);
 	}
 
 	/**
@@ -326,11 +488,11 @@ class CardsCo_Programme_Import {
 	 * @param string[] $headers Column names.
 	 * @return array<string, string> Field mapped to header.
 	 */
-	public static function map_headers( array $headers ) {
+	public static function map_headers( array $headers, $occasion_label = '' ) {
 		$map   = array();
 		$taken = array();
 
-		foreach ( self::columns() as $field => $aliases ) {
+		foreach ( self::columns( $occasion_label ) as $field => $aliases ) {
 			$aliases = array_map( array( 'CardsCo_Import', 'normalise' ), $aliases );
 
 			foreach ( $headers as $header ) {

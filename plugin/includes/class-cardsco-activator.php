@@ -21,6 +21,23 @@ class CardsCo_Activator {
 
 		self::seed_occasion_types();
 		CardsCo_Category::backfill();
+
+		/*
+		 * The client's ready-written messages, which are what the card
+		 * writer offers as starting points.
+		 *
+		 * These used to arrive only if somebody found a notice on the
+		 * WordPress Messages screen and pressed the button on it. Nothing
+		 * anywhere told them to, so on a fresh install the writer opened
+		 * on "start from one of ours" above an empty space where the
+		 * starting points should have been. seed() skips anything already
+		 * there, so running it here costs nothing on an install that has
+		 * them; the notice stays for a library somebody has emptied.
+		 */
+		if ( class_exists( 'CardsCo_Message' ) ) {
+			CardsCo_Message::seed();
+		}
+
 		self::schedule_events();
 
 		if ( ! get_option( 'cardsco_installed_at' ) ) {
@@ -55,15 +72,71 @@ class CardsCo_Activator {
 	}
 
 	/**
+	 * The occasions the approved designs call for, and only those.
+	 *
+	 * The design names its occasions in the card catalogue's filter row,
+	 * and the counts there settle that the list is the whole list:
+	 * Birthday 8, Work anniversary 5, Thank you 9, Christmas 6, Eid 3,
+	 * Diwali 2, New starter 3, Congratulations 4, New Year 2 — which is
+	 * the "All 42" the same row shows. Customer Anniversary is the tenth,
+	 * named in the Customer Milestones blurb on the setup screen ("New
+	 * customer welcomes and client anniversaries") rather than as a
+	 * filter of its own, and Promotions & Offers the eleventh, which has
+	 * a card on that screen and nine messages in the client's own
+	 * "Prompts for the occasion".
+	 *
+	 * An earlier seed carried thirteen more that read like reasonable
+	 * additions — Easter, Halloween, Valentine's Day, Get Well Soon and
+	 * so on. No design file or client document mentions any of them.
+	 * They are retired by
+	 * CardsCo_Occasion_Type::retire_unspecified(), which is careful about
+	 * the ones a company may already be using.
+	 *
+	 * Moveable dates (Eid, Diwali) are marked requires_annual_date rather
+	 * than given a fixed month and day, so staff confirm the date each
+	 * year instead of the plugin calculating it wrongly.
+	 *
+	 * Columns: slug, label, mode, recurrence, month, day, needs a date
+	 * each year, who it applies to.
+	 *
+	 * @return array[]
+	 */
+	public static function designed_types() {
+		return array(
+			// Dated: the date belongs to the recipient.
+			array( 'birthday', 'Birthday', 'dated', 'annual', null, null, 0, 'both' ),
+			array( 'work-anniversary', 'Work Anniversary', 'dated', 'annual', null, null, 0, 'employee' ),
+			array( 'customer-anniversary', 'Customer Anniversary', 'dated', 'annual', null, null, 0, 'customer' ),
+			array( 'welcome', 'Welcome', 'dated', 'once', null, null, 0, 'customer' ),
+			array( 'thank-you', 'Thank You', 'dated', 'once', null, null, 0, 'both' ),
+			array( 'congratulations', 'Congratulations', 'dated', 'once', null, null, 0, 'both' ),
+
+			/*
+			 * Offers and follow-ups. Not in the catalogue filter, but the
+			 * setup screen has a Promotions & Offers card and the client's
+			 * own "Prompts for the occasion" supplies nine messages for it,
+			 * every one of them an offer to a customer ("Offer — refer a
+			 * friend"). It was seeded as an employee occasion, which read
+			 * as a staff promotion and left those nine messages with no
+			 * audience that could ever use them.
+			 */
+			array( 'promotion', 'Promotions & Offers', 'dated', 'once', null, null, 0, 'customer' ),
+
+			// Seasonal: one date for everyone.
+			array( 'new-year', 'New Year', 'seasonal', 'annual', 1, 1, 0, 'both' ),
+			array( 'eid-al-fitr', 'Eid al-Fitr', 'seasonal', 'annual', null, null, 1, 'both' ),
+			array( 'diwali', 'Diwali', 'seasonal', 'annual', null, null, 1, 'both' ),
+			array( 'christmas', 'Christmas', 'seasonal', 'annual', 12, 25, 0, 'both' ),
+		);
+	}
+
+	/**
 	 * Seed the shared occasion library.
 	 *
 	 * These are global types (company 0) available to every company. Companies
-	 * can add their own, which is what the client's "other seasonal or
-	 * corporate occasions" wording requires.
-	 *
-	 * Moveable dates (Easter, Eid, Diwali, Mothering Sunday) are marked
-	 * requires_annual_date rather than given a fixed month and day, so staff
-	 * confirm the date each year instead of the plugin calculating it wrongly.
+	 * can still add their own, which is what the client's "other seasonal or
+	 * corporate occasions" wording requires — that is the route for anything
+	 * outside the designed list, rather than shipping it to everybody.
 	 *
 	 * @return void
 	 */
@@ -73,35 +146,7 @@ class CardsCo_Activator {
 		$table = cardsco_table( 'occasion_types' );
 		$lead  = (int) CardsCo_Settings::get( 'default_lead_days' );
 
-		$types = array(
-			// Dated: the date belongs to the recipient.
-			array( 'birthday', 'Birthday', 'dated', 'annual', null, null, 0, 'both' ),
-			array( 'work-anniversary', 'Work Anniversary', 'dated', 'annual', null, null, 0, 'employee' ),
-			array( 'customer-anniversary', 'Customer Anniversary', 'dated', 'annual', null, null, 0, 'customer' ),
-			array( 'welcome', 'Welcome', 'dated', 'once', null, null, 0, 'customer' ),
-			array( 'thank-you', 'Thank You', 'dated', 'once', null, null, 0, 'both' ),
-			array( 'congratulations', 'Congratulations', 'dated', 'once', null, null, 0, 'both' ),
-			array( 'promotion', 'Promotion', 'dated', 'once', null, null, 0, 'employee' ),
-			array( 'new-baby', 'New Baby', 'dated', 'once', null, null, 0, 'both' ),
-			array( 'wedding', 'Wedding', 'dated', 'once', null, null, 0, 'both' ),
-			array( 'new-home', 'New Home', 'dated', 'once', null, null, 0, 'both' ),
-			array( 'retirement', 'Retirement', 'dated', 'once', null, null, 0, 'employee' ),
-			array( 'get-well', 'Get Well Soon', 'dated', 'once', null, null, 0, 'both' ),
-			array( 'condolence', 'With Sympathy', 'dated', 'once', null, null, 0, 'both' ),
-
-			// Seasonal: one date for everyone.
-			array( 'new-year', 'New Year', 'seasonal', 'annual', 1, 1, 0, 'both' ),
-			array( 'valentines-day', "Valentine's Day", 'seasonal', 'annual', 2, 14, 0, 'both' ),
-			array( 'international-womens-day', "International Women's Day", 'seasonal', 'annual', 3, 8, 0, 'both' ),
-			array( 'mothering-sunday', 'Mothering Sunday', 'seasonal', 'annual', null, null, 1, 'both' ),
-			array( 'easter', 'Easter', 'seasonal', 'annual', null, null, 1, 'both' ),
-			array( 'eid-al-fitr', 'Eid al-Fitr', 'seasonal', 'annual', null, null, 1, 'both' ),
-			array( 'fathers-day', "Father's Day", 'seasonal', 'annual', null, null, 1, 'both' ),
-			array( 'diwali', 'Diwali', 'seasonal', 'annual', null, null, 1, 'both' ),
-			array( 'halloween', 'Halloween', 'seasonal', 'annual', 10, 31, 0, 'both' ),
-			array( 'thanksgiving', 'Thanksgiving', 'seasonal', 'annual', null, null, 1, 'both' ),
-			array( 'christmas', 'Christmas', 'seasonal', 'annual', 12, 25, 0, 'both' ),
-		);
+		$types = self::designed_types();
 
 		$sort = 0;
 

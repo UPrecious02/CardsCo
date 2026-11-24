@@ -86,6 +86,32 @@ window.CardsCo.add( function () {
 		return ( text.value + signature ).length;
 	}
 
+	/*
+	 * The card shows what that person will actually get.
+	 *
+	 * The first render is merged on the server, but every repaint after a
+	 * keystroke used the raw text — so the moment anybody typed, the card
+	 * under "Previewed for Zara" went back to reading "{first name}". A
+	 * tag with no value behind it is left standing, which is the same
+	 * thing the server does and the same thing that holds a card back.
+	 */
+	var sample = {};
+
+	try {
+		sample = JSON.parse( form.getAttribute( 'data-cc-sample' ) || '{}' ) || {};
+	} catch ( e ) {
+		sample = {};
+	}
+
+	function preview( value ) {
+		return String( value ).replace( /\{\s*([a-z][a-z ._-]*)\s*\}/gi, function ( whole, name ) {
+			var key = name.trim().toLowerCase().replace( /[\s-]+/g, '_' );
+			var val = Object.prototype.hasOwnProperty.call( sample, key ) ? sample[ key ] : '';
+
+			return ( '' === val || null === val || undefined === val ) ? whole : val;
+		} );
+	}
+
 	function paint() {
 		var value = text.value;
 		var has   = '' !== value.trim();
@@ -98,7 +124,7 @@ window.CardsCo.add( function () {
 		   rather than innerHTML, so a message is never markup. */
 		if ( hand ) {
 			hand.textContent = '';
-			value.split( /\r?\n/ ).forEach( function ( line ) {
+			preview( value ).split( /\r?\n/ ).forEach( function ( line ) {
 				if ( ! line.trim() ) { return; }
 				var p = document.createElement( 'p' );
 				p.textContent = line;
@@ -168,6 +194,40 @@ window.CardsCo.add( function () {
 			text.focus();
 			/* Caret to the end, so typing carries on rather than overwriting. */
 			text.setSelectionRange( text.value.length, text.value.length );
+		} );
+	} );
+
+	/*
+	 * The merge tags. These go in where the caret is rather than replacing
+	 * what is there, because a tag belongs inside a sentence somebody has
+	 * already started writing.
+	 */
+	form.querySelectorAll( '[data-cc-insert]' ).forEach( function ( chip ) {
+		chip.addEventListener( 'click', function () {
+			var tag = chip.getAttribute( 'data-cc-insert' ) || '';
+			if ( ! tag ) { return; }
+
+			var start = text.selectionStart;
+			var end   = text.selectionEnd;
+
+			/* No caret yet — clicking a chip before typing puts it at the end. */
+			if ( null === start || undefined === start ) {
+				start = text.value.length;
+				end   = start;
+			}
+
+			var before = text.value.slice( 0, start );
+			var after  = text.value.slice( end );
+
+			/* A space in front, unless there is one already or we are at the start. */
+			var lead = ( before && ! /\s$/.test( before ) ) ? ' ' : '';
+
+			text.value = before + lead + tag + after;
+			paint();
+			text.focus();
+
+			var at = ( before + lead + tag ).length;
+			text.setSelectionRange( at, at );
 		} );
 	} );
 

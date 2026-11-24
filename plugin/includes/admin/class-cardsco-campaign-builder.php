@@ -39,7 +39,8 @@ class CardsCo_Campaign_Builder {
 	 * @return void
 	 */
 	public function render( CardsCo_Admin $admin ) {
-		$company_id  = $admin->current_company();
+		/* Every company until one is chosen; an open campaign sets its own. */
+		$company_id  = $admin->viewing_company();
 		$campaign_id = absint( $_GET['campaign'] ?? 0 );
 		$campaign    = $campaign_id ? CardsCo_Campaign::get( $campaign_id ) : null;
 

@@ -87,4 +87,10 @@ $cc_first = CardsCo_Send::first_name( $sent[0]['to'] );
 			</form>
 		</div>
 	<?php endif; ?>
+
+	<p class="cc-sent-go">
+		<a class="cc-btn cc-btn-quiet" href="<?php echo esc_url( home_url( '/' ) ); ?>">
+			<?php esc_html_e( 'Back to CardsCo', 'cardsco' ); ?>
+		</a>
+	</p>
 </section>

@@ -57,7 +57,8 @@ window.CardsCo.add( function () {
 		{ name: 'shipping_mode', item: '.cc-ship-mode', on: 'is-on' },
 		{ name: 'return_mode', item: '.cc-radio', on: 'is-on' },
 		{ name: 'timing_mode', item: '.cc-opt', on: 'is-on' },
-		{ name: 'occasion_type_id', item: '.cc-tim-chip', on: 'is-on' }
+		{ name: 'occasion_type_id', item: '.cc-tim-chip', on: 'is-on' },
+		{ name: 'how', item: '.cc-up-ask-one', on: 'is-on' }
 	];
 
 	function closest( el, selector ) {
@@ -121,14 +122,30 @@ window.CardsCo.add( function () {
 					}
 				}
 
-				/* Step 5 only asks for an address when the batch goes to one
-				   place. */
+				/* Step 5 asks for one address when the batch goes to one
+				   place, and for everybody's when it does not.
+
+				   Only the company panel was switched here. The per-person
+				   boxes and the address upload are rendered switched off,
+				   and nothing ever switched them back on, so choosing
+				   "individual addresses" took the one panel away and put
+				   nothing in its place: an empty screen with no way to
+				   enter an address at all. */
 				if ( group.name === 'shipping_mode' ) {
-					var panel = document.querySelector( '.cc-ship-panel' );
+					var toOnePlace = input.value === 'company';
+					var panel      = document.querySelector( '.cc-ship-panel' );
 
 					if ( panel ) {
-						panel.classList.toggle( 'is-off', input.value !== 'company' );
+						panel.classList.toggle( 'is-off', ! toOnePlace );
 					}
+
+					[ '.cc-each', '.cc-each-up' ].forEach( function ( sel ) {
+						var each = document.querySelector( sel );
+
+						if ( each ) {
+							each.classList.toggle( 'is-off', toOnePlace );
+						}
+					} );
 				}
 
 				/* A different return address is only worth asking for when
@@ -164,25 +181,29 @@ window.CardsCo.add( function () {
 window.CardsCo.add( function () {
 	'use strict';
 
-	var form  = document.getElementById( 'ccUpload' );
-	if ( ! form ) { return; }
+	/* Every upload on the page, not the first: the control is a partial
+	   now and more than one screen carries it. */
+	var forms = document.querySelectorAll( '.cc-up-file' );
+	if ( ! forms.length ) { return; }
 
-	var input = form.querySelector( '[data-cc-up-input]' );
-	var name  = form.querySelector( '[data-cc-up-name]' );
-	var meta  = form.querySelector( '[data-cc-up-meta]' );
+	Array.prototype.forEach.call( forms, function ( form ) {
+		var input = form.querySelector( '[data-cc-up-input]' );
+		var name  = form.querySelector( '[data-cc-up-name]' );
+		var meta  = form.querySelector( '[data-cc-up-meta]' );
 
-	if ( ! input ) { return; }
+		if ( ! input ) { return; }
 
-	input.addEventListener( 'change', function () {
-		if ( ! input.files || ! input.files.length ) { return; }
+		input.addEventListener( 'change', function () {
+			if ( ! input.files || ! input.files.length ) { return; }
 
-		var file = input.files[0];
+			var file = input.files[0];
 
-		/* Say what is happening before the page goes, so a large file does
-		   not look like a dead click. */
-		if ( name ) { name.textContent = file.name; }
-		if ( meta ) { meta.textContent = 'Reading your file…'; }
+			/* Say what is happening before the page goes, so a large file
+			   does not look like a dead click. */
+			if ( name ) { name.textContent = file.name; }
+			if ( meta ) { meta.textContent = 'Reading your file…'; }
 
-		form.submit();
+			form.submit();
+		} );
 	} );
 } );

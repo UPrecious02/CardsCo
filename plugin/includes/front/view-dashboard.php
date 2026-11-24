@@ -34,7 +34,41 @@ $cc = 'CardsCo_Shortcodes';
 	?>
 
 	<header class="cc-page-head">
-		<h1 class="cc-page-title"><?php esc_html_e( 'Your Dashboard', 'cardsco' ); ?></h1>
+		<?php
+		/*
+		 * Greets whoever is reading rather than naming the screen they are
+		 * already looking at. Falls back through what is actually known:
+		 * their first name, then the company's, then a plain welcome — so
+		 * it never renders "Welcome back," with a gap after the comma.
+		 */
+		$cc_who  = trim( (string) wp_get_current_user()->first_name );
+		$cc_firm = CardsCo_Company::get( (int) CardsCo_Access::company_id() );
+		$cc_firm = $cc_firm ? trim( (string) $cc_firm['name'] ) : '';
+		$cc_name = $cc_who ? $cc_who : $cc_firm;
+
+		$cc_hour  = (int) current_time( 'G' );
+		$cc_greet = __( 'Good evening', 'cardsco' );
+
+		if ( $cc_hour < 12 ) {
+			$cc_greet = __( 'Good morning', 'cardsco' );
+		} elseif ( $cc_hour < 18 ) {
+			$cc_greet = __( 'Good afternoon', 'cardsco' );
+		}
+		?>
+		<h1 class="cc-page-title">
+			<?php
+			if ( $cc_name ) {
+				printf(
+					/* translators: 1: Good morning/afternoon/evening, 2: the person or company's name. */
+					esc_html__( '%1$s, %2$s', 'cardsco' ),
+					esc_html( $cc_greet ),
+					esc_html( $cc_name )
+				);
+			} else {
+				echo esc_html( $cc_greet );
+			}
+			?>
+		</h1>
 		<p class="cc-page-sub">
 			<?php
 			printf(
@@ -68,8 +102,34 @@ $cc = 'CardsCo_Shortcodes';
 			<p class="cc-notice-body"><?php esc_html_e( 'These will not go out until they are sorted.', 'cardsco' ); ?></p>
 			<ul class="cc-notice-list">
 				<?php foreach ( $held as $cc_card ) : ?>
+					<?php
+					/*
+					 * The queue keeps the recipient's name as it was when the
+					 * card was lined up, and a row can reach here without one
+					 * — somebody uploaded with an email and no name, or the
+					 * card was queued by a path that did not carry it. The
+					 * row then rendered as an empty span above the reason,
+					 * so the panel said five cards needed attention and gave
+					 * no way to tell which five.
+					 *
+					 * The occasion and its date are already on the row, so
+					 * they stand in: it still identifies the card.
+					 */
+					$cc_who = trim( (string) $cc_card['recipient_name'] );
+
+					if ( '' === $cc_who ) {
+						$cc_when = $cc_card['event_date'] ? mysql2date( get_option( 'date_format' ), $cc_card['event_date'] ) : '';
+						$cc_who  = trim( (string) $cc_card['occasion_label'] );
+						$cc_who  = $cc_when ? trim( $cc_who . ' · ' . $cc_when, ' ·' ) : $cc_who;
+					}
+
+					if ( '' === $cc_who ) {
+						/* translators: %d: the card's own number. */
+						$cc_who = sprintf( __( 'Card %d', 'cardsco' ), (int) $cc_card['id'] );
+					}
+					?>
 					<li>
-						<span class="cc-notice-who"><?php echo esc_html( $cc_card['recipient_name'] ); ?></span>
+						<span class="cc-notice-who"><?php echo esc_html( $cc_who ); ?></span>
 						<span class="cc-notice-why"><?php echo esc_html( call_user_func( array( $cc, 'hold_reason' ), $cc_card['hold_reason'] ) ); ?></span>
 					</li>
 				<?php endforeach; ?>

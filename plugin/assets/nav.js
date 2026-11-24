@@ -291,4 +291,144 @@
 	document.addEventListener( 'keydown', function ( e ) {
 		if ( 'Escape' === e.key ) { shut( null ); }
 	} );
+
+	/*
+	 * The bell on the phone's top bar.
+	 *
+	 * Opens a panel that says nothing is waiting. There is nothing to
+	 * count yet, so it counts nothing and says so — a button that
+	 * answers honestly rather than one that does nothing at all.
+	 */
+	document.addEventListener( 'click', function ( e ) {
+		var btn = e.target.closest ? e.target.closest( '[data-cc-bell]' ) : null;
+		var all = document.querySelectorAll( '[data-cc-bell]' );
+
+		Array.prototype.forEach.call( all, function ( other ) {
+			if ( other === btn ) { return; }
+
+			var p = document.getElementById( other.getAttribute( 'aria-controls' ) );
+			if ( p ) { p.hidden = true; }
+			other.setAttribute( 'aria-expanded', 'false' );
+		} );
+
+		if ( ! btn ) { return; }
+
+		e.preventDefault();
+
+		var panel = document.getElementById( btn.getAttribute( 'aria-controls' ) );
+		if ( ! panel ) { return; }
+
+		var show = panel.hidden;
+		panel.hidden = ! show;
+		btn.setAttribute( 'aria-expanded', show ? 'true' : 'false' );
+	} );
+
+	document.addEventListener( 'keydown', function ( e ) {
+		if ( 'Escape' !== e.key ) { return; }
+
+		Array.prototype.forEach.call( document.querySelectorAll( '[data-cc-bell]' ), function ( btn ) {
+			var panel = document.getElementById( btn.getAttribute( 'aria-controls' ) );
+			if ( panel ) { panel.hidden = true; }
+			btn.setAttribute( 'aria-expanded', 'false' );
+		} );
+	} );
+
+	/*
+	 * How tall the bottom tab bar actually is.
+	 *
+	 * The stylesheet needs this to keep the end of a page clear of the
+	 * bar, and it cannot measure. It was a number copied from the design
+	 * instead — 64 against a bar that renders at 67 — and three pixels
+	 * was enough to put Settings' "Save changes" underneath it. Measured
+	 * here, the clearance follows the bar wherever the type takes it.
+	 *
+	 * The height is only written when the bar is actually on screen; the
+	 * stylesheet's own fallback covers everything else.
+	 */
+	function tabsHeight() {
+		var bar = document.querySelector( '.cc-mtabs' );
+		var h   = bar ? bar.getBoundingClientRect().height : 0;
+
+		if ( h > 0 ) {
+			document.documentElement.style.setProperty( '--cc-tabs-h', Math.ceil( h ) + 'px' );
+		} else {
+			document.documentElement.style.removeProperty( '--cc-tabs-h' );
+		}
+	}
+
+	tabsHeight();
+	window.addEventListener( 'resize', tabsHeight );
+	window.addEventListener( 'orientationchange', tabsHeight );
+
+	/* Web fonts land after first paint and can change the bar's height. */
+	if ( document.fonts && document.fonts.ready && document.fonts.ready.then ) {
+		document.fonts.ready.then( tabsHeight );
+	}
+
+	/*
+	 * Don't lose a half-typed answer on the way out of a step.
+	 *
+	 * Both wizards put their step list, "Save and exit" and the back link
+	 * in the header — outside the form. They are ordinary links, so
+	 * clicking one after changing a field throws the change away without
+	 * a word, and the next screen shows the old value. Change the arrival
+	 * date, click Review in the step list, and the review says the date
+	 * you were trying to replace.
+	 *
+	 * Continue and the footer's own Save and exit are submits, so they
+	 * clear the flag before anything unloads and never prompt. What is
+	 * left is the case that loses work: leaving by a link, the browser's
+	 * back button, or closing the tab.
+	 */
+	( function () {
+		var form = document.querySelector( '.cc-wz form, form.cc-wz-form' );
+
+		if ( ! form ) {
+			return;
+		}
+
+		var dirty = false;
+
+		form.addEventListener( 'input', function () { dirty = true; } );
+		form.addEventListener( 'change', function () { dirty = true; } );
+		form.addEventListener( 'submit', function () { dirty = false; } );
+
+		window.addEventListener( 'beforeunload', function ( e ) {
+			if ( ! dirty ) {
+				return;
+			}
+
+			/* Browsers show their own wording and ignore ours; both of
+			   these are needed for all of them to show anything at all. */
+			e.preventDefault();
+			e.returnValue = '';
+			return '';
+		} );
+	}() );
+
+	/*
+	 * The wizard's step list on a phone.
+	 *
+	 * The seven chips are folded away under one line saying where you are;
+	 * this opens them so a finished step can still be jumped back to. A
+	 * class rather than the hidden attribute, because the same list is on
+	 * screen unconditionally above 720 and hidden="" would take it away
+	 * there too.
+	 *
+	 * Stays wired at every width: the stylesheet decides whether any of it
+	 * is visible, so there is no breakpoint to keep in step here.
+	 */
+	document.addEventListener( 'click', function ( e ) {
+		var btn = e.target.closest ? e.target.closest( '[data-cc-steps]' ) : null;
+		if ( ! btn ) { return; }
+
+		var list = document.getElementById( btn.getAttribute( 'aria-controls' ) );
+		if ( ! list ) { return; }
+
+		e.preventDefault();
+
+		var open = ! list.classList.contains( 'is-open' );
+		list.classList.toggle( 'is-open', open );
+		btn.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
+	} );
 }() );

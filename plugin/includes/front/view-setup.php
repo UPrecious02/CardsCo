@@ -34,7 +34,9 @@ $cc = 'CardsCo_Shortcodes';
 			<span class="cc-wz-saved"><?php echo esc_html( $finished ? __( 'Occasion · on', 'cardsco' ) : $rail['saved'] ); ?></span>
 		</div>
 
-		<ol class="cc-wz-steps">
+		<?php require __DIR__ . '/part-wz-progress.php'; ?>
+
+		<ol class="cc-wz-steps" id="ccWzSteps">
 			<?php foreach ( $steps as $cc_n => $cc_step ) : ?>
 				<?php
 				$cc_done  = $finished || CardsCo_Setup::done( $programme, $cc_n );

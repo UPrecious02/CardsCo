@@ -181,8 +181,14 @@ class CardsCo_Segment {
 		global $wpdb;
 
 		$table  = cardsco_table( 'segments' );
-		$sql    = "SELECT * FROM {$table} WHERE company_id = %d";
-		$params = array( absint( $company_id ) );
+		/*
+		 * A company of 0 means every company. The admin's listing screens
+		 * default to showing them all, and a WHERE that insists on one
+		 * would answer that with nothing at all.
+		 */
+		$company_id = absint( $company_id );
+		$sql        = $company_id ? "SELECT * FROM {$table} WHERE company_id = %d" : "SELECT * FROM {$table} WHERE 1 = %d";
+		$params     = array( $company_id ? $company_id : 1 );
 
 		if ( $applies_to && 'any' !== $applies_to ) {
 			$sql     .= ' AND applies_to IN (%s, %s)';

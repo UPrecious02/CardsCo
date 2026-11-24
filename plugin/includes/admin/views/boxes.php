@@ -32,6 +32,19 @@ $labels = array(
 
 	<div class="cardsco-bar">
 		<?php $admin->company_switcher( $company_id, CardsCo_Fulfilment::PAGE ); ?>
+
+		<?php
+		/*
+		 * WordPress runs its scheduled work when somebody loads a page, so
+		 * on a quiet site a day's cards can sit unqueued until the next
+		 * visitor turns up. This forces it.
+		 */
+		?>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline-block;margin-left:12px">
+			<?php wp_nonce_field( CardsCo_Admin::NONCE ); ?>
+			<input type="hidden" name="action" value="cardsco_run_scan" />
+			<button type="submit" class="button"><?php esc_html_e( 'Run the scan now', 'cardsco' ); ?></button>
+		</form>
 	</div>
 
 	<?php if ( empty( $boxes ) ) : ?>

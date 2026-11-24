@@ -162,12 +162,24 @@
 	border-radius: 12px;
 	background: #F6F6F3;
 	overflow: hidden;
+
+	/* Room for the card's shadow, which the well would otherwise clip. */
+	padding: 12px;
 }
 
 .cc-cat-art img {
 	display: block;
-	max-width: 58%;
-	max-height: 74%;
+
+	/*
+	 * As large as the well allows. These were held to 58% by 74%, which
+	 * left every design floating in a field of grey — and because the
+	 * cards are a mix of portrait and landscape, the smaller ones looked
+	 * smaller still. Filling on both axes lets each one take whichever
+	 * edge its own shape reaches first: a portrait card fills the height,
+	 * a landscape one fills the width, and neither is cropped.
+	 */
+	max-width: 100%;
+	max-height: 100%;
 	width: auto;
 	height: auto;
 	border-radius: 6px;
@@ -175,8 +187,8 @@
 }
 
 .cc-cat-art-blank {
-	width: 58%;
-	height: 74%;
+	width: 100%;
+	height: 100%;
 	border-radius: 6px;
 	background: #E6E6E1;
 }
@@ -287,9 +299,57 @@
 	.cc-cat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 12px; }
 	.cc-cat-head { align-items: flex-start; }
 	.cc-cat-count { order: -1; }
-	/* No hover on a touch screen, so the actions stay put. */
-	.cc-cat-actions { position: static; opacity: 1; margin-top: 8px; }
-	.cc-cat-art { align-items: flex-start; padding-top: 16px; }
+	/*
+	 * No hover on a phone, so the actions have to be on the page rather
+	 * than waiting for a pointer. Taking them out of position: absolute
+	 * dropped them into the art well's own flex row, because that is
+	 * where they sit in the markup — so a 189px pair of buttons was laid
+	 * out beside the card inside a 139px tile, which squeezed the card
+	 * to a sliver and pushed "Use this card" off the right edge.
+	 *
+	 * The well becomes a column at this width instead: card on top,
+	 * buttons underneath, both inside it. Nothing overflows and nothing
+	 * sits on top of the artwork.
+	 */
+	.cc-cat-art {
+		flex-direction: column;
+		align-items: center;
+		justify-content: flex-start;
+		aspect-ratio: auto;
+		padding: 16px 12px 12px;
+	}
+
+	/*
+	 * The well no longer has a fixed aspect ratio at this width, so the
+	 * percentage heights these carry resolve against nothing and the
+	 * card collapsed to no height at all. Both get a shape of their own.
+	 */
+	.cc-cat-art img {
+		max-width: 100%;
+		max-height: 190px;
+	}
+
+	.cc-cat-art-blank {
+		width: auto;
+		height: 190px;
+		aspect-ratio: 5 / 7;
+	}
+
+	.cc-cat-actions {
+		position: static;
+		opacity: 1;
+		width: 100%;
+		margin-top: 12px;
+		flex-wrap: wrap;
+	}
+
+	/* Share the row, and take a line each when they cannot. */
+	.cc-cat-preview,
+	.cc-cat-use {
+		flex: 1 1 auto;
+		justify-content: center;
+		padding: 7px 8px;
+	}
 }
 
 @media (hover: none) { .cc-cat-actions { opacity: 1; } }
@@ -821,7 +881,20 @@ a.cc-coll-card:focus-visible {
 	font-size: 12px;
 }
 
-.cc-send .cc-opt { color: var(--cc-line, #D1CFC9); }
+/*
+ * Named cc-send-opt, not cc-opt. The dashboard already uses .cc-opt for
+ * a bordered, selectable option card, and both stylesheets load on this
+ * page — so this little "Optional" beside a label was drawn as one of
+ * those cards: a second empty box under every optional field, which
+ * looked like a broken form rather than a clash of names.
+ */
+.cc-send .cc-send-opt {
+	font-size: var(--cc-caption-size);
+	font-weight: var(--cc-weight-regular);
+	letter-spacing: normal;
+	text-transform: none;
+	color: var(--cc-text-tertiary);
+}
 
 .cc-send input[type="text"],
 .cc-send textarea {
@@ -995,6 +1068,110 @@ a.cc-coll-card:focus-visible {
 	border-top: 1px solid var(--cc-line-soft, #EBEAE6);
 }
 
+/* ---------------------------------------------------------------------
+ * Sending to more than one person
+ *
+ * An order can be a card each for several named people, or a batch of
+ * the same card to one address. The list of people, the ways of adding
+ * them and the nudge towards an account all live on the first step.
+ * ------------------------------------------------------------------ */
+
+.cc-send-people {
+	list-style: none;
+	margin: 0 0 10px;
+	padding: 0;
+	border: 1px solid var(--cc-border-subtle, #E4E4DF);
+	border-radius: 10px;
+}
+
+.cc-send-person {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 12px 14px;
+	border-bottom: 1px solid var(--cc-border-subtle, #E4E4DF);
+}
+
+.cc-send-person:last-child { border-bottom: 0; }
+
+.cc-send-person-who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cc-send-person-co,
+.cc-send-person-at {
+	font-size: 13px;
+	line-height: 1.45;
+	color: var(--cc-text-secondary, #5C6660);
+	overflow-wrap: anywhere;
+}
+
+.cc-send-person-off { flex: 0 0 auto; }
+
+.cc-send-count {
+	margin: 0 0 18px;
+	font-size: 13px;
+	color: var(--cc-text-secondary, #5C6660);
+}
+
+/* The ways of adding somebody, side by side until there is no room. */
+.cc-send-adds {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px;
+	margin-top: 14px;
+}
+
+.cc-send-upload {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	flex: 1 1 200px;
+	min-width: 0;
+	font-size: 13px;
+	color: var(--cc-text-secondary, #5C6660);
+}
+
+.cc-send-upload-label { font-weight: 500; color: var(--cc-text-primary, #16231C); }
+.cc-send-upload input[type="file"] { max-width: 100%; font-size: 13px; }
+
+/* The account offer, once the list is as long as a guest order can be. */
+.cc-send-more {
+	margin: 4px 0 18px;
+	padding: 16px;
+	border: 1px solid var(--cc-accent-default, #14523B);
+	border-radius: 12px;
+	background: var(--cc-surface-subtle, #F6F6F3);
+}
+
+.cc-send-more-head { margin: 0 0 6px; font-weight: 600; }
+
+.cc-send-more-blurb,
+.cc-send-more-or {
+	margin: 0 0 12px;
+	font-size: 13px;
+	line-height: 1.5;
+	color: var(--cc-text-secondary, #5C6660);
+}
+
+.cc-send-more-or { margin: 10px 0 0; }
+
+.cc-send-swap { margin: 16px 0 0; }
+
+.cc-link-btn {
+	padding: 0;
+	border: 0;
+	background: none;
+	font: inherit;
+	font-size: 13px;
+	color: var(--cc-accent-default, #14523B);
+	text-decoration: underline;
+	cursor: pointer;
+}
+
+.cc-send-sum-to { display: block; margin-bottom: 6px; }
+.cc-send-sum-to:last-child { margin-bottom: 0; }
+.cc-send-saved { color: var(--cc-accent-default, #14523B); }
+
 @media (max-width: 560px) {
 	.cc-send-fields { grid-template-columns: 1fr; }
 	.cc-send-steps { font-size: 12px; }
@@ -1150,3 +1327,23 @@ a.cc-coll-card:focus-visible {
 }
 
 .cc-sent .cc-btn:hover { background: var(--cc-green-700, #0C4836); }
+
+/*
+ * A card with nothing behind it yet.
+ *
+ * Shares .cc-cat-use so it keeps the size and position of the button it
+ * replaces — the row does not reflow depending on whether a card can be
+ * bought — but reads as a label rather than something to press. It is a
+ * <span>, so there is nothing to click and nothing to focus.
+ */
+.cc-cat-use-off {
+	background: var(--cc-wash);
+	color: var(--cc-quiet);
+	border: 1px solid var(--cc-line-soft);
+	cursor: default;
+}
+
+.cc-cat-use-off:hover {
+	background: var(--cc-wash);
+	color: var(--cc-quiet);
+}

@@ -95,4 +95,99 @@ $cc_labels = array(
 			</p>
 		</div>
 	</section>
+
+	<?php
+	/*
+	 * The other half of the question.
+	 *
+	 * Choosing individual addresses used to switch the company panel off
+	 * and put nothing in its place, so the step asked where each card
+	 * should go and then gave no way to say. Everyone on the occasion is
+	 * listed here with whatever the list already holds — an upload that
+	 * carried addresses fills these in and nobody retypes anything — and
+	 * the rest are empty boxes with the name already against them.
+	 *
+	 * Inside the step's own form, so Continue saves these along with
+	 * everything else and there is no separate thing to remember to press.
+	 */
+	$cc_missing = 0;
+
+	foreach ( $shipping['people'] as $cc_one ) {
+		if ( ! $cc_one['ready'] ) {
+			$cc_missing++;
+		}
+	}
+	?>
+	<section class="cc-each<?php echo 'individual' === $shipping['mode'] ? '' : ' is-off'; ?>">
+		<header class="cc-each-head">
+			<span class="cc-each-title"><?php esc_html_e( 'Where each card goes', 'cardsco' ); ?></span>
+			<span class="cc-each-count">
+				<?php
+				if ( ! $shipping['people'] ) {
+					esc_html_e( 'Nobody on this occasion yet', 'cardsco' );
+				} elseif ( $cc_missing ) {
+					printf(
+						/* translators: 1: how many are missing an address, 2: how many people in total. */
+						esc_html( _n( '%1$s of %2$s still needs an address', '%1$s of %2$s still need an address', $cc_missing, 'cardsco' ) ),
+						esc_html( number_format_i18n( $cc_missing ) ),
+						esc_html( number_format_i18n( count( $shipping['people'] ) ) )
+					);
+				} else {
+					esc_html_e( 'Everyone has an address', 'cardsco' );
+				}
+				?>
+			</span>
+		</header>
+
+		<?php if ( $shipping['people'] ) : ?>
+			<ul class="cc-each-list">
+				<?php foreach ( $shipping['people'] as $cc_one ) : ?>
+					<li class="cc-each-one<?php echo $cc_one['ready'] ? '' : ' is-missing'; ?>">
+						<p class="cc-each-who">
+							<span class="cc-each-mark" aria-hidden="true"><?php echo esc_html( $cc_one['initials'] ); ?></span>
+							<span class="cc-each-name"><?php echo esc_html( $cc_one['name'] ); ?></span>
+							<?php if ( ! $cc_one['ready'] ) : ?>
+								<span class="cc-each-flag"><?php esc_html_e( 'Needs an address', 'cardsco' ); ?></span>
+							<?php endif; ?>
+						</p>
+
+						<div class="cc-each-fields">
+							<p class="cc-field">
+								<label for="cc-each-a-<?php echo esc_attr( $cc_one['id'] ); ?>"><?php esc_html_e( 'Address', 'cardsco' ); ?></label>
+								<textarea id="cc-each-a-<?php echo esc_attr( $cc_one['id'] ); ?>"
+									name="each_address[<?php echo esc_attr( $cc_one['id'] ); ?>]"
+									rows="2"
+									placeholder="<?php esc_attr_e( 'House and street, then town', 'cardsco' ); ?>"><?php echo esc_textarea( $cc_one['address'] ); ?></textarea>
+							</p>
+							<p class="cc-field cc-each-pc">
+								<label for="cc-each-p-<?php echo esc_attr( $cc_one['id'] ); ?>"><?php esc_html_e( 'Postcode', 'cardsco' ); ?></label>
+								<input type="text" id="cc-each-p-<?php echo esc_attr( $cc_one['id'] ); ?>"
+									name="each_postcode[<?php echo esc_attr( $cc_one['id'] ); ?>]"
+									value="<?php echo esc_attr( $cc_one['postcode'] ); ?>" />
+							</p>
+						</div>
+					</li>
+				<?php endforeach; ?>
+			</ul>
+		<?php endif; ?>
+	</section>
 </form>
+
+<?php
+/*
+ * Addresses by spreadsheet, for a list too long to type. Its own form,
+ * because a file needs one — and the same importer as step 2, so a file
+ * with names and addresses on it matches the people already here rather
+ * than making second copies of them.
+ */
+?>
+<section class="cc-each-up<?php echo 'individual' === $shipping['mode'] ? '' : ' is-off'; ?>">
+	<p class="cc-each-up-head"><?php esc_html_e( 'Or upload the addresses', 'cardsco' ); ?></p>
+	<p class="cc-each-up-sub">
+		<?php esc_html_e( 'A CSV with first name, last name, address and postcode. Names that are already here are matched, not added again.', 'cardsco' ); ?>
+	</p>
+	<?php
+	$upload = CardsCo_Dashboard::upload_row( wp_list_pluck( $shipping['people'], 'id' ) );
+	require CARDSCO_PATH . 'includes/front/partial-upload.php';
+	?>
+</section>

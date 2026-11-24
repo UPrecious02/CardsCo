@@ -431,4 +431,118 @@ class CardsCo_Occasion_Type {
 
 		return $slug;
 	}
+
+	/**
+	 * How many things point at one occasion type.
+	 *
+	 * Five places can: a scheduled occasion, a campaign, a programme, and
+	 * the post meta that ties a card design or a starter message to an
+	 * occasion. A type with none of these behind it is safe to remove; a
+	 * type with any of them is somebody's live work.
+	 *
+	 * @param int $type_id Occasion type id.
+	 * @return int
+	 */
+	public static function references( $type_id ) {
+		global $wpdb;
+
+		$type_id = absint( $type_id );
+
+		if ( ! $type_id ) {
+			return 0;
+		}
+
+		$count = 0;
+
+		foreach ( array( 'occasions', 'campaigns', 'programmes' ) as $cardsco_tbl ) {
+			$count += (int) $wpdb->get_var(
+				$wpdb->prepare(
+					'SELECT COUNT(*) FROM ' . cardsco_table( $cardsco_tbl ) . ' WHERE occasion_type_id = %d', // phpcs:ignore WordPress.DB
+					$type_id
+				)
+			);
+		}
+
+		/* Cards and messages both tie themselves to an occasion by post meta. */
+		$count += (int) $wpdb->get_var(
+			$wpdb->prepare(
+				"SELECT COUNT(*) FROM {$wpdb->postmeta} WHERE meta_key = %s AND meta_value = %s",
+				CardsCo_Card::OCCASION,
+				(string) $type_id
+			)
+		);
+
+		return $count;
+	}
+
+	/**
+	 * Retire the global occasions no design asks for.
+	 *
+	 * An earlier seed shipped fourteen occasions nobody specified. Taking
+	 * them out of the seed fixes new installs and does nothing for the
+	 * ones already running, so this clears them out on upgrade.
+	 *
+	 * What it will not do is delete a type somebody is using. A company
+	 * that set Easter up months ago has a programme, queued cards and a
+	 * written message hanging off that row, and deleting it would leave
+	 * all three pointing at nothing — far worse than a longer list. Those
+	 * are deactivated instead: they disappear from every picker and keep
+	 * the work they are holding up. Company-owned occasions are never
+	 * touched at all; adding your own is the supported way to have one.
+	 *
+	 * @return array{deleted: string[], kept: string[]} Slugs, by what happened.
+	 */
+	public static function retire_unspecified() {
+		global $wpdb;
+
+		$table   = cardsco_table( 'occasion_types' );
+		$designed = wp_list_pluck( CardsCo_Activator::designed_types(), 0 );
+		$result  = array(
+			'deleted' => array(),
+			'kept'    => array(),
+		);
+
+		/* Global rows only: company_id = 0. A company's own are its business. */
+		$rows = $wpdb->get_results(
+			"SELECT id, slug FROM {$table} WHERE company_id = 0", // phpcs:ignore WordPress.DB
+			ARRAY_A
+		);
+
+		foreach ( (array) $rows as $row ) {
+			if ( in_array( $row['slug'], $designed, true ) ) {
+				continue;
+			}
+
+			$id = (int) $row['id'];
+
+			if ( self::references( $id ) > 0 ) {
+				$wpdb->update( $table, array( 'is_active' => 0 ), array( 'id' => $id ) );
+				$result['kept'][] = $row['slug'];
+				continue;
+			}
+
+			$wpdb->delete( $table, array( 'id' => $id ) );
+			$result['deleted'][] = $row['slug'];
+		}
+
+		/*
+		 * Promotions & Offers was seeded as an employee occasion, so the
+		 * client's nine offer messages had no audience that could reach a
+		 * customer. The seed only inserts what is missing, so a running
+		 * install keeps the old value unless it is corrected here.
+		 */
+		$wpdb->update(
+			$table,
+			array(
+				'label'      => 'Promotions & Offers',
+				'applies_to' => 'customer',
+			),
+			array(
+				'company_id' => 0,
+				'slug'       => 'promotion',
+			)
+		);
+
+		return $result;
+	}
 }

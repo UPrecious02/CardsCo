@@ -25,16 +25,13 @@ defined( 'ABSPATH' ) || exit;
 	<?php $admin->print_notices(); ?>
 
 	<?php if ( ! $company_id ) : ?>
-		<div class="cardsco-empty">
-			<p><strong><?php esc_html_e( 'No companies yet.', 'cardsco' ); ?></strong></p>
-			<a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=cardsco-companies' ) ); ?>"><?php esc_html_e( 'Go to Companies', 'cardsco' ); ?></a>
-		</div>
+		<?php CardsCo_Admin::pick_a_company( 'cardsco-programmes', 'Occasions are set up per company.' ); ?>
 	</div>
 		<?php return; ?>
 	<?php endif; ?>
 
 	<div class="cardsco-bar">
-		<?php $admin->company_switcher( $company_id, CardsCo_Wizard::PAGE ); ?>
+		<?php $admin->company_switcher( $company_id, CardsCo_Wizard::PAGE, false ); ?>
 	</div>
 
 	<?php if ( empty( $programmes ) ) : ?>

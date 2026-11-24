@@ -35,6 +35,7 @@ class CardsCo_Plugin {
 		CardsCo_Shop::init();
 		CardsCo_Download::init();
 		CardsCo_Checkout::init();
+		CardsCo_Renewal::init();
 		CardsCo_Send::init();
 
 		// Signing in and signing up are front-end pages, and their handler
@@ -46,6 +47,11 @@ class CardsCo_Plugin {
 		// alongside the shortcodes rather than in the is_admin() branch.
 		$setup = new CardsCo_Setup();
 		$setup->init();
+
+		// The campaign builder posts to the front end too, for the same
+		// reason, and registers beside the wizard it mirrors.
+		$builder = new CardsCo_Builder();
+		$builder->init();
 
 		if ( is_admin() ) {
 			// One-time: give cards saved before the collection field existed
@@ -123,6 +129,20 @@ class CardsCo_Plugin {
 			CardsCo_Recipient::backfill_addresses();
 		}
 
+		// 0.80.0 cut the shared occasion library back to the ten the
+		// approved designs name. Installs from before it are holding
+		// fourteen nobody asked for.
+		if ( $stored && version_compare( $stored, '0.80.0', '<' ) ) {
+			CardsCo_Occasion_Type::retire_unspecified();
+		}
+
+		// 0.83.0 puts the client's ready-written messages in on upgrade.
+		// Before it they appeared only if somebody pressed a button they
+		// were never pointed at, so a running site can have none.
+		if ( $stored && version_compare( $stored, '0.83.0', '<' ) && class_exists( 'CardsCo_Message' ) ) {
+			CardsCo_Message::seed();
+		}
+
 		update_option( 'cardsco_version', CARDSCO_VERSION, false );
 	}
 
@@ -170,8 +190,16 @@ class CardsCo_Plugin {
 
 		$summary = CardsCo_Scheduler::run();
 
+		/*
+		 * Renewals last. Pausing an occasion switches its dates off, so
+		 * running this first would pause and then immediately have the
+		 * scan skip cards that were still paid for today.
+		 */
+		$renewals = CardsCo_Renewal::run();
+
 		$summary['boxes']     = $boxes;
 		$summary['campaigns'] = $campaigns;
+		$summary['renewals']  = $renewals;
 
 		do_action( 'cardsco_after_daily_scan', $summary );
 	}

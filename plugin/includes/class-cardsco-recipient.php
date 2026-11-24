@@ -321,25 +321,36 @@ class CardsCo_Recipient {
 	 * @param int $company_id Company ID.
 	 * @return array<string, int>
 	 */
+	/**
+	 * The tiles above the list.
+	 *
+	 * A company of 0 counts every company, the same way query() reads it.
+	 * They sit above one list and have to be counting the same people:
+	 * a list of four hundred names under "Active 0" is worse than no
+	 * tiles at all, because the zero looks like an answer.
+	 */
 	public static function counts( $company_id ) {
 		global $wpdb;
 
 		$table      = cardsco_table( 'recipients' );
 		$company_id = absint( $company_id );
 
-		$row = $wpdb->get_row(
-			$wpdb->prepare(
-				"SELECT
+		$sums = "SELECT
 					COUNT(*) AS total,
 					SUM(CASE WHEN type = 'customer' THEN 1 ELSE 0 END) AS customers,
 					SUM(CASE WHEN type = 'employee' THEN 1 ELSE 0 END) AS employees,
 					SUM(CASE WHEN address_status <> 'complete' THEN 1 ELSE 0 END) AS needs_address
 				 FROM {$table}
-				 WHERE company_id = %d AND status = 'active'", // phpcs:ignore WordPress.DB.PreparedSQL
-				$company_id
-			),
-			ARRAY_A
-		);
+				 WHERE status = 'active'";
+
+		if ( $company_id ) {
+			$row = $wpdb->get_row(
+				$wpdb->prepare( $sums . ' AND company_id = %d', $company_id ), // phpcs:ignore WordPress.DB.PreparedSQL
+				ARRAY_A
+			);
+		} else {
+			$row = $wpdb->get_row( $sums, ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL
+		}
 
 		return array(
 			'total'         => (int) ( $row['total'] ?? 0 ),

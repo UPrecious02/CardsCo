@@ -165,6 +165,100 @@ class CardsCo_Dashboard {
 	}
 
 	/**
+	 * The renewal panel on the Occasions screen.
+	 *
+	 * Shown when a reminder has been followed, and also whenever something
+	 * is paused or close to falling due — a person who deleted the email
+	 * should not be the only one who cannot find out why their cards have
+	 * stopped.
+	 *
+	 * @return array|null Null when there is nothing to say.
+	 */
+	public static function renewal_panel() {
+		$company_id = CardsCo_Access::company_id();
+
+		if ( ! $company_id ) {
+			return null;
+		}
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- picks a panel, takes no action.
+		$asked = isset( $_GET['renew'] ) ? absint( $_GET['renew'] ) : 0;
+		$found = null;
+
+		foreach ( CardsCo_Programme::for_company( $company_id, 'any' ) as $programme ) {
+			if ( ! in_array( (string) $programme['status'], array( 'active', 'paused' ), true ) ) {
+				continue;
+			}
+
+			if ( ! CardsCo_Renewal::recurring( $programme ) || empty( $programme['renews_on'] ) ) {
+				continue;
+			}
+
+			if ( $asked && (int) $programme['id'] !== $asked ) {
+				continue;
+			}
+
+			$due   = strtotime( (string) $programme['renews_on'] );
+			$weeks = CardsCo_Renewal::offsets();
+			$from  = strtotime( '-' . ( $weeks ? max( $weeks ) : 4 ) . ' weeks', $due );
+
+			/* Nothing to say about a year that has months left to run. */
+			if ( ! $asked && $from > (int) current_time( 'timestamp' ) && 'paused' !== (string) $programme['status'] ) {
+				continue;
+			}
+
+			$found = $programme;
+			break;
+		}
+
+		if ( ! $found ) {
+			return null;
+		}
+
+		$quote    = CardsCo_Renewal::quote( $found );
+		$category = CardsCo_Category::get( (string) $found['category'] );
+		$paused   = 'paused' === (string) $found['status'];
+		$due      = strtotime( (string) $found['renews_on'] );
+
+		return array(
+			'id'      => (int) $found['id'],
+			'paused'  => $paused,
+			'label'   => $category ? $category['label'] : __( 'Your occasion', 'cardsco' ),
+			'heading' => $paused
+				? __( 'This occasion has paused', 'cardsco' )
+				: __( 'Time to renew', 'cardsco' ),
+			'blurb'   => $paused
+				? __( 'The year it was paid for has ended, so no more cards are being written. Nothing is being charged. Everything you set up is kept exactly as it is.', 'cardsco' )
+				: sprintf(
+					/* translators: %s: the date it falls due. */
+					__( 'The year it is paid for ends on %s. Renew before then and nothing stops.', 'cardsco' ),
+					date_i18n( 'j F Y', $due )
+				),
+			'people'  => $quote['people'],
+			'total'   => CardsCo_Shortcodes::money(
+				number_format( $quote['total'], 2, '.', '' ),
+				$quote['currency']
+			),
+			'each'    => CardsCo_Shortcodes::money(
+				number_format( $quote['each'], 2, '.', '' ),
+				$quote['currency']
+			),
+			'note'    => sprintf(
+				/* translators: %s: how many people. */
+				__( 'That is one card each for the %s on the list today, for the coming year.', 'cardsco' ),
+				sprintf(
+					/* translators: %s: how many people. */
+					_n( '%s person', '%s people', $quote['people'], 'cardsco' ),
+					number_format_i18n( $quote['people'] )
+				)
+			),
+			'button'  => $paused
+				? __( 'Pay and start it again', 'cardsco' )
+				: __( 'Renew for a year', 'cardsco' ),
+		);
+	}
+
+	/**
 	 * The Occasions screen's list: one row per category.
 	 *
 	 * The frame lists the six categories whatever this company has set up, so
@@ -1009,7 +1103,7 @@ class CardsCo_Dashboard {
 				'SELECT id, recipient_id, recipient_name, occasion_label, event_date, hold_reason
 				 FROM ' . cardsco_table( 'card_queue' ) . "
 				 WHERE company_id = %d AND status = 'on_hold'
-				 ORDER BY event_date ASC
+				 ORDER BY event_date ASC, id ASC
 				 LIMIT %d", // phpcs:ignore WordPress.DB.PreparedSQL
 				$company_id,
 				absint( $limit )
@@ -1186,9 +1280,50 @@ class CardsCo_Dashboard {
 				$title = $programme['card_id'] ? get_the_title( (int) $programme['card_id'] ) : '';
 
 				return $title ? $title : '—';
+
+			/*
+			 * Steps 4, 5 and 6 fell off the end of this switch, so the rail
+			 * showed a dash against Message, Shipping and Timing however
+			 * complete they were — three finished steps reported as empty
+			 * on every screen from 4 onwards.
+			 */
+			case 4:
+				$said = $programme['message_id']
+					? (string) get_the_title( (int) $programme['message_id'] )
+					: (string) $programme['message_override'];
+				$said = trim( wp_strip_all_tags( $said ) );
+
+				return '' !== $said ? wp_trim_words( $said, 6, '…' ) : '—';
+
+			case 5:
+				if ( 'individual' === (string) $programme['shipping_mode'] ) {
+					return __( 'Each person’s own address', 'cardsco' );
+				}
+
+				$where = trim( (string) $programme['ship_address'] );
+				$where = trim( (string) strtok( $where, "\n" ) );
+
+				return '' !== $where ? $where : __( 'Your company address', 'cardsco' );
+
+			case 6:
+				return 'per_date' === (string) $programme['timing_mode']
+					? __( 'Before each date', 'cardsco' )
+					: __( 'One box a month', 'cardsco' );
 		}
 
 		return '—';
+	}
+
+	/**
+	 * A start date written out, for a sentence rather than a picker.
+	 *
+	 * @param string $date A Y-m-d date.
+	 * @return string
+	 */
+	protected static function setup_start_date( $date ) {
+		$when = strtotime( (string) $date );
+
+		return $when ? date_i18n( 'D j M Y', $when ) : '';
 	}
 
 	/**
@@ -1200,12 +1335,45 @@ class CardsCo_Dashboard {
 	protected static function setup_blurb( $step, $programme = array(), $category = null ) {
 		$step = (int) $step;
 
+		/*
+		 * Steps 2 and 6 used to say "birthday" outright, so a company
+		 * setting up Customer Milestones was told we work back from each
+		 * birthday and asked for the day and month of one. The occasion
+		 * names itself.
+		 */
+		/*
+		 * Callers hand this the category row, not its slug — and the
+		 * programme carries the slug. Take whichever is actually there.
+		 */
+		$cc_slug = is_array( $category ) && isset( $category['slug'] )
+			? (string) $category['slug']
+			: (string) ( $programme['category'] ?? ( is_string( $category ) ? $category : '' ) );
+		$noun    = cardsco_lcfirst( self::card_noun( $cc_slug, (int) ( $programme['company_id'] ?? 0 ) ) );
+		$type    = CardsCo_Category::primary_type( $cc_slug, (int) ( $programme['company_id'] ?? 0 ) );
+
+		/* A yearly date needs no year; one that happens once does. */
+		$dated = $type && 'once' === (string) $type['recurrence']
+			? sprintf(
+				/* translators: %s: the occasion, e.g. "welcome". */
+				__( 'Upload your team once. We only need a name and the date of each %s.', 'cardsco' ),
+				$noun
+			)
+			: sprintf(
+				/* translators: %s: the occasion, e.g. "birthday". */
+				__( 'Upload your team once. We only need a name and the day and month of each %s.', 'cardsco' ),
+				$noun
+			);
+
 		$blurbs = array(
 			1 => __( 'Pick one. You can set up the others any time.', 'cardsco' ),
-			2 => __( 'Upload your team once. We only need a name and the day and month of each birthday.', 'cardsco' ),
+			2 => $dated,
 			4 => __( 'Write it once. We add each person’s name, and every card is written by hand.', 'cardsco' ),
 			5 => __( 'Send them to one business address, or to each person’s own address.', 'cardsco' ),
-			6 => __( 'We work back from each birthday so nobody’s card is late.', 'cardsco' ),
+			6 => sprintf(
+				/* translators: %s: the occasion, e.g. "birthday". */
+				__( 'We work back from each %s so nobody’s card is late.', 'cardsco' ),
+				$noun
+			),
 			7 => __( 'You only pay for cards as they’re written. Nothing is charged today.', 'cardsco' ),
 		);
 
@@ -1326,7 +1494,7 @@ class CardsCo_Dashboard {
 	 * @param int   $company_id Company.
 	 * @return float
 	 */
-	protected static function card_price( array $programme, $company_id ) {
+	public static function card_price( array $programme, $company_id ) {
 		if ( ! empty( $programme['card_id'] ) ) {
 			return (float) CardsCo_Card::price( (int) $programme['card_id'], $company_id );
 		}
@@ -1472,6 +1640,31 @@ class CardsCo_Dashboard {
 	public static function setup_review( array $programme, array $links ) {
 		$company_id = CardsCo_Access::company_id();
 		$timing     = self::setup_timing( $programme );
+
+		/*
+		 * Step 6 is three different screens and setup_timing() answers with
+		 * the keys the screen in front of the person needs, while the rows
+		 * below are written for the monthly-box shape. A programme in either
+		 * of the other two shapes belongs under Campaigns and start() turns
+		 * it away now, but a draft made before it did can still reach this
+		 * screen, and reading past the end of the array filled the log with
+		 * ten warnings a view. Fill in what those shapes do not carry.
+		 */
+		$timing = array_merge(
+			array(
+				'in_box' => 0,
+				'due_count' => 0,
+				'due_month' => '',
+				'run'    => 'annual',
+				'start'  => '',
+				'starts' => array(),
+				'mode'   => 'monthly_box',
+				'modes'  => array( array( 'head' => '' ), array( 'head' => '' ) ),
+				'month'  => '',
+			),
+			$timing
+		);
+
 		$shipping   = self::setup_shipping( $programme );
 		$message    = self::setup_message( $programme );
 		$people     = self::setup_people( $programme );
@@ -1486,9 +1679,24 @@ class CardsCo_Dashboard {
 			);
 		};
 
-		$have  = (int) ( $people['counts'][0]['n'] ?? 0 );
-		$total = (int) ( $people['counts'][1]['n'] ?? $have );
-		$box   = (int) $timing['in_box'];
+		/*
+		 * By name, not by position. Reading the second tile as the total
+		 * made step 7 say "0 people" above "3 with a date", because the
+		 * second tile counts the people MISSING a date.
+		 */
+		$tile  = static function ( $key, $fallback = 0 ) use ( $people ) {
+			foreach ( (array) $people['counts'] as $one ) {
+				if ( ( $one['key'] ?? '' ) === $key ) {
+					return (int) $one['n'];
+				}
+			}
+
+			return $fallback;
+		};
+
+		$total = $tile( 'total', (int) $people['total'] );
+		$have  = $tile( 'dated', $total );
+		$box   = (int) $timing['due_count'];
 		$year  = $have;
 
 		$rows = array(
@@ -1496,16 +1704,23 @@ class CardsCo_Dashboard {
 				'key'    => 'occasion',
 				'label'  => __( 'Occasion', 'cardsco' ),
 				'value'  => $cat ? $cat['label'] : __( 'Not chosen', 'cardsco' ),
+				/*
+				 * The date is formatted here rather than borrowed from the
+				 * step 6 picker. Those are option labels, not dates, so
+				 * pasting one into "from %s" produced "Once, from Started
+				 * Tue 22 Dec 2026" and, on the default choice, "from Today,
+				 * Sun 22 Nov 2026".
+				 */
 				'detail' => 'annual' === $timing['run']
 					? sprintf(
-						/* translators: %s: the start date. */
+						/* translators: %s: the start date, e.g. "Tue 22 Dec 2026". */
 						__( 'Every year, from %s', 'cardsco' ),
-						$timing['starts'][ $timing['start'] ] ?? ''
+						self::setup_start_date( $timing['start'] )
 					)
 					: sprintf(
-						/* translators: %s: the start date. */
+						/* translators: %s: the start date, e.g. "Tue 22 Dec 2026". */
 						__( 'Once, from %s', 'cardsco' ),
-						$timing['starts'][ $timing['start'] ] ?? ''
+						self::setup_start_date( $timing['start'] )
 					),
 				'step'   => 1,
 			),
@@ -1591,46 +1806,61 @@ class CardsCo_Dashboard {
 			$rows[ $i ]['edit'] = add_query_arg( 'step', $row['step'], $links['here'] );
 		}
 
+		/*
+		 * The money panel was written for one shape of occasion and said so
+		 * in every line: "First box", "Postage for the box", "charged before
+		 * its box is written" — on an occasion whose timing is a card a few
+		 * days before each person's date, where there is no box at all. And
+		 * it promised "about N cards a year" for a welcome, which each
+		 * person is sent once and never again.
+		 */
+		/*
+		 * What the till actually takes. The checkout builds one line of
+		 * card x everybody on the list and charges it once — so this panel,
+		 * which quoted a single month of a monthly-box plan, was naming a
+		 * figure the payment page was never going to ask for. Three people
+		 * were quoted one card at GBP 3.60 and would have been charged
+		 * GBP 10.80 on the next screen.
+		 */
+		$paying = count( CardsCo_Programme::recipient_ids( (int) $programme['id'] ) );
+		$undated = max( 0, $paying - $have );
+
 		return array(
 			'rows'  => $rows,
 			'lines' => array(
 				array( 'label' => __( 'Price per card', 'cardsco' ), 'value' => $money( $price ) ),
 				array(
-					'label' => sprintf(
-						/* translators: %s: a month. */
-						__( 'First box · %s', 'cardsco' ),
-						$timing['month']
-					),
+					'label' => __( 'People on this occasion', 'cardsco' ),
 					'value' => sprintf(
-						/* translators: %s: how many cards. */
-						_n( '%s card', '%s cards', $box, 'cardsco' ),
-						number_format_i18n( $box )
+						/* translators: %s: how many people. */
+						_n( '%s person', '%s people', $paying, 'cardsco' ),
+						number_format_i18n( $paying )
 					),
 				),
 				array(
-					'label' => sprintf(
-						/* translators: %s: a month. */
-						__( '%s cards', 'cardsco' ),
-						$timing['month']
-					),
-					'value' => $money( $price * $box ),
+					'label' => __( 'Postage', 'cardsco' ),
+					'value' => __( 'Included in the card price', 'cardsco' ),
 				),
-				array( 'label' => __( 'Postage for the box', 'cardsco' ), 'value' => __( 'Included in the card price', 'cardsco' ) ),
+				array(
+					'label' => __( 'First cards', 'cardsco' ),
+					'value' => $timing['due_month'] ? $timing['due_month'] : __( 'Once dates are added', 'cardsco' ),
+				),
 			),
 			'due'   => array(
-				'label' => __( 'Due before the first box', 'cardsco' ),
-				'value' => $money( $price * $box ),
+				'label' => __( 'Due today', 'cardsco' ),
+				'value' => $money( $price * $paying ),
 			),
-			'note'  => sprintf(
-				/* translators: 1: how many cards a year, 2: roughly what that costs. */
-				__( 'About %1$s a year (about %2$s). Each month is charged before its box is written.', 'cardsco' ),
-				sprintf(
-					/* translators: %s: how many cards. */
-					_n( '%s card', '%s cards', $year, 'cardsco' ),
-					number_format_i18n( $year )
-				),
-				$money( $price * $year )
-			),
+			'note'  => $undated
+				? sprintf(
+					/* translators: 1: one card each, 2: how many have no date yet. */
+					__( 'One card for each person on your list, charged once — not month by month. %s has no date yet; their card is written as soon as you add one.', 'cardsco' ),
+					sprintf(
+						/* translators: %s: how many people. */
+						_n( '%s person', '%s people', $undated, 'cardsco' ),
+						number_format_i18n( $undated )
+					)
+				)
+				: __( 'One card for each person on your list, charged once — not month by month.', 'cardsco' ),
 		);
 	}
 
@@ -1798,6 +2028,20 @@ class CardsCo_Dashboard {
 			return self::timing_fixed( $programme );
 		}
 
+		/*
+		 * What this occasion is called, so the choices can say "before
+		 * each welcome" rather than naming a birthday on an occasion
+		 * that has nothing to do with one.
+		 */
+		$noun = cardsco_lcfirst( self::card_noun( (string) $programme['category'], (int) $programme['company_id'] ) );
+
+		/*
+		 * Whether this occasion happens once per person — a welcome, a
+		 * thank-you — rather than coming round every year.
+		 */
+		$cc_type   = CardsCo_Category::primary_type( (string) $programme['category'], (int) $programme['company_id'] );
+		$once_each = $cc_type && 'once' === (string) $cc_type['recurrence'];
+
 		if ( 'none' === $shape ) {
 			return self::timing_one_off( $programme );
 		}
@@ -1820,21 +2064,78 @@ class CardsCo_Dashboard {
 
 		$in_box = self::dates_in_month( (int) $programme['id'], (int) gmdate( 'n', $next ) );
 
-		$starts = array();
+		/*
+		 * A box is packed ahead, so its first cards are next month's at the
+		 * earliest. Delivered per date there is nothing to pack: the first
+		 * card is the next one due, this month included.
+		 */
+		$due = array( 'ts' => $next, 'count' => $in_box );
 
-		for ( $i = 0; $i < 6; $i++ ) {
-			$when            = strtotime( '+' . $i . ' month', strtotime( gmdate( 'Y-m-01', $now ) ) );
-			$starts[ gmdate( 'Y-m-d', $when ) ] = date_i18n( 'D j M Y', $when );
+		if ( 'monthly_box' !== $mode ) {
+			$soon = self::next_due_month( (int) $programme['id'], $now );
+			$due  = $soon ? $soon : array( 'ts' => $next, 'count' => 0 );
+		}
+
+		/*
+		 * When the occasion starts running.
+		 *
+		 * The list used to begin at the first of the current month, so on
+		 * the 22nd it offered the 1st — three weeks gone — and that was
+		 * the default. Nothing can be scheduled into a date that has
+		 * passed, so the first choice is today and the rest are the first
+		 * of the months after this one.
+		 */
+		$starts = array(
+			gmdate( 'Y-m-d', $now ) => sprintf(
+				/* translators: %s: today's date, e.g. "Sun 22 Nov 2026". */
+				__( 'Today, %s', 'cardsco' ),
+				date_i18n( 'D j M Y', $now )
+			),
+		);
+
+		for ( $i = 1; $i <= 5; $i++ ) {
+			$when = strtotime( '+' . $i . ' month', strtotime( gmdate( 'Y-m-01', $now ) ) );
+
+			/* Skip the 1st when today is the 1st, rather than list it twice. */
+			if ( ! isset( $starts[ gmdate( 'Y-m-d', $when ) ] ) ) {
+				$starts[ gmdate( 'Y-m-d', $when ) ] = date_i18n( 'D j M Y', $when );
+			}
 		}
 
 		$chosen = (string) ( $programme['starts_on'] ?? '' );
 
-		if ( ! $chosen || ! isset( $starts[ $chosen ] ) ) {
+		/*
+		 * An occasion that has been running since before today keeps the
+		 * date it actually started on, named as what it is. Dropping it
+		 * would silently move the start of somebody's live occasion.
+		 */
+		if ( $chosen && ! isset( $starts[ $chosen ] ) ) {
+			$when = strtotime( $chosen );
+
+			/*
+			 * A date off the list is not necessarily a date gone by — an
+			 * admin can set any date — and "Started" over one still to come
+			 * reads as though the occasion is already running.
+			 */
+			$starts = array(
+				$chosen => $when < strtotime( gmdate( 'Y-m-d', $now ) )
+					? sprintf(
+						/* translators: %s: the date it started, e.g. "Sun 1 Nov 2026". */
+						__( 'Started %s', 'cardsco' ),
+						date_i18n( 'D j M Y', $when )
+					)
+					: date_i18n( 'D j M Y', $when ),
+			) + $starts;
+		}
+
+		if ( ! $chosen ) {
 			$chosen = (string) array_key_first( $starts );
 		}
 
 		return array(
 			'mode'    => $mode,
+			/* The view says it too, on the weekend switch. */
+			'noun'    => $noun,
 			'modes'   => array(
 				array(
 					'key'  => 'monthly_box',
@@ -1855,11 +2156,16 @@ class CardsCo_Dashboard {
 				),
 				array(
 					'key'  => 'per_date',
-					'head' => __( 'A few days before each birthday', 'cardsco' ),
+					'head' => sprintf(
+						/* translators: %s: the occasion, e.g. "birthday". */
+						__( 'A few days before each %s', 'cardsco' ),
+						$noun
+					),
 					'sub'  => sprintf(
-						/* translators: %s: how many working days. */
-						__( 'One small delivery per card, arriving %s working days before the birthday.', 'cardsco' ),
-						'2–3'
+						/* translators: 1: how many working days, 2: the occasion, e.g. "birthday". */
+						__( 'One small delivery per card, arriving %1$s working days before the %2$s.', 'cardsco' ),
+						'2–3',
+						$noun
 					),
 					'chip' => '',
 					'on'   => 'per_date' === $mode,
@@ -1867,15 +2173,122 @@ class CardsCo_Dashboard {
 			),
 			'starts'  => $starts,
 			'start'   => $chosen,
-			'runs'    => array(
-				'annual' => __( 'Every year, until you turn it off', 'cardsco' ),
-				'once'   => __( 'Once, then stop', 'cardsco' ),
-			),
-			'run'     => 'once' === (string) ( $programme['recurrence'] ?? 'annual' ) ? 'once' : 'annual',
+			/*
+			 * An occasion that happens once per person has nothing to
+			 * choose here: a welcome is not sent again next year. The
+			 * dropdown offered "Every year, until you turn it off" on
+			 * exactly those, which is the opposite of what happens —
+			 * each person's card is scheduled once, from the occasion's
+			 * own recurrence, and this field never fed the scheduler at
+			 * all. So it is a fixed line there and a choice only where
+			 * there is genuinely a choice.
+			 */
+			'runs'    => $once_each
+				? array()
+				: array(
+					'annual' => __( 'Every year, until you turn it off', 'cardsco' ),
+					'once'   => __( 'Once, then stop', 'cardsco' ),
+				),
+			'run'     => $once_each ? 'once' : ( 'once' === (string) ( $programme['recurrence'] ?? 'annual' ) ? 'once' : 'annual' ),
+			'run_fixed' => $once_each
+				? sprintf(
+					/* translators: %s: the occasion, e.g. "welcome". */
+					__( 'Once for each person. A %s is not sent again the next year.', 'cardsco' ),
+					$noun
+				)
+				: '',
 			'notify'  => ! empty( $programme['notify_before_box'] ),
 			'weekend' => ! empty( $programme['weekend_rule'] ),
 			'in_box'  => $in_box,
 			'month'   => date_i18n( 'F', $next ),
+			/*
+			 * What the money panel charges for first. The box figures above
+			 * stay as they are because the box option's own chip describes
+			 * the box whichever delivery is currently chosen.
+			 */
+			'due_count' => $due['count'],
+			'due_month' => date_i18n( 'F', $due['ts'] ),
+		);
+	}
+
+	/**
+	 * The next month that has cards due, and how many.
+	 *
+	 * The money panel asked "how many cards fall in next calendar month",
+	 * which is a question about boxes: a box has to be packed and posted
+	 * before the month it covers, so the soonest one is always next month.
+	 * An occasion delivered a few days before each person's own date has no
+	 * box and no cut-off — its first card is simply the next one due, which
+	 * is usually still this month. So an occasion with three welcomes, one
+	 * of them six days away, reported "First cards · December · 2 cards"
+	 * and left the card going out first out of the count altogether.
+	 *
+	 * @param int $programme_id Programme.
+	 * @param int $from_ts      Count from this moment.
+	 * @return array{ts:int,count:int}|null Null when nothing is due at all.
+	 */
+	protected static function next_due_month( $programme_id, $from_ts ) {
+		global $wpdb;
+
+		$occasions = cardsco_table( 'occasions' );
+		$members   = cardsco_table( 'programme_recipients' );
+
+		$rows = $wpdb->get_results( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+			$wpdb->prepare(
+				"SELECT o.event_month AS m, o.event_day AS d, o.event_year AS y
+				 FROM {$occasions} o
+				 INNER JOIN {$members} pm ON pm.recipient_id = o.recipient_id
+				 WHERE pm.programme_id = %d AND o.is_active = 1
+				   AND o.event_month IS NOT NULL", // phpcs:ignore WordPress.DB.PreparedSQL
+				absint( $programme_id )
+			),
+			ARRAY_A
+		);
+
+		if ( ! $rows ) {
+			return null;
+		}
+
+		$from   = (int) gmdate( 'Ymd', $from_ts );
+		$year   = (int) gmdate( 'Y', $from_ts );
+		$months = array();
+
+		foreach ( $rows as $row ) {
+			$month = (int) $row['m'];
+			$day   = (int) $row['d'] > 0 ? (int) $row['d'] : 1;
+			$has   = (int) $row['y'] > 0;
+
+			if ( $has ) {
+				/* A dated occasion happens once. Once it is past, it is over. */
+				$due = ( (int) $row['y'] * 10000 ) + ( $month * 100 ) + $day;
+
+				if ( $due < $from ) {
+					continue;
+				}
+			} else {
+				/* No year: it comes round again, so roll it to next year. */
+				$due = ( $year * 10000 ) + ( $month * 100 ) + $day;
+
+				if ( $due < $from ) {
+					$due = ( ( $year + 1 ) * 10000 ) + ( $month * 100 ) + $day;
+				}
+			}
+
+			$key = (int) floor( $due / 100 );
+
+			$months[ $key ] = ( $months[ $key ] ?? 0 ) + 1;
+		}
+
+		if ( ! $months ) {
+			return null;
+		}
+
+		ksort( $months );
+		$first = (int) array_key_first( $months );
+
+		return array(
+			'ts'    => (int) mktime( 0, 0, 0, $first % 100, 1, (int) floor( $first / 100 ) ),
+			'count' => (int) $months[ $first ],
 		);
 	}
 
@@ -1892,13 +2305,28 @@ class CardsCo_Dashboard {
 		$occasions = cardsco_table( 'occasions' );
 		$members   = cardsco_table( 'programme_recipients' );
 
+		/*
+		 * A date that carries a year happens once and then is over. The
+		 * count matched on the month alone, so a welcome dated December
+		 * 2025 was still counted into the coming December's box, and the
+		 * first charge covered cards nobody was going to be sent. A date
+		 * with no year is a birthday and comes round every December, so
+		 * those are counted whatever year it is.
+		 */
+		$today = (int) gmdate( 'Ymd' );
+
 		return (int) $wpdb->get_var( // phpcs:ignore WordPress.DB.DirectDatabaseQuery
 			$wpdb->prepare(
 				"SELECT COUNT(*) FROM {$occasions} o
 				 INNER JOIN {$members} m ON m.recipient_id = o.recipient_id
-				 WHERE m.programme_id = %d AND o.event_month = %d AND o.is_active = 1", // phpcs:ignore WordPress.DB.PreparedSQL
+				 WHERE m.programme_id = %d AND o.event_month = %d AND o.is_active = 1
+				   AND (
+				     o.event_year IS NULL OR o.event_year = 0
+				     OR ( o.event_year * 10000 ) + ( o.event_month * 100 ) + COALESCE( o.event_day, 1 ) >= %d
+				   )", // phpcs:ignore WordPress.DB.PreparedSQL
 				absint( $programme_id ),
-				absint( $month )
+				absint( $month ),
+				$today
 			)
 		);
 	}
@@ -1959,7 +2387,57 @@ class CardsCo_Dashboard {
 				? __( 'Saved from your company profile', 'cardsco' )
 				: __( 'Saved from your last campaign', 'cardsco' ),
 			'where'   => trim( (string) ( $lines[1] ?: $lines[0] ) ) . ( trim( (string) $lines[3] ) ? ', ' . trim( (string) $lines[3] ) : '' ),
+
+			/*
+			 * Everybody on the occasion, with whatever address is on file.
+			 *
+			 * Choosing "ship to individual addresses" used to turn the
+			 * company panel off and offer nothing in its place, so the
+			 * step asked a question and then gave no way to answer it.
+			 */
+			'people'  => self::shipping_people( $programme ),
 		);
+	}
+
+	/**
+	 * Each person on the occasion and the address their card would go to.
+	 *
+	 * Prefilled from what the list already holds — an upload that carried
+	 * addresses fills these in without anyone retyping them — and empty
+	 * for anyone whose address nobody has supplied yet.
+	 *
+	 * @param array $programme Programme row.
+	 * @return array[]
+	 */
+	public static function shipping_people( array $programme ) {
+		$out = array();
+
+		foreach ( CardsCo_Programme::recipient_ids( (int) $programme['id'] ) as $rid ) {
+			$row = CardsCo_Recipient::get( (int) $rid );
+
+			if ( ! $row ) {
+				continue;
+			}
+
+			$address = trim( (string) $row['address'] );
+
+			$out[] = array(
+				'id'       => (int) $rid,
+				'name'     => trim( $row['first_name'] . ' ' . $row['last_name'] ),
+				'initials' => self::initials( $row['first_name'], $row['last_name'] ),
+				'address'  => $address,
+				'postcode' => trim( (string) $row['postcode'] ),
+				/*
+				 * Complete is the model's own word for "enough to post".
+				 * Anything else is a card that would be held back, so the
+				 * step says so here rather than letting it surface three
+				 * screens later as a held card nobody expected.
+				 */
+				'ready'    => 'complete' === (string) $row['address_status'],
+			);
+		}
+
+		return $out;
 	}
 
 	/**
@@ -2109,6 +2587,16 @@ class CardsCo_Dashboard {
 			'company'  => $company,
 			'name'     => $company ? (string) $company['name'] : '',
 			'address'  => $company ? (string) $company['billing_address'] : '',
+
+			/*
+			 * Both of these are read at the checkout already — the basket
+			 * is filled in from billing_name and billing_email before
+			 * anything else is tried — and until now there was nowhere in
+			 * the product to set either. The prefill fell back to the
+			 * contact, or to the WordPress account, every single time.
+			 */
+			'bill_to'  => $company ? (string) $company['billing_name'] : '',
+			'bill_at'  => $company ? (string) $company['billing_email'] : '',
 			'trading'  => $get( 'trading_name' ),
 			'number'   => $get( 'company_number' ),
 			'vat'      => $get( 'vat_number' ),
@@ -2200,6 +2688,15 @@ class CardsCo_Dashboard {
 
 		$rendered = $text;
 
+		/*
+		 * Whoever the preview is for, whether or not anything is written
+		 * yet. Built only alongside the first render, it was empty on an
+		 * occasion with no saved message — which is every occasion at the
+		 * moment somebody sits down to write one, so the card showed raw
+		 * tags exactly when it mattered.
+		 */
+		$sample = $who ? CardsCo_Merge::context_for_recipient( $who ) : array();
+
 		if ( $text && $who ) {
 			/*
 			 * render() answers with a result, not a string: the filled text
@@ -2241,6 +2738,14 @@ class CardsCo_Dashboard {
 			'max'       => $max,
 			'over'      => $max > 0 && $used > $max,
 			'for'       => $name,
+			/*
+			 * The values behind the preview, so it keeps showing the card
+			 * as it will read while somebody types. The first render is
+			 * merged server-side, but the live repaint had nothing to
+			 * merge with and put the raw {first name} back on the card
+			 * under the words "Previewed for Zara".
+			 */
+			'sample'    => array_map( 'strval', (array) $sample ),
 			'ready'     => '' !== $text,
 		);
 	}
@@ -2273,6 +2778,39 @@ class CardsCo_Dashboard {
 	 * @param array $programme Programme row.
 	 * @return array Tag names, e.g. array( 'our_company' ).
 	 */
+	/**
+	 * The merge tags the writer offers, as chips.
+	 *
+	 * Written out as they go in the message — `{first name}`, with the
+	 * space — because that is what the engine reads, and a chip that
+	 * inserts something the engine does not recognise is worse than no
+	 * chip at all.
+	 *
+	 * @param array $programme Programme row.
+	 * @return array[] tag, label, note and what an empty one means.
+	 */
+	public static function writer_tags( array $programme ) {
+		$campaign = 'campaign' === (string) ( $programme['source'] ?? '' );
+		$out      = array();
+
+		foreach ( CardsCo_Merge::fields_for( $campaign ) as $key => $field ) {
+			$out[] = array(
+				/* The engine reports gaps by key, so the chip carries both. */
+				'key'   => $key,
+				'tag'   => '{' . str_replace( '_', ' ', $key ) . '}',
+				'label' => $field['label'],
+				'note'  => $field['note'],
+				'empty' => sprintf(
+					/* translators: %s: the tag's label, e.g. "Last name". */
+					__( '%s is missing for somebody on this occasion, so their card would have a gap there.', 'cardsco' ),
+					$field['label']
+				),
+			);
+		}
+
+		return $out;
+	}
+
 	public static function blank_tags( array $programme ) {
 		$blank = array();
 		$ids   = CardsCo_Programme::recipient_ids( (int) $programme['id'] );
@@ -2369,6 +2907,7 @@ class CardsCo_Dashboard {
 
 		return array(
 			'blanks'    => self::blank_tags( $programme ),
+			'tags'      => self::writer_tags( $programme ),
 			'text'      => $text,
 			'lines'     => $message['lines'],
 			'signature' => $signature,
@@ -2377,6 +2916,7 @@ class CardsCo_Dashboard {
 			'max'       => $message['max'],
 			'over'      => $message['over'],
 			'for'       => $message['for'],
+			'sample'    => $message['sample'],
 			'ready'     => $message['ready'],
 			'card'      => $message['card'],
 			'templates' => $templates,
@@ -2532,21 +3072,82 @@ class CardsCo_Dashboard {
 	 * @param array $programme Programme row.
 	 * @return array[]
 	 */
+	/**
+	 * Where a campaign-driven occasion is actually set up.
+	 *
+	 * Carries the occasion with it, so the builder opens with it already
+	 * chosen rather than asking again for what has just been picked.
+	 *
+	 * @param string $slug       Category slug.
+	 * @param int    $company_id Company.
+	 * @return string
+	 */
+	protected static function campaign_link( $slug, $company_id ) {
+		$page = CardsCo_Shortcodes::page_for( 'cardsco_campaigns' );
+
+		if ( ! $page ) {
+			return '';
+		}
+
+		$link  = add_query_arg( 'new', '1', $page );
+		$types = CardsCo_Category::types( $slug, $company_id );
+		$first = $types ? reset( $types ) : null;
+
+		if ( $first && ! empty( $first['id'] ) ) {
+			$link = add_query_arg( 'occasion_type_id', (int) $first['id'], $link );
+		}
+
+		return $link;
+	}
+
 	public static function setup_choices( array $programme ) {
 		$company_id = CardsCo_Access::company_id();
 		$out        = array();
 
+		/*
+		 * An occasion named in the address is already an answer to this
+		 * screen's question, so it arrives ticked. The Occasions page posts
+		 * its choice now rather than linking it, but links of that shape
+		 * were handed out before and sit in bookmarks and browser history,
+		 * and the screen used to ignore the slug entirely: it asked "Which
+		 * occasion?" with the answer in the address bar and nothing marked.
+		 */
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- marks a radio, takes no action.
+		$asked = isset( $_GET['occasion'] ) ? sanitize_title( wp_unslash( $_GET['occasion'] ) ) : '';
+
+		if ( '' !== $asked && '' === (string) $programme['category'] && CardsCo_Category::get( $asked ) ) {
+			$programme['category'] = $asked;
+		}
+
 		foreach ( CardsCo_Category::all() as $slug => $cat ) {
 			$designs = $company_id ? CardsCo_Category::design_count( $slug, $company_id ) : 0;
 
+			/*
+			 * Some of these are not set up here at all: they go out on a
+			 * day somebody chooses rather than from dates people hold, and
+			 * start() has always refused them. The refusal was the first
+			 * anyone heard of it — the tile looked exactly as pickable as
+			 * the rest — so it is said on the tile, and the tile takes
+			 * them where it is actually done.
+			 *
+			 * Only once the install has occasion types at all; on one that
+			 * has never been seeded every category reads as campaign-driven
+			 * and the whole screen would send people away.
+			 */
+			$campaign_only = ! empty( CardsCo_Occasion_Type::all( $company_id ) )
+				&& empty( $cat['coming_soon'] )
+				&& ! CardsCo_Category::is_dated( $slug, $company_id );
+
 			$out[] = array(
-				'slug'        => $slug,
-				'label'       => $cat['label'],
-				'blurb'       => $cat['blurb'],
-				'coming_soon' => ! empty( $cat['coming_soon'] ),
-				'chosen'      => $programme['category'] === $slug,
-				'art'         => self::category_art( $slug, $company_id ),
-				'stat'        => ! empty( $cat['coming_soon'] )
+				'slug'          => $slug,
+				'label'         => $cat['label'],
+				'blurb'         => $cat['blurb'],
+				'coming_soon'   => ! empty( $cat['coming_soon'] ),
+				'campaign_only' => $campaign_only,
+				'campaign_link' => $campaign_only ? self::campaign_link( $slug, $company_id ) : '',
+				'chosen'        => $programme['category'] === $slug,
+				'art'           => self::category_art( $slug, $company_id ),
+				'stat'          => ! empty( $cat['coming_soon'] )
 					? __( 'Coming soon · use a milestone card for now', 'cardsco' )
 					: sprintf(
 						/* translators: 1: how many designs, 2: the card format. */
@@ -2633,7 +3234,19 @@ class CardsCo_Dashboard {
 				$undated++;
 			}
 
-			if ( count( $rows ) < 4 ) {
+			/*
+			 * Everyone, not the first four.
+			 *
+			 * The frame showed four and a "Showing 4 of 42" count, and
+			 * there was nothing to press to see the rest — so a person
+			 * further down the list could not be looked at, and once
+			 * each row grew a Remove button, could not be taken off
+			 * either. The table scrolls instead, which keeps the step
+			 * short without putting anybody out of reach. The cap is
+			 * only so a company with thousands does not render them all
+			 * into one page.
+			 */
+			if ( count( $rows ) < 200 ) {
 				$rows[] = array(
 					'id'       => (int) $rid,
 					'name'     => trim( $person['first_name'] . ' ' . $person['last_name'] ),
@@ -2656,23 +3269,41 @@ class CardsCo_Dashboard {
 		 * somebody running a promotion that forty people are "missing a
 		 * birthday" is noise about a field that was never asked for.
 		 */
+		/*
+		 * Each tile says what it is.
+		 *
+		 * They used to be told apart by position, and the review on step 7
+		 * read the second one as the total — but the second one is how
+		 * many are MISSING a date, so an occasion where everybody had one
+		 * was summed up as "0 people" directly above "3 with a date".
+		 * The shape changes with the occasion too: one tile when the date
+		 * is not the person's, three when it is.
+		 */
 		$counts = $per_person
 			? array(
 				array(
+					'key'   => 'dated',
 					'n'     => $dated,
 					/* translators: %s: the occasion, e.g. "birthday". */
 					'label' => sprintf( __( 'with a %s', 'cardsco' ), $noun ),
 				),
 				array(
+					'key'   => 'undated',
 					'n'     => $undated,
 					/* translators: %s: the occasion, e.g. "birthday". */
 					'label' => sprintf( __( 'missing a %s', 'cardsco' ), $noun ),
 				),
-				array( 'n' => count( $ids ), 'label' => __( 'people in total', 'cardsco' ) ),
+				array( 'key' => 'total', 'n' => count( $ids ), 'label' => __( 'people in total', 'cardsco' ) ),
 			)
 			: array(
-				array( 'n' => count( $ids ), 'label' => __( 'people in total', 'cardsco' ) ),
+				array( 'key' => 'total', 'n' => count( $ids ), 'label' => __( 'people in total', 'cardsco' ) ),
 			);
+
+		/*
+		 * People the company already has. Offered here so a second
+		 * occasion does not mean uploading the same list again.
+		 */
+		$available = CardsCo_Programme::available_recipients( $programme );
 
 		return array(
 			'rows'       => $rows,
@@ -2680,18 +3311,19 @@ class CardsCo_Dashboard {
 			'per_person' => $per_person,
 			'noun'       => self::card_noun( (string) $programme['category'], (int) $programme['company_id'] ),
 			'counts'     => $counts,
-			'upload' => array(
-				'name'   => $ids ? __( 'Your list', 'cardsco' ) : __( 'No file yet', 'cardsco' ),
-				'meta'   => $ids
-					? sprintf(
-						/* translators: %s: how many people. */
-						_n( '%s person', '%s people', count( $ids ), 'cardsco' ),
-						number_format_i18n( count( $ids ) )
-					)
-					: __( 'Upload a CSV to get started', 'cardsco' ),
-				'action' => $ids ? __( 'Replace file', 'cardsco' ) : __( 'Upload a file', 'cardsco' ),
-				'report' => self::upload_report(),
+			'available'  => array_map(
+				static function ( $person ) {
+					return array(
+						'id'   => (int) $person['id'],
+						'name' => trim( $person['first_name'] . ' ' . $person['last_name'] ),
+						'what' => 'employee' === $person['type']
+							? __( 'Staff', 'cardsco' )
+							: __( 'Customer', 'cardsco' ),
+					);
+				},
+				$available
 			),
+			'upload' => self::upload_row( $ids ),
 		);
 	}
 
@@ -2714,21 +3346,40 @@ class CardsCo_Dashboard {
 		$matched = absint( $_GET['cc_up_matched'] ?? 0 );
 		$nodate  = absint( $_GET['cc_up_nodate'] ?? 0 );
 		$bad     = absint( $_GET['cc_up_bad'] ?? 0 );
+		$took    = absint( $_GET['cc_up_took'] ?? 0 );
+		$on      = absint( $_GET['cc_up_on'] ?? 0 );
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
 		$bits = array();
 
+		/* When the file replaced the list, say so first: it is the big thing that happened. */
+		if ( $took ) {
+			$bits[] = sprintf(
+				/* translators: %s: how many people came off the occasion. */
+				_n( '%s person taken off', '%s people taken off', $took, 'cardsco' ),
+				number_format_i18n( $took )
+			);
+		}
+
+		/*
+		 * What the file did to this occasion, which is the thing being
+		 * looked at. "Added" and "already on your list" are about the
+		 * company's records — a file of six people who all already
+		 * existed reported "0 people added", which reads as nothing
+		 * having happened while six of them went onto the occasion.
+		 */
 		$bits[] = sprintf(
 			/* translators: %s: how many people. */
-			_n( '%s person added', '%s people added', $added, 'cardsco' ),
-			number_format_i18n( $added )
+			_n( '%s person from the file is on this occasion', '%s people from the file are on this occasion', $on, 'cardsco' ),
+			number_format_i18n( $on )
 		);
 
-		if ( $matched ) {
+		/* New to the company's people list, which is worth knowing but not the headline. */
+		if ( $added ) {
 			$bits[] = sprintf(
 				/* translators: %s: how many people. */
-				_n( '%s already on your list', '%s already on your list', $matched, 'cardsco' ),
-				number_format_i18n( $matched )
+				_n( '%s is new to your people', '%s are new to your people', $added, 'cardsco' ),
+				number_format_i18n( $added )
 			);
 		}
 
@@ -2776,6 +3427,16 @@ class CardsCo_Dashboard {
 		$type       = CardsCo_Category::primary_type( (string) $programme['category'], (int) $programme['company_id'] );
 		$per_person = (bool) $type;
 
+		/*
+		 * Some of those happen once rather than every year — a welcome, a
+		 * thank-you, an offer. A date that never comes round again is a
+		 * date in a particular year, and the save refuses it without one.
+		 * The form asked for a day and a month and said in as many words
+		 * that the year was not needed, so every save failed and the
+		 * person just created was deleted again on the way out.
+		 */
+		$needs_year = $per_person && 'once' === (string) ( $type['recurrence'] ?? 'annual' );
+
 		foreach ( $ids as $rid ) {
 			$person = CardsCo_Recipient::get( $rid );
 
@@ -2797,7 +3458,7 @@ class CardsCo_Dashboard {
 				'id'       => (int) $rid,
 				'name'     => $name,
 				'initials' => self::initials( $person['first_name'], $person['last_name'] ),
-				'birthday' => $occasion ? self::day_month( (int) $occasion['event_day'], (int) $occasion['event_month'] ) : '',
+				'birthday' => self::person_date( $occasion, $needs_year ),
 				'team'     => (string) $person['job_title'],
 			);
 
@@ -2856,6 +3517,7 @@ class CardsCo_Dashboard {
 			$edit['last']  = $person ? (string) $person['last_name'] : '';
 			$edit['day']   = $occasion ? (int) $occasion['event_day'] : 0;
 			$edit['month'] = $occasion ? (int) $occasion['event_month'] : 0;
+			$edit['year']  = $occasion ? (int) $occasion['event_year'] : 0;
 		}
 
 		return array(
@@ -2865,10 +3527,118 @@ class CardsCo_Dashboard {
 			'total'      => count( $rows ),
 			'months'     => $months,
 			'per_person' => $per_person,
+			'needs_year' => $needs_year,
+			'years'      => self::year_choices(),
+			/*
+			 * How many of the company's own people could still be added.
+			 * The confirmation state offered only "Add another person", so
+			 * somebody who had added one by hand and then wanted the rest
+			 * had no way to a spreadsheet or to their own list from here.
+			 */
+			'available'  => count( CardsCo_Programme::available_recipients( $programme ) ),
+			/*
+			 * The same file row the list screen shows, so the upload can
+			 * live on this screen too rather than being a link to the one
+			 * that has it.
+			 */
+			'upload'     => self::upload_row( $ids ),
 			// "Person 1" on an empty list, "Person 2" once one is on.
 			'ordinal'    => count( $rows ) + 1,
 			'noun'       => self::card_noun( (string) $programme['category'], (int) $programme['company_id'] ),
 		);
+	}
+
+	/**
+	 * The file row above the upload button.
+	 *
+	 * Shared, because the upload itself is now on more than one screen
+	 * and the two must not drift into saying different things about the
+	 * same list.
+	 *
+	 * @param int[] $ids Recipients already on the programme.
+	 * @return array{name:string, meta:string, action:string, report:string}
+	 */
+	public static function upload_row( array $ids ) {
+		return array(
+			/*
+			 * What is on the occasion, not what was uploaded. Nothing
+			 * records a file ever having been sent, so this used to read
+			 * "Your list" and offer to "Replace file" the moment anyone
+			 * was added — including somebody typed in by hand, with no
+			 * file anywhere in it. And an upload does not replace: it
+			 * adds the new people and matches the ones already there.
+			 */
+			'name'   => $ids
+				? sprintf(
+					/* translators: %s: how many people. */
+					_n( '%s person on this occasion', '%s people on this occasion', count( $ids ), 'cardsco' ),
+					number_format_i18n( count( $ids ) )
+				)
+				: __( 'Nobody yet', 'cardsco' ),
+			'meta'   => $ids
+				? __( 'Upload a CSV to add more', 'cardsco' )
+				: __( 'Upload a CSV to get started', 'cardsco' ),
+			/* One button, and it says what pressing it does. */
+			'action' => __( 'Upload a spreadsheet', 'cardsco' ),
+			'report' => self::upload_report(),
+		);
+	}
+
+	/**
+	 * One person's date, as the step 2 list prints it.
+	 *
+	 * An occasion that happens once does not come round again, so a date
+	 * already past schedules nothing at all. That is a reasonable thing
+	 * to have typed — a welcome for somebody who joined in March — but
+	 * left unsaid it reads as done when no card will ever be written.
+	 * The year is shown for those, and a passed one says so.
+	 *
+	 * @param array|null $occasion   Occasion row, or null when there is none.
+	 * @param bool       $needs_year Whether this occasion happens once.
+	 * @return string
+	 */
+	public static function person_date( $occasion, $needs_year ) {
+		if ( ! $occasion ) {
+			return '';
+		}
+
+		$day   = (int) $occasion['event_day'];
+		$month = (int) $occasion['event_month'];
+		$date  = self::day_month( $day, $month );
+
+		if ( ! $needs_year ) {
+			return $date;
+		}
+
+		/* Not every caller selects the year; a missing one simply is not one. */
+		$year = (int) ( $occasion['event_year'] ?? 0 );
+
+		if ( ! $year ) {
+			return $date;
+		}
+
+		$date .= ' ' . $year;
+
+		if ( empty( $occasion['next_occurrence'] ) ) {
+			$date .= ' — ' . __( 'already passed, no card due', 'cardsco' );
+		}
+
+		return $date;
+	}
+
+	/**
+	 * The years a one-off occasion can be put in.
+	 *
+	 * Last year as well as this one, because somebody setting up a welcome
+	 * programme in January is often entering the people who joined in
+	 * December, and a few ahead for anything already arranged.
+	 *
+	 * @return int[]
+	 */
+	public static function year_choices() {
+		$now = (int) current_time( 'Y' );
+
+		return range( $now - 1, $now + 3 );
 	}
 
 	/**
@@ -2923,7 +3693,7 @@ class CardsCo_Dashboard {
 
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				'SELECT occasion_type_id, event_day, event_month, next_occurrence
+				'SELECT occasion_type_id, event_day, event_month, event_year, next_occurrence
 				 FROM ' . cardsco_table( 'occasions' ) . '
 				 WHERE recipient_id = %d AND is_active = 1', // phpcs:ignore WordPress.DB.PreparedSQL
 				$recipient_id

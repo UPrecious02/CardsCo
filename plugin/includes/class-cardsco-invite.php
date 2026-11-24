@@ -32,7 +32,7 @@ defined( 'ABSPATH' ) || exit;
 class CardsCo_Invite {
 
 	/**
-	 * How long an invitation is good for, in hours.
+	 * How long an invitation is good for, in hours, when nothing says otherwise.
 	 *
 	 * This is core's own figure, not ours: check_password_reset_key() runs
 	 * DAY_IN_SECONDS through the password_reset_expiration filter, and the
@@ -40,8 +40,31 @@ class CardsCo_Invite {
 	 * died after 24 would be worse than a short window, so the number is
 	 * taken from the same place the expiry comes from. Anybody who misses it
 	 * gets a fresh link from resend().
+	 *
+	 * Use expires_hours() rather than this: a site that filters the
+	 * expiration would leave this number telling people the wrong thing.
 	 */
 	const EXPIRES_HOURS = 24;
+
+	/**
+	 * How long an invitation is actually good for, in hours.
+	 *
+	 * Asked of the same filter core asks, so the email cannot promise a
+	 * window the link does not honour. Anything under an hour is still
+	 * described as an hour, because "the link works for 0 hours" is worse
+	 * than being slightly generous about a window this short.
+	 *
+	 * @return int
+	 */
+	public static function expires_hours() {
+		$seconds = (int) apply_filters( 'password_reset_expiration', DAY_IN_SECONDS );
+
+		if ( $seconds < HOUR_IN_SECONDS ) {
+			return 1;
+		}
+
+		return (int) floor( $seconds / HOUR_IN_SECONDS );
+	}
 
 	/**
 	 * Invite somebody to a company.
@@ -91,6 +114,18 @@ class CardsCo_Invite {
 			if ( is_wp_error( $user_id ) ) {
 				return new WP_Error( 'cardsco_user_failed', __( 'We could not set up that account.', 'cardsco' ) );
 			}
+
+			/*
+			 * Set rather than added, which is what add_user() does later.
+			 * It adds because somebody already on the site — an
+			 * administrator, say — must not lose what they had by being
+			 * invited to a company. This account did not exist a line ago,
+			 * so it has nothing to keep, and leaving WordPress's default
+			 * role on it meant every invited colleague ended up a
+			 * subscriber as well, which is not what signing up gives you.
+			 */
+			$fresh = new WP_User( $user_id );
+			$fresh->set_role( CardsCo_Roles::COMPANY_ROLE );
 
 			$first = isset( $args['first_name'] ) ? sanitize_text_field( $args['first_name'] ) : '';
 			$last  = isset( $args['last_name'] ) ? sanitize_text_field( $args['last_name'] ) : '';
@@ -400,7 +435,7 @@ class CardsCo_Invite {
 		$body .= sprintf(
 			/* translators: %d: how many hours the link lasts. */
 			__( 'The link works for %d hours. If you were not expecting this, ignore this email and nothing will happen.', 'cardsco' ),
-			self::EXPIRES_HOURS
+			self::expires_hours()
 		) . "\n";
 
 		return (bool) wp_mail(

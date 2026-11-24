@@ -721,14 +721,23 @@ class CardsCo_Card {
 	/**
 	 * What this many cards costs altogether.
 	 *
-	 * The break is on the cards past the limit, not on the whole order.
-	 * With the limit at twenty-five, the first twenty-five are £3.60 each
-	 * and every card after that is £1.99: thirty cards is 25 x £3.60 plus
-	 * 5 x £1.99, not 30 x £1.99.
+	 * The bulk rate applies to the whole order once it reaches the limit,
+	 * not only to the cards past it. With the limit at twenty-five, an
+	 * order of twenty-five is 25 x £1.99, and so is every card in an order
+	 * of thirty. This is what the published terms promise — "£1.99 per
+	 * card, for orders of 25 cards or more" — and the terms are what a
+	 * customer is agreeing to at the checkout.
 	 *
-	 * Tiering this way also removes a cliff the whole-order break had,
-	 * where twenty-five cards cost less than twenty-four. The total now
-	 * only ever rises as the order grows.
+	 * It was tiered before, charging the first twenty-five at the standard
+	 * price and only the cards after that at the bulk rate. That is a
+	 * different promise and a materially different bill: thirty cards came
+	 * to £99.95 rather than £59.70.
+	 *
+	 * This leaves a cliff at the limit, and the cliff is deliberate.
+	 * Twenty-four cards cost £86.40 and twenty-five cost £49.75, so anyone
+	 * ordering just under the limit is better off adding cards to reach it.
+	 * That is how a volume discount of this shape behaves; it is not a bug
+	 * to be smoothed away, and smoothing it would break the terms.
 	 *
 	 * A card with its own price keeps it, at every quantity. A price set
 	 * on the card itself is somebody overriding the list deliberately, and
@@ -764,11 +773,11 @@ class CardsCo_Card {
 		 * the settings, and charging more for ordering more would be worse
 		 * than ignoring it.
 		 */
-		if ( $from < 1 || $quantity <= $from || $bulk >= $standard ) {
+		if ( $from < 1 || $quantity < $from || $bulk >= $standard ) {
 			return $money( $standard * $quantity );
 		}
 
-		return $money( $standard * $from + $bulk * ( $quantity - $from ) );
+		return $money( $bulk * $quantity );
 	}
 
 	/**
@@ -792,10 +801,12 @@ class CardsCo_Card {
 	}
 
 	/**
-	 * Whether this many cards gets any of the bulk rate.
+	 * Whether this many cards gets the bulk rate.
 	 *
-	 * True only past the limit, not at it: with the limit at twenty-five,
-	 * an order of exactly twenty-five is charged in full.
+	 * True at the limit as well as past it: with the limit at twenty-five,
+	 * an order of exactly twenty-five is a bulk order. It used to be true
+	 * only past the limit, which put the break on the twenty-sixth card
+	 * while the terms said twenty-five.
 	 *
 	 * @param int $quantity   How many.
 	 * @param int $company_id Company, for its own settings.
@@ -804,7 +815,7 @@ class CardsCo_Card {
 	public static function is_bulk( $quantity, $company_id = 0 ) {
 		$from = (int) CardsCo_Settings::get( 'bulk_from', null, $company_id );
 
-		return $from > 0 && (int) $quantity > $from;
+		return $from > 0 && (int) $quantity >= $from;
 	}
 
 	/**

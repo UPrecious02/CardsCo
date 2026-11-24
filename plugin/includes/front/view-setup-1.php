@@ -22,13 +22,45 @@ defined( 'ABSPATH' ) || exit;
 
 	<div class="cc-wz-grid" role="radiogroup" aria-label="<?php esc_attr_e( 'Occasion', 'cardsco' ); ?>">
 		<?php foreach ( $choices as $cc_pick ) : ?>
-			<?php $cc_id = 'cc-occ-' . $cc_pick['slug']; ?>
-			<label class="cc-pick<?php echo $cc_pick['coming_soon'] ? ' is-soon' : ''; ?><?php echo $cc_pick['chosen'] ? ' is-chosen' : ''; ?>"
-				for="<?php echo esc_attr( $cc_id ); ?>">
+			<?php
+			$cc_id = 'cc-occ-' . $cc_pick['slug'];
+
+			/*
+			 * One of these is not a choice on this screen: it is set up as
+			 * a campaign, and the tile is a way through to that rather
+			 * than a radio that refuses once it is pressed. Without a
+			 * campaigns page to point at it stays a marked, dead tile,
+			 * which is still better than one that looks pickable.
+			 */
+			$cc_away = ! empty( $cc_pick['campaign_only'] ) && ! empty( $cc_pick['campaign_link'] );
+			$cc_tag  = $cc_away ? 'a' : 'label';
+			?>
+			<<?php echo esc_attr( $cc_tag ); ?>
+				class="cc-pick<?php echo $cc_pick['coming_soon'] ? ' is-soon' : ''; ?><?php echo ! empty( $cc_pick['campaign_only'] ) ? ' is-elsewhere' : ''; ?><?php echo $cc_pick['chosen'] ? ' is-chosen' : ''; ?>"
+				<?php if ( $cc_away ) : ?>
+					href="<?php echo esc_url( $cc_pick['campaign_link'] ); ?>"
+					<?php
+					/*
+					 * This one leaves the wizard. The wizard swaps its own
+					 * links in place rather than reloading, and it decides
+					 * what is "its own" by the path — which on a site with
+					 * plain permalinks is the same path for every page, so
+					 * Campaigns was being pulled into the wizard's panel
+					 * instead of opened, and arrived as markup with none of
+					 * its scripts. data-cc-full is the swap's own way of
+					 * being told to leave a link alone.
+					 */
+					?>
+					data-cc-full
+				<?php else : ?>
+					for="<?php echo esc_attr( $cc_id ); ?>"
+				<?php endif; ?>>
+				<?php if ( ! $cc_away ) : ?>
 				<input type="radio" id="<?php echo esc_attr( $cc_id ); ?>" name="category"
 					value="<?php echo esc_attr( $cc_pick['slug'] ); ?>"
 					<?php checked( $cc_pick['chosen'] ); ?>
-					<?php disabled( $cc_pick['coming_soon'] ); ?> />
+					<?php disabled( $cc_pick['coming_soon'] || ! empty( $cc_pick['campaign_only'] ) ); ?> />
+				<?php endif; ?>
 
 				<span class="cc-pick-art">
 					<?php if ( $cc_pick['art']['image'] ) : ?>
@@ -42,14 +74,24 @@ defined( 'ABSPATH' ) || exit;
 					<span class="cc-pick-name"><?php echo esc_html( $cc_pick['label'] ); ?></span>
 					<?php if ( $cc_pick['coming_soon'] ) : ?>
 						<span class="cc-pill is-neutral"><?php esc_html_e( 'Coming soon', 'cardsco' ); ?></span>
+					<?php elseif ( ! empty( $cc_pick['campaign_only'] ) ) : ?>
+						<span class="cc-pill is-neutral"><?php esc_html_e( 'Set up as a campaign', 'cardsco' ); ?></span>
 					<?php endif; ?>
 				</span>
 
 				<span class="cc-pick-blurb"><?php echo esc_html( $cc_pick['blurb'] ); ?></span>
-				<span class="cc-pick-stat<?php echo $cc_pick['coming_soon'] ? ' is-quiet' : ''; ?>">
-					<?php echo esc_html( $cc_pick['stat'] ); ?>
+				<span class="cc-pick-stat<?php echo ( $cc_pick['coming_soon'] || ! empty( $cc_pick['campaign_only'] ) ) ? ' is-quiet' : ''; ?>">
+					<?php
+					if ( ! empty( $cc_pick['campaign_only'] ) ) {
+						echo $cc_away
+							? esc_html__( 'Goes out on a day you choose · set it up in Campaigns', 'cardsco' )
+							: esc_html__( 'Goes out on a day you choose, so it is set up in Campaigns', 'cardsco' );
+					} else {
+						echo esc_html( $cc_pick['stat'] );
+					}
+					?>
 				</span>
-			</label>
+			</<?php echo esc_attr( $cc_tag ); ?>>
 		<?php endforeach; ?>
 	</div>
 

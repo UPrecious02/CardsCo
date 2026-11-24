@@ -41,6 +41,9 @@ class CardsCo_Catalogue {
 	 */
 	const CARD = '_cardsco_card_id';
 
+	/** Set once the one-per-line repair has been run. */
+	const UNCAPPED = 'cardsco_products_uncapped';
+
 	/**
 	 * Hook up.
 	 *
@@ -53,6 +56,32 @@ class CardsCo_Catalogue {
 		add_action( 'save_post_' . CardsCo_Card::POST_TYPE, array( __CLASS__, 'sync' ), 20, 2 );
 		add_action( 'trashed_post', array( __CLASS__, 'withdraw' ) );
 		add_action( 'untrashed_post', array( __CLASS__, 'restore' ) );
+
+		/*
+		 * The one-per-line repair, run once and then never again.
+		 *
+		 * Deliberately not hung off the schema version. The first attempt
+		 * was, and the edit that bumped that version silently failed, so
+		 * the repair sat in the file complete and uncalled while the
+		 * products stayed capped and the checkout kept charging for one
+		 * card. A flag of its own cannot be undone by an edit elsewhere,
+		 * and it costs one option read per request.
+		 */
+		add_action( 'woocommerce_init', array( __CLASS__, 'maybe_uncap' ) );
+	}
+
+	/**
+	 * Run the one-per-line repair if it has not been run.
+	 *
+	 * @return void
+	 */
+	public static function maybe_uncap() {
+		if ( get_option( self::UNCAPPED ) ) {
+			return;
+		}
+
+		self::uncap_quantities();
+		update_option( self::UNCAPPED, 1, true );
 	}
 
 	/**
@@ -140,7 +169,22 @@ class CardsCo_Catalogue {
 		$product->set_status( 'publish' );
 		$product->set_catalog_visibility( 'visible' );
 		$product->set_virtual( false );
-		$product->set_sold_individually( true );
+		/*
+		 * NOT sold individually. WooCommerce reads that flag as a hard cap
+		 * of one per line and silently clamps the quantity, so an occasion
+		 * for forty people and a campaign to a hundred both reached the
+		 * checkout as a single £3.60 card. The basket said one, the
+		 * checkout charged for one, and nothing anywhere reported an
+		 * error — the builder's own total was the only place the real
+		 * figure appeared.
+		 *
+		 * It was set to stop somebody buying ten of the same card from the
+		 * shop. That is now handled properly, by CardsCo_Shop refusing a
+		 * card into the basket from anywhere but our own flows, which is
+		 * the right place for it: a rule about who may add, not a cap on
+		 * how many.
+		 */
+		$product->set_sold_individually( false );
 		$product->set_regular_price( (string) $price );
 		$product->set_short_description( (string) $card->post_excerpt );
 		$product->set_description( (string) $card->post_content );
@@ -228,6 +272,91 @@ class CardsCo_Catalogue {
 		}
 
 		self::sync( $post_id );
+	}
+
+	/**
+	 * Make sure this one product is not capped, right now.
+	 *
+	 * The cap only matters at the moment something goes into the basket,
+	 * so it is cleared at that moment, for the product in hand. That makes
+	 * the quantity correct without depending on a migration having run, on
+	 * when it ran, or on whether a flag saying it ran was telling the
+	 * truth — a one-shot sweep marked itself done on a live site and left
+	 * every product capped, and there was no way to tell from outside
+	 * which of those had happened.
+	 *
+	 * Writes the meta directly as well as going through the API, so a
+	 * cached product object cannot quietly swallow it.
+	 *
+	 * @param int $product_id The product about to be bought.
+	 * @return void
+	 */
+	public static function ensure_uncapped( $product_id ) {
+		$product_id = absint( $product_id );
+
+		if ( ! $product_id || ! function_exists( 'wc_get_product' ) ) {
+			return;
+		}
+
+		$product = wc_get_product( $product_id );
+
+		if ( ! $product || ! $product->is_sold_individually() ) {
+			return;
+		}
+
+		$product->set_sold_individually( false );
+		$product->save();
+
+		/* Belt and braces: WooCommerce stores this as yes/no. */
+		update_post_meta( $product_id, '_sold_individually', 'no' );
+
+		if ( function_exists( 'wc_delete_product_transients' ) ) {
+			wc_delete_product_transients( $product_id );
+		}
+	}
+
+	/**
+	 * Clear the one-per-line cap from products that already carry it.
+	 *
+	 * sync() only runs when a card is saved, so fixing the code fixes new
+	 * products and leaves every existing one capped — and a capped product
+	 * charges for one card however many were ordered. This runs once, on
+	 * upgrade, over the products already there.
+	 *
+	 * @return int How many were changed.
+	 */
+	public static function uncap_quantities() {
+		if ( ! function_exists( 'wc_get_product' ) ) {
+			return 0;
+		}
+
+		$products = get_posts(
+			array(
+				'post_type'        => 'product',
+				'post_status'      => 'any',
+				'numberposts'      => -1,
+				'fields'           => 'ids',
+				'meta_key'         => self::CARD, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				'meta_compare'     => 'EXISTS',
+				'suppress_filters' => false,
+			)
+		);
+
+		$fixed = 0;
+
+		foreach ( $products as $product_id ) {
+			$product = wc_get_product( $product_id );
+
+			if ( ! $product || ! $product->is_sold_individually() ) {
+				continue;
+			}
+
+			$product->set_sold_individually( false );
+			$product->save();
+			$fixed++;
+		}
+
+		return $fixed;
 	}
 
 	/**

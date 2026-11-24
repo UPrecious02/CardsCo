@@ -8,9 +8,11 @@
  *
  * @package CardsCo
  *
- * @var array[] $cards
- * @var array[] $upcoming
- * @var array   $links
+ * @var array[]   $cards
+ * @var array[]   $upcoming
+ * @var array     $links
+ * @var array|null $renewal
+ * @var string     $error
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -18,6 +20,49 @@ defined( 'ABSPATH' ) || exit;
 $cc = 'CardsCo_Shortcodes';
 ?>
 <div class="cc cc-main">
+
+	<?php if ( '' !== $error ) : ?>
+		<p class="cc-alert" role="alert"><?php echo esc_html( $error ); ?></p>
+	<?php endif; ?>
+
+	<?php if ( ! empty( $renewal ) ) : ?>
+		<?php
+		/*
+		 * A paused occasion is the loudest thing on this screen, because
+		 * its cards have stopped and nothing else here would say so.
+		 */
+		?>
+		<section class="cc-renew<?php echo $renewal['paused'] ? ' is-stopped' : ''; ?>">
+			<div class="cc-renew-text">
+				<p class="cc-renew-head"><?php echo esc_html( $renewal['heading'] ); ?></p>
+				<p class="cc-renew-what"><?php echo esc_html( $renewal['label'] ); ?></p>
+				<p class="cc-renew-blurb"><?php echo esc_html( $renewal['blurb'] ); ?></p>
+				<p class="cc-renew-note"><?php echo esc_html( $renewal['note'] ); ?></p>
+			</div>
+
+			<div class="cc-renew-money">
+				<p class="cc-renew-total"><?php echo esc_html( wp_strip_all_tags( $renewal['total'] ) ); ?></p>
+				<p class="cc-renew-each">
+					<?php
+					printf(
+						/* translators: %s: the price of one card. */
+						esc_html__( '%s a card', 'cardsco' ),
+						esc_html( wp_strip_all_tags( $renewal['each'] ) )
+					);
+					?>
+				</p>
+
+				<form method="post" action="<?php echo esc_url( $links['manage'] ); ?>">
+					<?php wp_nonce_field( 'cardsco_renew', '_cardsco_nonce' ); ?>
+					<input type="hidden" name="cardsco_renew_action" value="pay" />
+					<input type="hidden" name="programme" value="<?php echo esc_attr( $renewal['id'] ); ?>" />
+					<button type="submit" class="cc-btn cc-btn-primary cc-btn-r8">
+						<?php echo esc_html( $renewal['button'] ); ?>
+					</button>
+				</form>
+			</div>
+		</section>
+	<?php endif; ?>
 
 	<header class="cc-page-head cc-page-head-row">
 		<div class="cc-page-head-text">
@@ -84,9 +129,11 @@ $cc = 'CardsCo_Shortcodes';
 						}
 
 						/*
-						 * A draft opens at the step it reached. Everything
-						 * else starts a new one for that category.
+						 * A draft opens at the step it reached, and a live
+						 * one opens its own screen. Both are just links.
 						 */
+						$cc_href = '';
+
 						if ( ! $cc_occ['active'] && ! empty( $cc_occ['draft_id'] ) ) {
 							$cc_href = add_query_arg(
 								array(
@@ -95,18 +142,45 @@ $cc = 'CardsCo_Shortcodes';
 								),
 								$links['setup']
 							);
-						} else {
-							$cc_href = add_query_arg(
-								'occasion',
-								$cc_occ['slug'],
-								$cc_occ['active'] ? $links['manage'] : $links['setup']
-							);
+						} elseif ( $cc_occ['active'] ) {
+							$cc_href = add_query_arg( 'occasion', $cc_occ['slug'], $links['manage'] );
 						}
 						?>
-						<a class="cc-btn <?php echo esc_attr( $cc_class ); ?> cc-occ-btn"
-							href="<?php echo esc_url( $cc_href ); ?>">
-							<span><?php echo esc_html( $cc_label ); ?></span>
-						</a>
+						<?php if ( '' === $cc_href ) : ?>
+							<?php
+							/*
+							 * Starting a new one asks for the occasion, so it
+							 * is posted rather than linked.
+							 *
+							 * It used to be a link carrying ?occasion=the-slug,
+							 * and nothing in the wizard ever read that: the
+							 * first screen asked "Which occasion?" with the
+							 * answer sitting in the address bar, and not even
+							 * the one that had been clicked was ticked.
+							 *
+							 * Posting it means the same thing the picker does,
+							 * so somebody who has already said which occasion
+							 * they want lands on the next step instead of
+							 * being asked again. It posts to the wizard's own
+							 * page because that is where the handler sends
+							 * people back to.
+							 */
+							?>
+							<form class="cc-occ-start" method="post" action="<?php echo esc_url( $links['setup'] ); ?>">
+								<?php wp_nonce_field( 'cardsco_setup', '_cardsco_nonce' ); ?>
+								<input type="hidden" name="cardsco_setup_action" value="start" />
+								<input type="hidden" name="category" value="<?php echo esc_attr( $cc_occ['slug'] ); ?>" />
+
+								<button type="submit" class="cc-btn <?php echo esc_attr( $cc_class ); ?> cc-occ-btn">
+									<span><?php echo esc_html( $cc_label ); ?></span>
+								</button>
+							</form>
+						<?php else : ?>
+							<a class="cc-btn <?php echo esc_attr( $cc_class ); ?> cc-occ-btn"
+								href="<?php echo esc_url( $cc_href ); ?>">
+								<span><?php echo esc_html( $cc_label ); ?></span>
+							</a>
+						<?php endif; ?>
 					<?php endif; ?>
 				</article>
 			<?php endforeach; ?>

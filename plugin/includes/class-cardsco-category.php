@@ -29,18 +29,18 @@ class CardsCo_Category {
 				'label'       => __( 'Christmas & Seasonal', 'cardsco' ),
 				'blurb'       => __( 'Stand out from the inbox when it matters most.', 'cardsco' ),
 				'format'      => __( 'Postcard 6 × 4 in', 'cardsco' ),
+				/*
+				 * The four the design's catalogue filter names. Easter,
+				 * Halloween, Thanksgiving, Valentine's Day, Mothering
+				 * Sunday, Father's Day and International Women's Day were
+				 * here too and are in no design file; a company that wants
+				 * one adds it as its own occasion.
+				 */
 				'types'       => array(
 					'christmas',
 					'new-year',
-					'easter',
 					'eid-al-fitr',
 					'diwali',
-					'halloween',
-					'thanksgiving',
-					'valentines-day',
-					'mothering-sunday',
-					'fathers-day',
-					'international-womens-day',
 				),
 				'audience'    => 'both',
 				'coming_soon' => false,

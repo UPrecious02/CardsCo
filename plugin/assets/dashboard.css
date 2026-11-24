@@ -306,6 +306,16 @@
    ================================================================ */
 
 .cc-main {
+	/*
+	 * Said here rather than inherited. Everything inside .cc gets
+	 * border-box from the rule at the top of this file, but .cc-main and
+	 * .cc-portal are the page builder's own wrappers and sit outside it —
+	 * so they took whatever the theme set. With width:100% and 40px of
+	 * padding, a theme without that reset pushes every portal page
+	 * sideways by 80px, and the page scrolls horizontally with nothing
+	 * obviously wrong on it.
+	 */
+	box-sizing: border-box;
 	flex: 1 1 auto;
 	width: 100%;
 	min-width: 0;
@@ -345,6 +355,8 @@
  * asked for it.
  */
 .cc-portal {
+	/* The page builder's wrapper, outside .cc — see .cc-main above. */
+	box-sizing: border-box;
 	display: flex !important;
 	flex-direction: row !important;
 	flex-wrap: nowrap !important;
@@ -1821,6 +1833,10 @@
 .cc-nav-toggle,
 .cc-nav-shut { display: none; }
 
+/* The phone's top bar and tab row; the sidebar handles a desktop. */
+.cc-mbar,
+.cc-mtabs { display: none; }
+
 .cc-nav-veil { display: none; }
 
 /* ---------------------------------------------------------------
@@ -1828,6 +1844,191 @@
    --------------------------------------------------------------- */
 
 @media (max-width: 860px) {
+
+	/* -----------------------------------------------------------------
+	   The bar across the top.
+
+	   Carries the logo and nothing else. It used to be a lone "Menu"
+	   button: no logo, no sign of which product you were in. The right
+	   side is deliberately empty until there is something true to put
+	   there.
+	   ----------------------------------------------------------------- */
+
+	.cc-mbar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--cc-space-12);
+		position: sticky;
+		top: 0;
+		z-index: 9996;
+		padding: var(--cc-space-12) var(--cc-space-16);
+		background: var(--cc-paper);
+		border-bottom: 1px solid var(--cc-border-subtle);
+	}
+
+	.cc-mbar-logo { display: flex; align-items: center; }
+	.cc-mbar-logo img { display: block; height: 28px; width: auto; }
+
+	/* -----------------------------------------------------------------
+	   The bell.
+
+	   It reports nothing yet and says so when tapped. A button that does
+	   nothing at all would be the defect we keep finding; one that
+	   answers "nothing needs you" is honest and still has somewhere to
+	   grow into.
+	   ----------------------------------------------------------------- */
+
+	.cc-mbell { position: relative; }
+
+	.cc-mbell-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		/* 44, the smallest a thumb hits reliably. */
+		width: 44px;
+		height: 44px;
+		padding: 0;
+		border: 1px solid var(--cc-border-subtle);
+		border-radius: var(--cc-radius-md);
+		background: var(--cc-paper);
+		color: var(--cc-icon-default, var(--cc-text-secondary));
+		cursor: pointer;
+	}
+
+	.cc-mbell-btn svg { width: 21px; height: 21px; }
+
+	.cc-mbell-btn[aria-expanded="true"] {
+		border-color: var(--cc-border-default);
+		background: var(--cc-bg-subtle);
+	}
+
+	.cc-mbell-panel {
+		position: absolute;
+		top: calc(100% + 8px);
+		right: 0;
+		z-index: 9998;
+		/* Narrower than the 280 it started at: at that width it ran most of
+		   the way across the phone and read as a banner rather than a
+		   dropdown. The text wraps to more lines here, which is where some
+		   of the extra height comes from; min-height carries the rest so an
+		   empty state still looks like a panel. */
+		width: min(240px, calc(100vw - 32px));
+		min-height: 132px;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		padding: var(--cc-space-16);
+		border: 1px solid var(--cc-border-subtle);
+		border-radius: var(--cc-radius-lg);
+		background: var(--cc-paper);
+		box-shadow: 0 8px 24px rgba(29, 28, 26, .14);
+	}
+
+	.cc-mbell-panel[hidden] { display: none; }
+
+	.cc-mbell-head {
+		margin: 0 0 var(--cc-space-4);
+		font-size: var(--cc-body-m-size);
+		font-weight: var(--cc-weight-semi);
+		color: var(--cc-text-primary);
+	}
+
+	.cc-mbell-sub {
+		margin: 0;
+		font-size: var(--cc-body-s-size);
+		line-height: var(--cc-body-s-line);
+		color: var(--cc-text-tertiary);
+	}
+
+	/* -----------------------------------------------------------------
+	   The tabs along the bottom.
+
+	   Three destinations and a More, in the thumb's reach and visible
+	   without a tap. Orders, Settings and Help live behind More, which
+	   opens the same drawer the sidebar already becomes.
+
+	   env(safe-area-inset-bottom) keeps it clear of the home indicator
+	   on a phone that has one; it is 0 everywhere else.
+	   ----------------------------------------------------------------- */
+
+	.cc-mtabs {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		position: fixed;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		z-index: 9996;
+		padding: var(--cc-space-6) var(--cc-space-4);
+		padding-bottom: calc( var(--cc-space-8) + env(safe-area-inset-bottom, 0px) );
+		background: var(--cc-paper);
+		border-top: 1px solid var(--cc-border-subtle);
+	}
+
+	.cc-mtab {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 3px;
+		/* 44, which is the smallest thing a thumb hits reliably. */
+		min-height: 44px;
+		padding: var(--cc-space-4) 2px;
+		border: 0;
+		background: transparent;
+		font-family: var(--cc-font-ui);
+		font-size: var(--cc-caption-size);
+		line-height: 1.2;
+		color: var(--cc-text-tertiary);
+		text-decoration: none;
+		cursor: pointer;
+	}
+
+	.cc-mtab.is-on { color: var(--cc-accent-default); font-weight: var(--cc-weight-semi); }
+
+	.cc-mtab-glyph { position: relative; display: block; width: 22px; height: 22px; }
+	.cc-mtab-glyph svg { display: block; width: 22px; height: 22px; }
+
+	.cc-mtab-count {
+		position: absolute;
+		top: -5px;
+		left: 13px;
+		min-width: 16px;
+		height: 16px;
+		padding: 0 4px;
+		border-radius: var(--cc-radius-full);
+		background: var(--cc-accent-default);
+		color: var(--cc-on-accent, #fff);
+		font-size: 10px;
+		font-weight: var(--cc-weight-semi);
+		line-height: 16px;
+		text-align: center;
+	}
+
+	.cc-mtab-label { display: block; }
+
+	/*
+	 * Room for the tab row, so the last thing on a page is reachable
+	 * rather than sitting underneath it.
+	 */
+	.cc-portal,
+	.cc-main {
+		/*
+		 * From the bar itself, not from a number written beside it. This
+		 * was a flat 64 against a bar that renders at 67, so the last
+		 * thing on a page sat under it — on Settings that was "Save
+		 * changes", which you could reach for and not get.
+		 *
+		 * nav.js measures the bar and writes --cc-tabs-h. The 76 is the
+		 * fallback for before the script runs: deliberately generous,
+		 * because spare space at the end of a page is invisible and a
+		 * shortfall costs you the button. This sits in the same query as
+		 * the bar, so the two can't cover different widths.
+		 */
+		padding-bottom: calc( var(--cc-tabs-h, 76px) + var(--cc-space-16) + env(safe-area-inset-bottom, 0px) );
+	}
+
 	.cc-nav-toggle {
 		display: inline-flex;
 		align-items: center;
@@ -2170,13 +2371,36 @@
 	display: flex;
 	align-items: center;
 	justify-content: flex-start;
-	/* 36, measured: the frame's seven steps span 399 to 1088. */
-	gap: 36px;
+	/*
+	 * 36 at full width, measured: the frame's seven steps span 399 to
+	 * 1088. It shrinks from there rather than holding and overflowing.
+	 */
+	gap: clamp(10px, 1.6vw, 36px);
 	flex: 1 1 auto;
+	/* Without this a flex child refuses to shrink below its content. */
+	min-width: 0;
 	list-style: none;
 	margin: 0;
 	padding: 0;
-	overflow-x: auto;
+	/*
+	 * Wraps rather than scrolls or clips.
+	 *
+	 * This was overflow-x: auto, and seven steps with long labels tipped
+	 * over the edge: the browser drew a native horizontal scrollbar right
+	 * under the rail, which reads as a progress bar, sat across the top of
+	 * every screen, and cut "Review" off at "Re".
+	 *
+	 * Hiding the overflow instead would trade a scrollbar for silent
+	 * truncation, and a viewport media query is the wrong instrument —
+	 * what runs out of room here is the container, which is the window
+	 * minus the portal's sidebar, so the viewport can be wide while this
+	 * is tight. Wrapping needs to know none of that: when the steps do not
+	 * fit on one line they take two, and nothing is ever cut off or
+	 * scrolled out of sight.
+	 */
+	flex-wrap: wrap;
+	row-gap: var(--cc-space-6);
+	overflow: visible;
 }
 
 .cc-wz-step a,
@@ -2240,6 +2464,16 @@
 }
 
 .cc-wz-exit:hover { text-decoration: underline; }
+
+/*
+ * The phone's stepper controls, drawn by part-wz-progress.php.
+ *
+ * Nothing above a phone: on a wide screen the seven steps sit across the
+ * bar and say where you are on their own. The media query below turns
+ * these on and the chips off.
+ */
+.cc-wz-steps-toggle,
+.cc-wz-bar { display: none; }
 
 /* ---------------- body ---------------- */
 
@@ -2334,6 +2568,15 @@
 	background: var(--cc-green-100);
 	border-color: var(--cc-accent-default);
 }
+
+/*
+ * An occasion set up as a campaign. Not greyed the way "coming soon" is —
+ * it is available, just not from this screen — so it reads as a way
+ * through rather than as something switched off.
+ */
+.cc-pick.is-elsewhere { text-decoration: none; color: inherit; }
+.cc-pick.is-elsewhere:hover { border-color: var(--cc-accent-default); }
+.cc-pick.is-elsewhere .cc-pick-stat { color: var(--cc-accent-default); }
 
 .cc-pick.is-soon { cursor: default; }
 .cc-pick.is-soon .cc-pick-name { color: var(--cc-text-secondary); }
@@ -3037,6 +3280,174 @@
 }
 
 /* --------------------------------------------------------------------------
+   The wizards on a phone
+
+   Three things were wrong on a 390 screen, all of them from a bar drawn for
+   1440 being made to wrap:
+
+   1. The occasion's name sat at interface size — 15px, the size of a form
+      label — directly above a 32px heading, so the thing that says which
+      occasion you are setting up was the smallest text on the screen.
+   2. The seven steps wrapped to three lines of chips above every screen,
+      which is most of a phone's first fold spent on furniture.
+   3. The rail, which on a wide screen sits beside the content as a summary,
+      stacks under it on a phone and listed the same seven steps a second
+      time, below the fold, where they say nothing the top did not.
+
+   So: the name gets the size it deserves, the chips fold away behind one
+   line that can be tapped open to jump back, a progress bar carries the
+   where-am-I, and the rail keeps its price and drops its step list.
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 720px) {
+	.cc-wz-top {
+		align-items: flex-start;
+		gap: var(--cc-space-8);
+		row-gap: var(--cc-space-10);
+		padding: var(--cc-space-12) var(--cc-space-16) 0;
+	}
+
+	/* 301 was the frame's measurement for the name column, and on a phone
+	   it is wider than the phone, which pushed "Save and exit" onto a line
+	   of its own. */
+	.cc-wz-who { order: 1; flex: 1 1 auto; min-width: 0; }
+
+	.cc-wz-name {
+		font-size: clamp(16px, 4.4vw, 19px);
+		line-height: 1.3;
+		font-weight: var(--cc-weight-semi);
+	}
+
+	.cc-wz-saved { font-size: 12px; line-height: 16px; }
+
+	.cc-wz-exit {
+		order: 2;
+		flex: 0 0 auto;
+		padding-top: 2px;
+		font-size: var(--cc-body-s-size);
+	}
+
+	.cc-wz-steps-toggle {
+		order: 3;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--cc-space-8);
+		width: 100%;
+		/* 40 rather than 44: it is a disclosure, not the way forward, and
+		   the whole line is the target. */
+		min-height: 40px;
+		margin: 0;
+		padding: 0;
+		border: 0;
+		background: none;
+		font: inherit;
+		font-size: var(--cc-body-s-size);
+		line-height: var(--cc-body-s-line);
+		color: var(--cc-text-secondary);
+		text-align: left;
+		cursor: pointer;
+	}
+
+	/* The "Step 2 of 7 · Who gets it" label. It takes whatever room the
+	   chevron leaves and cuts rather than wrapping the button to two
+	   lines, because an occasion or step named at length should not
+	   change the height of the bar. */
+	.cc-wz-steps-now {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.cc-wz-steps-chev {
+		width: 18px;
+		height: 18px;
+		flex: 0 0 auto;
+		transition: transform .15s ease;
+	}
+
+	.cc-wz-steps-toggle[aria-expanded="true"] .cc-wz-steps-chev { transform: rotate(180deg); }
+
+	/* Folded away until the button opens it. */
+	.cc-wz-steps { order: 4; width: 100%; display: none; }
+
+	/*
+	 * Two columns, so opening the drawer costs four rows rather than seven.
+	 *
+	 * auto-fit rather than a fixed repeat(2): at 390 there is room for two
+	 * 140s and it lays out 1-2 / 3-4 / 5-6 / 7, and on a 320 screen — or if
+	 * a step is ever renamed to something long — it falls back to one
+	 * column by itself instead of squeezing the labels.
+	 */
+	.cc-wz-steps.is-open {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+		column-gap: var(--cc-space-12);
+		row-gap: 0;
+		padding-bottom: var(--cc-space-8);
+	}
+
+	.cc-wz-steps.is-open .cc-wz-step { width: 100%; }
+
+	.cc-wz-steps.is-open .cc-wz-step a,
+	.cc-wz-steps.is-open .cc-wz-step > span {
+		display: flex;
+		width: 100%;
+		min-height: 44px;
+		padding: var(--cc-space-6) 0;
+	}
+
+	/* Full bleed: the bar is the bottom edge of the header, so it runs past
+	   the padding the rest of the header sits inside. */
+	.cc-wz-bar {
+		order: 5;
+		display: block;
+		width: calc(100% + (var(--cc-space-16) * 2));
+		margin: 0 calc(var(--cc-space-16) * -1);
+		height: 3px;
+		background: var(--cc-border-subtle);
+		overflow: hidden;
+	}
+
+	.cc-wz-bar span {
+		display: block;
+		height: 100%;
+		background: var(--cc-accent-default);
+	}
+
+	.cc-wz-body {
+		padding-left: var(--cc-space-16);
+		padding-right: var(--cc-space-16);
+	}
+
+	/* The rail becomes a price card. Its step list is the duplicate. */
+	.cc-wz-rail {
+		padding: var(--cc-space-16);
+		border: 1px solid var(--cc-border-subtle);
+		border-radius: var(--cc-radius-lg);
+		background: var(--cc-surface-default);
+	}
+
+	.cc-wz-rail-head,
+	.cc-wz-rail-list { display: none; }
+
+	.cc-wz .cc-wz-price { margin-top: 0; }
+
+	/* At 390 the three of these on one line left "Continue" about as wide
+	   as its own label. The sentence takes its own line above them. */
+	.cc-wz-foot {
+		flex-wrap: wrap;
+		gap: var(--cc-space-10);
+		padding: var(--cc-space-14) var(--cc-space-16);
+	}
+
+	.cc-wz-state { order: 1; width: 100%; text-align: left; }
+	.cc-wz-foot .cc-btn-ghost { order: 2; }
+	.cc-wz-foot .cc-btn-primary { order: 3; margin-left: auto; }
+}
+
+/* --------------------------------------------------------------------------
    Confirm your email
    A band, not a barrier: the product stays usable unconfirmed right up to
    turning a programme on or paying.
@@ -3184,7 +3595,23 @@
 	color: var(--cc-text-primary);
 }
 
+/*
+ * Every text-like input, not only type="text".
+ *
+ * The rule named one type, so an email, password or telephone field in a
+ * .cc-field drew with no border, no padding and no height — 21px tall
+ * against the 42 of the box above it. It went unnoticed because the
+ * dashboard had no such field until Billing asked for an email address;
+ * the team invite had one too, and the sign-in screens escaped only
+ * because they use .cc-input instead.
+ */
 .cc-field input[type="text"],
+.cc-field input[type="email"],
+.cc-field input[type="password"],
+.cc-field input[type="tel"],
+.cc-field input[type="url"],
+.cc-field input[type="number"],
+.cc-field input[type="search"],
 .cc-field textarea {
 	width: 100%;
 	padding: 11px 14px;
@@ -3197,7 +3624,13 @@
 	border-radius: 8px;
 }
 
-.cc-field input[type="text"] { height: 42px; }
+.cc-field input[type="text"],
+.cc-field input[type="email"],
+.cc-field input[type="password"],
+.cc-field input[type="tel"],
+.cc-field input[type="url"],
+.cc-field input[type="number"],
+.cc-field input[type="search"] { height: 42px; }
 .cc-field textarea { min-height: 112px; resize: vertical; }
 
 .cc-field input:focus,
@@ -4321,8 +4754,14 @@
    Not display:none, which would take it out of the accessibility tree too.
    -------------------------------------------------------------------------- */
 
-.cc-main .screen-reader-text,
-.cc-wz .screen-reader-text {
+/*
+ * Scoped to .cc, which every one of these components carries at its root,
+ * rather than to the two that happened to need it when this was written.
+ * The nav is neither .cc-main nor .cc-wz, so its review badge was never
+ * covered: on a phone the drawer showed a pill reading "12 needing review"
+ * where a count belonged, four pixels wider than the drawer itself.
+ */
+.cc .screen-reader-text {
 	position: absolute !important;
 	width: 1px;
 	height: 1px;
@@ -5381,4 +5820,1354 @@
 	.cc-team-role  { grid-column: 1 / -1; }
 	.cc-team-do    { grid-column: 1 / -1; justify-content: flex-start; }
 	.cc-team-invite .cc-field { flex-basis: 100%; }
+}
+
+/* ==========================================================================
+   The campaign builder
+   --------------------------------------------------------------------------
+   The shell reuses the occasion wizard's furniture — .cc-wz-top, the step
+   rail, .cc-wz-foot — so only the step bodies need rules of their own.
+   These are them.
+   ========================================================================== */
+
+.cc-bd-field { margin: 0 0 var(--cc-space-24); max-width: 640px; }
+
+.cc-bd-field > label,
+.cc-bd-field > legend {
+	display: block;
+	margin: 0 0 var(--cc-space-8);
+	font-size: var(--cc-body-s-size);
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary);
+}
+
+.cc-bd-field input[type="text"],
+.cc-bd-field input[type="date"],
+.cc-bd-field textarea {
+	width: 100%;
+	padding: var(--cc-space-12) var(--cc-space-14);
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-paper);
+	font-family: var(--cc-font-ui);
+	font-size: var(--cc-body-m-size);
+	color: var(--cc-text-primary);
+}
+
+.cc-bd-field input[type="text"]:focus,
+.cc-bd-field input[type="date"]:focus,
+.cc-bd-field textarea:focus {
+	outline: none;
+	border-color: var(--cc-border-focus);
+	box-shadow: var(--cc-focus-ring);
+}
+
+.cc-bd-field textarea { resize: vertical; min-height: 140px; line-height: 1.6; }
+
+.cc-bd-hint,
+.cc-bd-none,
+.cc-bd-note {
+	margin: var(--cc-space-8) 0 0;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-tertiary);
+}
+
+.cc-bd-warn {
+	margin: var(--cc-space-12) 0;
+	padding: var(--cc-space-12) var(--cc-space-14);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-status-warning-bg);
+	color: var(--cc-text-primary);
+	font-size: var(--cc-body-s-size);
+	max-width: 640px;
+}
+
+/* --- things you pick one of, and things you tick --- */
+
+.cc-bd-radios,
+.cc-bd-checks { display: grid; gap: var(--cc-space-8); }
+
+.cc-bd-radio,
+.cc-bd-check {
+	display: flex;
+	align-items: center;
+	gap: var(--cc-space-12);
+	padding: var(--cc-space-12) var(--cc-space-14);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-paper);
+	cursor: pointer;
+	font-size: var(--cc-body-m-size);
+}
+
+.cc-bd-radio:hover,
+.cc-bd-check:hover { border-color: var(--cc-border-default); }
+
+/*
+ * The server renders is-on so the choice is visible before any script
+ * runs, and :has() keeps it right the moment somebody clicks. They are
+ * two separate rules on purpose: a browser that cannot parse :has()
+ * throws away the whole rule it appears in, and putting them together
+ * would take the server-rendered state down with it.
+ */
+.cc-bd-radio.is-on,
+.cc-bd-check.is-on {
+	border-color: var(--cc-accent-default);
+	background: var(--cc-accent-subtle);
+}
+
+.cc-bd-radio:has(input:checked),
+.cc-bd-check:has(input:checked) {
+	border-color: var(--cc-accent-default);
+	background: var(--cc-accent-subtle);
+}
+
+.cc-bd-radio-name,
+.cc-bd-check-name { font-weight: var(--cc-weight-medium); }
+
+.cc-bd-check-n { margin-left: auto; color: var(--cc-text-tertiary); font-size: var(--cc-body-s-size); }
+
+/* --- who gets it --- */
+
+.cc-bd-people {
+	display: grid;
+	gap: var(--cc-space-6);
+	max-height: 420px;
+	overflow-y: auto;
+	padding-right: var(--cc-space-4);
+}
+
+.cc-bd-person { display: flex; align-items: center; gap: var(--cc-space-12); }
+.cc-bd-person .cc-bd-check { flex: 1 1 auto; }
+.cc-bd-person.is-out { opacity: 0.55; }
+
+.cc-bd-from { font-size: var(--cc-caption-size); color: var(--cc-text-tertiary); white-space: nowrap; }
+
+.cc-bd-out {
+	display: flex;
+	align-items: center;
+	gap: var(--cc-space-6);
+	font-size: var(--cc-body-s-size);
+	color: var(--cc-text-secondary);
+	white-space: nowrap;
+	cursor: pointer;
+}
+
+.cc-bd-count {
+	margin: var(--cc-space-16) 0 0;
+	font-size: var(--cc-body-m-size);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+/* --- the cards --- */
+
+.cc-bd-cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(168px, 1fr));
+	gap: var(--cc-space-16);
+}
+
+.cc-bd-card {
+	display: block;
+	padding: var(--cc-space-10);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: var(--cc-radius-lg);
+	background: var(--cc-paper);
+	cursor: pointer;
+	text-align: center;
+}
+
+.cc-bd-card input { position: absolute; opacity: 0; pointer-events: none; }
+
+.cc-bd-card img,
+.cc-bd-card-blank {
+	display: block;
+	width: 100%;
+	aspect-ratio: 3 / 4;
+	object-fit: cover;
+	border-radius: var(--cc-radius-sm);
+	background: var(--cc-bg-muted);
+}
+
+.cc-bd-card-name {
+	display: block;
+	margin-top: var(--cc-space-8);
+	font-size: var(--cc-body-s-size);
+	color: var(--cc-text-secondary);
+}
+
+.cc-bd-card.is-on { border-color: var(--cc-accent-default); box-shadow: 0 0 0 1px var(--cc-accent-default); }
+.cc-bd-card:has(input:checked) { border-color: var(--cc-accent-default); box-shadow: 0 0 0 1px var(--cc-accent-default); }
+
+/* --- the message --- */
+
+.cc-bd-starters { margin: 0 0 var(--cc-space-20); max-width: 640px; }
+.cc-bd-starters-head,
+.cc-bd-merge-head {
+	margin: 0 0 var(--cc-space-8);
+	font-size: var(--cc-caption-size);
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--cc-text-tertiary);
+}
+
+.cc-bd-starter {
+	display: block;
+	width: 100%;
+	margin-bottom: var(--cc-space-6);
+	padding: var(--cc-space-10) var(--cc-space-12);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-bg-subtle);
+	font-family: var(--cc-font-ui);
+	font-size: var(--cc-body-s-size);
+	color: var(--cc-text-secondary);
+	text-align: left;
+	cursor: pointer;
+}
+
+.cc-bd-starter:hover { border-color: var(--cc-border-default); color: var(--cc-text-primary); }
+
+.cc-bd-merge { max-width: 640px; }
+.cc-bd-merge ul { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--cc-space-4); }
+.cc-bd-merge li { font-size: var(--cc-body-s-size); color: var(--cc-text-tertiary); }
+.cc-bd-merge code {
+	padding: 2px 6px;
+	border-radius: var(--cc-radius-xs);
+	background: var(--cc-bg-muted);
+	font-size: 0.9em;
+	color: var(--cc-text-primary);
+}
+
+/* --- the offer --- */
+
+.cc-bd-toggle { max-width: 640px; margin-bottom: var(--cc-space-16); }
+
+/*
+ * Hidden until the tickbox is on. The server renders is-on, and :has()
+ * follows the click — again as two rules, for the reason above.
+ */
+.cc-bd-offer { display: none; }
+.cc-bd-offer.is-on { display: block; }
+.cc-bd-toggle:has(input:checked) ~ .cc-bd-offer { display: block; }
+
+/* --- the review --- */
+
+.cc-bd-review { display: grid; gap: var(--cc-space-24); max-width: 760px; }
+
+.cc-bd-sum h2,
+.cc-bd-preview h2 {
+	margin: 0 0 var(--cc-space-12);
+	font-family: var(--cc-font-display);
+	font-size: var(--cc-h3-size);
+	line-height: var(--cc-h3-line);
+}
+
+.cc-bd-sum dl { margin: 0; border: 1px solid var(--cc-border-subtle); border-radius: var(--cc-radius-lg); overflow: hidden; }
+
+.cc-bd-sum-row {
+	display: flex;
+	gap: var(--cc-space-16);
+	padding: var(--cc-space-12) var(--cc-space-16);
+	border-bottom: 1px solid var(--cc-border-subtle);
+	font-size: var(--cc-body-m-size);
+}
+
+.cc-bd-sum-row:last-child { border-bottom: 0; }
+.cc-bd-sum-row dt { flex: 0 0 150px; margin: 0; color: var(--cc-text-tertiary); }
+.cc-bd-sum-row dd { flex: 1 1 auto; margin: 0; display: flex; gap: var(--cc-space-12); justify-content: space-between; }
+
+.cc-bd-change { color: var(--cc-text-link); text-decoration: none; font-size: var(--cc-body-s-size); }
+.cc-bd-change:hover { text-decoration: underline; }
+
+.cc-bd-paper {
+	padding: var(--cc-space-20) var(--cc-space-24);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: var(--cc-radius-lg);
+	background: var(--cc-paper);
+	font-family: var(--cc-font-handwritten);
+	font-size: var(--cc-hand-m-size);
+	line-height: var(--cc-hand-m-line);
+	color: var(--cc-text-primary);
+}
+
+.cc-bd-paper p { margin: 0 0 var(--cc-space-8); }
+.cc-bd-preview-who { margin: var(--cc-space-8) 0 0; font-size: var(--cc-body-s-size); color: var(--cc-text-tertiary); }
+
+.cc-bd-pay {
+	padding: var(--cc-space-20) var(--cc-space-24);
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-lg);
+	background: var(--cc-bg-subtle);
+}
+
+.cc-bd-pay-line {
+	display: flex;
+	justify-content: space-between;
+	padding: var(--cc-space-8) 0;
+	font-size: var(--cc-body-m-size);
+	color: var(--cc-text-secondary);
+}
+
+.cc-bd-pay-total {
+	margin-top: var(--cc-space-8);
+	padding-top: var(--cc-space-12);
+	border-top: 1px solid var(--cc-border-default);
+	font-size: var(--cc-body-l-size);
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary);
+}
+
+.cc-bd-paybtn { width: 100%; margin-top: var(--cc-space-16); }
+.cc-bd-paybtn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+.cc-bd-begin { padding: var(--cc-space-48) var(--cc-space-24); }
+.cc-bd-begin form { display: flex; gap: var(--cc-space-12); margin-top: var(--cc-space-24); }
+
+/* --- narrow --- */
+
+@media (max-width: 720px) {
+	.cc-bd-sum-row { flex-direction: column; gap: var(--cc-space-4); }
+	.cc-bd-sum-row dt { flex: 0 0 auto; }
+	.cc-bd-person { flex-wrap: wrap; }
+	.cc-bd-cards { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
+	.cc-bd-begin form { flex-direction: column; }
+}
+
+/* --- the builder's filter, merge tags and start screen --- */
+
+.cc-bd-filter {
+	width: 100%;
+	max-width: 420px;
+	margin: 0 0 var(--cc-space-12);
+	padding: var(--cc-space-10) var(--cc-space-14);
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-paper);
+	font-family: var(--cc-font-ui);
+	font-size: var(--cc-body-m-size);
+}
+
+.cc-bd-filter:focus { outline: none; border-color: var(--cc-border-focus); box-shadow: var(--cc-focus-ring); }
+
+.cc-bd-tags { display: flex; flex-wrap: wrap; gap: var(--cc-space-6); }
+
+.cc-bd-tag {
+	display: inline-flex;
+	align-items: baseline;
+	gap: var(--cc-space-6);
+	padding: var(--cc-space-6) var(--cc-space-10);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: var(--cc-radius-full);
+	background: var(--cc-bg-subtle);
+	font-family: var(--cc-font-ui);
+	font-size: var(--cc-body-s-size);
+	color: var(--cc-text-secondary);
+	cursor: pointer;
+}
+
+.cc-bd-tag:hover,
+.cc-bd-tag:focus { border-color: var(--cc-accent-default); color: var(--cc-text-primary); }
+
+.cc-bd-tag-key { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--cc-text-primary); }
+.cc-bd-tag-label { color: var(--cc-text-tertiary); }
+
+.cc-bd-begin-wait { margin: var(--cc-space-16) 0 0; color: var(--cc-text-tertiary); font-size: var(--cc-body-s-size); }
+
+/* --- collection pills on the card step --- */
+
+.cc-bd-pills {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--cc-space-6);
+	margin: 0 0 var(--cc-space-16);
+}
+
+.cc-bd-pill {
+	padding: var(--cc-space-6) var(--cc-space-14);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: var(--cc-radius-full);
+	background: var(--cc-paper);
+	font-family: var(--cc-font-ui);
+	font-size: var(--cc-body-s-size);
+	color: var(--cc-text-secondary);
+	cursor: pointer;
+}
+
+.cc-bd-pill:hover { border-color: var(--cc-border-default); color: var(--cc-text-primary); }
+
+.cc-bd-pill.is-on {
+	border-color: var(--cc-accent-default);
+	background: var(--cc-accent-subtle);
+	color: var(--cc-accent-text);
+	font-weight: var(--cc-weight-medium);
+}
+
+/* ==========================================================================
+   The portal on a phone
+
+   A sweep of every screen at 390, measured rather than eyeballed: each one
+   rendered headless and audited for things past the right edge, text under
+   12px, and controls too small to hit. Nothing overflowed — the layouts
+   hold — so what follows is almost entirely about size: controls drawn at
+   26 and 32px on a screen where a thumb needs 44, and two screens where
+   something was genuinely unreachable.
+
+   Everything here is inside the phone query. Above it the frames are
+   unchanged, which is where the measurements came from.
+   ========================================================================== */
+
+@media (max-width: 720px) {
+
+	/* ----------------------------------------------------------------
+	   Things a thumb has to hit.
+
+	   44px is the floor. These were all drawn for a mouse: a 16px "Clear",
+	   26px order tabs, a 24px more-menu. Where the control's own box has
+	   to stay its size for the layout to hold, the target is grown with
+	   padding instead, which the eye does not see.
+	   ---------------------------------------------------------------- */
+	.cc-ord-tab { height: auto; min-height: 44px; padding: 0 var(--cc-space-12); font-size: var(--cc-body-m-size); }
+
+	.cc-set-tab {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+		padding: 0 0 10px;
+	}
+
+	.cc-seg-item { min-height: 44px; }
+
+	.cc-coming-all { display: inline-flex; align-items: center; min-height: 44px; }
+
+	.cc-camp-more,
+	.cc-nav-ibtn.is-small {
+		width: 44px;
+		height: 44px;
+	}
+
+	.cc-btn-small { min-height: 40px; }
+
+	/* The drawer's own rows: 32px each, which is a list you aim at. */
+	.cc-nav-link { min-height: 44px; }
+
+	/*
+	 * The drawer's icon buttons keep their drawn size and grow a target
+	 * around themselves instead. Making the box 44 square pushed the
+	 * drawer's contents five pixels wider than the drawer, which traded a
+	 * small target for a sideways scroll — the pseudo-element costs no
+	 * layout at all.
+	 */
+	.cc-nav-ibtn {
+		width: 44px;
+		height: 44px;
+		/* Pulled back out of the layout, so the row stays the width it
+		   was. Sizing the box without this pushed the drawer's contents
+		   past its own edge; centring a 44px pseudo-element on it did the
+		   same, because an absolutely positioned child still counts
+		   towards what a scrolling box has to hold. */
+		margin: -8px;
+	}
+
+	.cc-verify-resend { min-height: 44px; }
+
+	.cc-set-cancel { display: inline-flex; align-items: center; min-height: 44px; }
+
+	/* The date filter on Orders. A 32px select is a 32px target. */
+	.cc-ord-window { min-height: 44px; }
+
+	/*
+	 * A radio's own circle is 20px and nobody aims at it: the label is
+	 * the target, and on Settings those were 20px tall — three of them
+	 * stacked in a 60px band, for choices that decide where returned
+	 * cards go. The row becomes the control.
+	 */
+	.cc-radio {
+		display: flex;
+		align-items: center;
+		min-height: 44px;
+	}
+
+	/* The logo keeps its drawn size and gains a target around it. */
+	.cc-mbar-logo { display: inline-flex; align-items: center; min-height: 44px; padding-right: var(--cc-space-8); }
+
+	/* 10px on the tab badge was below the floor the rest of the type
+	   keeps. 11 is still small; it is a count, not prose. */
+	.cc-mtab-count { font-size: 11px; }
+
+	/* ----------------------------------------------------------------
+	   Campaign rows stopped laying out the same way twice.
+
+	   The row is a wrapping flex, so whether the body sat beside the
+	   cover or dropped below it depended on how long the campaign was
+	   called: a short name beside the cover, a long one underneath, with
+	   the cover stranded next to 230px of white. A basis of 0 lets the
+	   body shrink instead of wrapping, so every row is the same shape and
+	   the name takes two lines if it needs them.
+	   ---------------------------------------------------------------- */
+	.cc-camp {
+		align-items: flex-start;
+		gap: var(--cc-space-12);
+		min-height: 0;
+		padding: var(--cc-space-12);
+	}
+
+	.cc-camp-cover { flex: 0 0 72px; width: 72px; height: 84px; }
+
+	.cc-camp-body { flex: 1 1 0; min-width: 0; }
+
+	.cc-camp-head { align-items: flex-start; flex-wrap: wrap; }
+
+	.cc-camp-name {
+		white-space: normal;
+		overflow: hidden;
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
+	}
+
+	/* Below both of them, full width, every time. */
+	.cc-camp-progress { flex: 1 0 100%; }
+
+	/* ----------------------------------------------------------------
+	   Three numbers took 458px — more than half the screen — before the
+	   orders themselves began. Side by side they take about a quarter.
+	   ---------------------------------------------------------------- */
+	.cc-ord-stats {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: var(--cc-space-8);
+	}
+
+	.cc-ord-stat {
+		display: flex;
+		flex-direction: column;
+		padding: var(--cc-space-12) var(--cc-space-10);
+	}
+
+	.cc-ord-stat-n { font-size: 24px; line-height: 28px; }
+
+	.cc-ord-stat-label,
+	.cc-ord-stat-note { font-size: 12px; line-height: 16px; }
+
+	/* Two lines' worth, so the three numbers sit on one line as the eye
+	   reads across them. Side by side, a label that wrapped and one that
+	   did not pushed their numbers to different heights. */
+	.cc-ord-stat-label { min-height: 32px; }
+
+	.cc-counts { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--cc-space-8); }
+
+	/* ----------------------------------------------------------------
+	   The writer.
+	   ---------------------------------------------------------------- */
+
+	/* It is where the whole screen is going, and on a phone it was four
+	   lines deep. */
+	.cc-wr-field textarea,
+	.cc-wz textarea.cc-wr-text { min-height: 150px; }
+
+	.cc-wr-clear {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+		padding: 0 var(--cc-space-8);
+		margin-right: calc(var(--cc-space-8) * -1);
+	}
+
+	/* "Save and exit" is a real exit, not a footnote. */
+	.cc-wz-exit { display: inline-flex; align-items: center; min-height: 44px; }
+}
+
+/* ==========================================================================
+   The campaign builder — the parts that were missing
+
+   Found by driving a campaign through all seven steps at 390 and 1440 and
+   measuring each screen, rather than by looking at step one.
+
+   Two of these classes were never written at all. .cc-btn-go and
+   .cc-wz-foot-go are in the builder's footer markup and in no stylesheet,
+   so every button on every step drew as a bare .cc-btn — Back, Save and
+   exit and Continue all the same grey, nothing showing the way forward.
+   The markup now uses .cc-btn-primary and .cc-btn-ghost, which the occasion
+   wizard already uses; the group that holds them is given a rule here.
+   ========================================================================== */
+
+/* The two buttons on the right of the footer. Unstyled it was a block, so
+   the gap between Save and exit and Continue was whatever whitespace the
+   markup happened to leave. */
+.cc-wz-foot-go {
+	display: flex;
+	align-items: center;
+	gap: var(--cc-space-12);
+	flex-wrap: wrap;
+	justify-content: flex-end;
+}
+
+/*
+ * A measure for the builder's content on a wide screen.
+ *
+ * The occasion wizard fills the width because it has a summary rail down
+ * the right. The builder has no rail, so with no max-width its content ran
+ * as a column against the left edge with half a 1440 screen empty beside
+ * it, and the footer's buttons sat at the far edges of a row far wider than
+ * anything above them. 920 is about the widest the card grid on step 3
+ * reads well at.
+ *
+ * Scoped by .cc-bd, the builder's own root class, rather than by :has() on
+ * the rail. A browser that cannot parse :has() throws away the whole rule,
+ * and this one would have been the only thing holding the layout together
+ * on a wide screen.
+ */
+@media (min-width: 861px) {
+	.cc-bd .cc-wz-content,
+	.cc-bd .cc-wz-foot {
+		width: 100%;
+		max-width: 920px;
+		margin-left: auto;
+		margin-right: auto;
+	}
+}
+
+/* --------------------------------------------------------------------------
+   The builder on a phone
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 720px) {
+
+	/*
+	 * "Save and exit" wrapped onto a line of its own and read as a heading.
+	 *
+	 * flex-basis auto sizes the name block by its content, so a campaign
+	 * called anything longer than a few words filled the row and pushed the
+	 * exit out of it. A basis of 0 makes the two share the row and lets the
+	 * name wrap inside its own column instead.
+	 */
+	.cc-wz-who { flex: 1 1 0; }
+
+	/* A footer button is the way forward; 36px is a mouse target. */
+	.cc-wz-foot .cc-btn { min-height: 44px; }
+
+	/*
+	 * Back, then the group holding Save and exit and Continue.
+	 *
+	 * The phone footer rules were written for the occasion wizard, where
+	 * all three buttons are direct children of the bar and ordering them
+	 * individually works. The builder wraps two of them in .cc-wz-foot-go,
+	 * which is itself a flex child at the default order of 0 — so the
+	 * group came first and Back ended up to the right of Continue, with
+	 * the way forward sitting in the middle of the row.
+	 */
+	.cc-wz-foot > .cc-btn-ghost { order: 2; }
+
+	.cc-wz-foot-go {
+		order: 3;
+		gap: var(--cc-space-8);
+		margin-left: auto;
+	}
+
+	/* The collection filter on step 3 and the merge tags on step 4, both
+	   drawn at 30px. */
+	.cc-bd-pill,
+	.cc-bd-tag { min-height: 44px; }
+
+	/*
+	 * "Change" on the review step, at 48x20 the smallest target in the
+	 * builder — and the only way back into a step from the last screen,
+	 * which is where somebody is most likely to want one.
+	 */
+	.cc-bd-change {
+		display: inline-flex;
+		align-items: center;
+		min-height: 44px;
+		padding-left: var(--cc-space-8);
+	}
+}
+
+/*
+ * The arrival date, when it is too soon.
+ *
+ * Shown by builder.js as the date is picked. Red and a changed border
+ * together, never colour alone: the same message has to land for somebody
+ * who cannot tell the two greys apart.
+ */
+.cc-bd-hint-bad {
+	color: var(--cc-status-error-solid);
+	font-weight: var(--cc-weight-medium);
+}
+
+#cc-bd-date.is-bad,
+.cc-bd-field input.is-bad {
+	border-color: var(--cc-status-error-solid);
+	background: var(--cc-status-error-bg);
+}
+
+/* ==========================================================================
+   Classes the markup used that no stylesheet carried
+
+   Found by a test that reads every front-end view and every stylesheet and
+   reports any class with no rule behind it. This failure is always silent:
+   the element renders, unstyled, and looks like a design decision. It has
+   now cost this project a payment button, a whole footer of buttons, and a
+   nav badge that printed its own screen-reader text.
+   ========================================================================== */
+
+/* The warning form of .cc-notice, which carries the colour. Without it a
+   warning drew identically to an ordinary note. */
+.cc-notice-warn {
+	border-color: var(--cc-status-warning-solid, #B45309);
+	background: var(--cc-status-warning-bg, #FEF3C7);
+}
+
+/*
+ * .cc-nav-top deliberately has no rule.
+ *
+ * It is the sidebar's whole upper column — the logo, the search, the menu
+ * and the recent campaigns — and it takes its layout from .cc-nav above
+ * it. A rule was written here on the strength of its name alone, guessing
+ * it was the row holding the logo and the two icon buttons, and
+ * display:flex then laid the entire sidebar out sideways on every portal
+ * page: no logo, the menu shoved against the right edge, the whole thing
+ * scrolling horizontally.
+ *
+ * A class with no rule is not automatically a bug. Some are structural
+ * hooks, and the only way to tell is to read what they wrap. The test that
+ * reports unstyled classes lists this one as a known exception rather than
+ * inviting another guess.
+ */
+
+/* "Showing 1–20 of 94" under the orders table. */
+.cc-ord-showing {
+	margin: 0;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-tertiary);
+}
+
+/* The how-many-per-page select beside it. */
+.cc-ord-per-n {
+	min-height: 36px;
+	padding: 0 var(--cc-space-8);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: var(--cc-radius-sm, 6px);
+	background: var(--cc-surface-default);
+	font: inherit;
+	font-size: var(--cc-body-s-size);
+	color: var(--cc-text-primary);
+}
+
+/* The sign-off under a starter message, in the handwriting face the card
+   itself uses. It was drawing as body text, so the preview of a written
+   card ended in something that looked nothing like writing. */
+.cc-msg-sign {
+	margin: var(--cc-space-8) 0 0;
+	font-family: var(--cc-font-hand, Caveat), cursive;
+	font-size: 18px;
+	line-height: 1.3;
+	color: var(--cc-text-secondary);
+}
+
+/* A plain sentence in a settings panel, where the other panels hold
+   fields. Used by the Billing tab to point at the invoices. */
+.cc-set-plain {
+	margin: 0;
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	color: var(--cc-text-secondary);
+}
+
+.cc-set-plain a { color: var(--cc-accent-default); }
+
+/* ---------------------------------------------------------------------------
+   Campaign step 2 — getting people in before choosing who gets the card.
+
+   A company that has just signed up has nobody, and this step used to say so
+   and offer nothing. The panel sits above the picking lists: prominent while
+   there is nobody, quiet once there is somebody to pick.
+   --------------------------------------------------------------------------- */
+
+.cc-bd-add {
+	display: flex;
+	flex-direction: column;
+	gap: var(--cc-space-12);
+	margin-bottom: var(--cc-space-24);
+	padding: var(--cc-space-16);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: var(--cc-radius-lg);
+	background: var(--cc-bg-card);
+}
+
+.cc-bd-add-head {
+	margin: 0;
+	font-size: var(--cc-body-size);
+	line-height: var(--cc-body-line);
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary);
+}
+
+.cc-bd-add-say {
+	margin: 0;
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-secondary);
+}
+
+/* Once there are people to pick from, this is a fallback rather than the
+   main event, so it steps back without disappearing. */
+.cc-bd-add-quiet {
+	background: transparent;
+	border-style: dashed;
+}
+
+.cc-bd-one {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: var(--cc-space-12);
+}
+
+.cc-bd-one .cc-field {
+	flex: 1 1 160px;
+	min-width: 0;
+	margin: 0;
+}
+
+.cc-bd-one-go { flex: 0 0 auto; }
+
+.cc-field-opt {
+	font-size: var(--cc-caption-size);
+	font-weight: var(--cc-weight-regular);
+	color: var(--cc-text-secondary);
+}
+
+/* On a phone the three fields stack, and the button goes full width so it is
+   not a thin target beside them. */
+@media (max-width: 640px) {
+	.cc-bd-one { flex-direction: column; align-items: stretch; }
+	.cc-bd-one .cc-field { flex: 1 1 auto; }
+	.cc-bd-one-go { width: 100%; }
+}
+
+/* The form around "Set up" exists only to post the occasion that was
+   clicked. It should take up no room of its own, so a card offering to
+   start one lines up with a card offering to continue one, which is still
+   a plain link. */
+.cc-occ-start { display: contents; }
+
+/* Step 2: the people a company already has, offered so a second occasion
+   does not mean uploading the same spreadsheet again. The list scrolls
+   rather than running off the page, because a company with four hundred
+   customers would otherwise push the Continue button out of reach. */
+.cc-have {
+	margin: 24px 0 0;
+	padding: 20px;
+	border: 1px solid #e3e1dc;
+	border-radius: 12px;
+	background: #fbfaf8;
+}
+
+.cc-have-head {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	margin: 0 0 12px;
+}
+
+.cc-have-sub {
+	color: #5f5b54;
+	font-size: 14px;
+}
+
+.cc-have-list {
+	max-height: 260px;
+	margin: 0 0 16px;
+	padding: 0;
+	overflow-y: auto;
+	list-style: none;
+	border: 1px solid #ece9e4;
+	border-radius: 8px;
+	background: #fff;
+}
+
+.cc-have-one + .cc-have-one { border-top: 1px solid #f1efeb; }
+
+.cc-have-one label {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	/* 44px tall so it is a comfortable tap target on a phone. */
+	min-height: 44px;
+	padding: 0 12px;
+	cursor: pointer;
+}
+
+.cc-have-one input { width: 18px; height: 18px; flex: none; }
+
+.cc-have-name { flex: 1 1 auto; }
+
+.cc-have-what {
+	flex: none;
+	color: #6b665e;
+	font-size: 13px;
+}
+
+.cc-have-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 12px;
+	margin: 0;
+}
+
+.cc-have-note {
+	flex: 1 1 220px;
+	color: #5f5b54;
+	font-size: 13px;
+}
+
+@media (max-width: 640px) {
+	.cc-have { padding: 16px; }
+	.cc-have-actions .cc-btn { width: 100%; }
+}
+
+/* What just happened, after people were added from the list. */
+.cc-have-said {
+	margin: 16px 0 0;
+	padding: 12px 16px;
+	border: 1px solid #cfe3d2;
+	border-radius: 10px;
+	background: #f1f8f2;
+	color: #1f4a2c;
+	font-size: 14px;
+}
+
+/* Two ways on from the "person added" state: type another, or go to the
+   list for a spreadsheet or the company's own people. The frame drew one
+   full-width button, so they stack rather than sitting side by side and
+   each keeps the width it was drawn at. */
+.cc-pn-again {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+/* Secondary to "Add another person", which stays the obvious next step. */
+.cc-pn-again-alt {
+	color: var(--cc-text-secondary);
+	font-weight: var(--cc-weight-regular, 400);
+}
+
+.cc-pn-again-alt:hover { color: var(--cc-text-primary); }
+
+/* The spreadsheet upload where it is offered beside the by-hand form,
+   rather than as a link to the screen that has it. */
+.cc-pn-up {
+	margin: 20px 0 0;
+	padding: 18px 20px;
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-bg-surface);
+}
+
+.cc-pn-up-head {
+	margin: 0 0 12px;
+	font-weight: var(--cc-weight-medium);
+}
+
+.cc-pn-up .cc-up-file { margin: 0; }
+
+/* The chooser is the button people look for, so it reads as one. */
+.cc-up-choose { cursor: pointer; }
+
+/* The upload row is a name beside two buttons, which only fits while
+   there is room for all three. In a narrow column — a phone, or the
+   by-hand screen's panel — it used to squeeze the file name to nothing
+   and push the button past the edge. It wraps instead. */
+.cc-up-file { flex-wrap: wrap; }
+
+.cc-up-file-text { min-width: 8rem; }
+
+@media (max-width: 560px) {
+	.cc-up-file-text { flex: 1 1 100%; }
+	.cc-up-file .cc-btn { flex: 1 1 auto; justify-content: center; }
+}
+
+/* The merge tags under the message box. Chips, because they are things
+   you put in rather than settings you change. */
+.cc-wr-tags {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	margin: 16px 0 0;
+}
+
+.cc-wr-tags-head {
+	color: var(--cc-text-secondary);
+	font-size: var(--cc-caption-size);
+}
+
+.cc-wr-tag {
+	/* 44px of tap target on a phone, without looking oversized on a desktop. */
+	min-height: 32px;
+	padding: 6px 12px;
+	border: 1px solid var(--cc-border-default);
+	border-radius: 999px;
+	background: var(--cc-bg-surface);
+	font: inherit;
+	font-size: var(--cc-caption-size);
+	color: var(--cc-text-primary);
+	cursor: pointer;
+}
+
+.cc-wr-tag:hover { border-color: var(--cc-text-primary); }
+.cc-wr-tag:focus-visible { outline: 2px solid var(--cc-border-focus); outline-offset: 2px; }
+
+/* Still usable — it just warns that somebody has no value for it. */
+.cc-wr-tag.is-empty {
+	border-style: dashed;
+	color: var(--cc-text-secondary);
+}
+
+.cc-wr-tag.is-empty::after {
+	content: " ·";
+	color: #b45309;
+}
+
+.cc-wr-tags-hint {
+	margin: 8px 0 0;
+	color: var(--cc-text-secondary);
+	font-size: var(--cc-caption-size);
+}
+
+@media (max-width: 560px) {
+	.cc-wr-tag { min-height: 40px; }
+}
+
+/* Step 5, individual addresses: one row per person, prefilled from the
+   list where an upload supplied one. */
+.cc-each,
+.cc-each-up { max-width: 952px; }
+
+.cc-each.is-off,
+.cc-each-up.is-off { display: none; }
+
+.cc-each-head {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	align-items: baseline;
+	justify-content: space-between;
+	margin: 24px 0 12px;
+}
+
+.cc-each-title { font-weight: var(--cc-weight-medium); }
+.cc-each-count { color: var(--cc-text-secondary); font-size: var(--cc-caption-size); }
+
+.cc-each-list { margin: 0; padding: 0; list-style: none; }
+
+.cc-each-one {
+	padding: 16px;
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-bg-surface);
+}
+
+.cc-each-one + .cc-each-one { margin-top: 10px; }
+
+/* Still usable, just not postable yet. */
+.cc-each-one.is-missing { border-color: #e4c78a; background: #fffdf6; }
+
+.cc-each-who {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px;
+	margin: 0 0 12px;
+}
+
+.cc-each-mark {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	flex: none;
+	width: 32px;
+	height: 32px;
+	border-radius: 999px;
+	background: var(--cc-bg-subtle);
+	font-size: var(--cc-caption-size);
+	font-weight: var(--cc-weight-medium);
+}
+
+.cc-each-name { font-weight: var(--cc-weight-medium); }
+
+.cc-each-flag {
+	padding: 2px 10px;
+	border-radius: 999px;
+	background: #fdf2dc;
+	color: #7a5a12;
+	font-size: var(--cc-caption-size);
+}
+
+.cc-each-fields {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 180px;
+	gap: 12px;
+}
+
+.cc-each-fields .cc-field { margin: 0; }
+.cc-each-fields textarea { width: 100%; resize: vertical; }
+
+.cc-each-up { margin-top: 20px; }
+.cc-each-up-head { margin: 0 0 4px; font-weight: var(--cc-weight-medium); }
+.cc-each-up-sub { margin: 0 0 12px; color: var(--cc-text-secondary); font-size: var(--cc-caption-size); }
+
+@media (max-width: 640px) {
+	.cc-each-fields { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* The postcode under each person's address on step 5. Narrow, because a
+   postcode is short and a full-width box invites a second address line. */
+.cc-each-pc {
+	max-width: 12rem;
+	margin-top: 10px;
+}
+
+@media (max-width: 560px) {
+	.cc-each-pc { max-width: none; }
+}
+
+/* "Runs" on an occasion that happens once for each person: a statement
+   rather than a choice, so it sits where the dropdown would. */
+.cc-tim-fixed {
+	display: block;
+	padding: 10px 0;
+	color: var(--cc-text-secondary);
+	font-size: 14px;
+	line-height: 1.45;
+}
+
+/* Taking somebody off the list, one row at a time. Quiet until you are
+   on the row, so a page of names does not read as a page of buttons. */
+.cc-people-act {
+	width: 1%;
+	white-space: nowrap;
+	text-align: right;
+}
+
+.cc-drop { margin: 0; }
+
+.cc-drop-btn {
+	/* 44px of tap target on a phone, even though the words are small. */
+	min-height: 44px;
+	padding: 0 4px;
+	border: 0;
+	background: none;
+	color: var(--cc-text-secondary);
+	font-size: 13px;
+	cursor: pointer;
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
+.cc-drop-btn:hover,
+.cc-drop-btn:focus-visible { color: var(--cc-text-primary); }
+
+/* Asking what a second upload should do, before it does it. */
+.cc-up-ask {
+	margin: 16px 0 0;
+	padding: 18px 20px;
+	border: 1px solid var(--cc-border-strong, #c9c6bf);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-bg-surface);
+}
+
+.cc-up-ask-head {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	margin: 0 0 14px;
+}
+
+.cc-up-ask-head span { color: var(--cc-text-secondary); }
+
+.cc-up-ask-one {
+	display: grid;
+	grid-template-columns: 20px 1fr;
+	gap: 4px 12px;
+	/* Comfortable to tap, and the whole row is the target. */
+	padding: 12px;
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-sm, 8px);
+	cursor: pointer;
+}
+
+.cc-up-ask-one + .cc-up-ask-one { margin-top: 10px; }
+
+.cc-up-ask-one.is-on {
+	border-color: var(--cc-accent);
+	background: var(--cc-bg-accent-soft, #f1f8f2);
+}
+
+.cc-up-ask-one input { width: 18px; height: 18px; margin: 2px 0 0; grid-row: 1 / span 2; }
+
+.cc-up-ask-title { font-weight: var(--cc-weight-medium); }
+
+.cc-up-ask-sub {
+	grid-column: 2;
+	color: var(--cc-text-secondary);
+	font-size: 13px;
+	line-height: 1.45;
+}
+
+.cc-up-ask-go {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin: 16px 0 0;
+}
+
+@media (max-width: 560px) {
+	.cc-up-ask-go .cc-btn { flex: 1 1 100%; justify-content: center; }
+}
+
+/* The people on an occasion: all of them, scrolling rather than cut off
+   at four with no way to reach the rest. About five rows tall, so the
+   step stays short and Continue stays in view. */
+.cc-people-scroll {
+	max-height: 22rem;
+	overflow-y: auto;
+}
+
+/* The header stays put while the names move under it. */
+.cc-people-scroll thead th {
+	position: sticky;
+	top: 0;
+	z-index: 1;
+	background: var(--cc-bg-subtle, #f7f6f3);
+}
+
+@media (max-width: 560px) {
+	.cc-people-scroll { max-height: 18rem; }
+}
+
+/* Straight on to whoever still has no date, so filling the gaps is one
+   press each rather than saving and going back to look. */
+.cc-pn-next {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px 14px;
+	margin: 16px 0 0;
+}
+
+.cc-pn-next-btn { flex: 1 1 auto; }
+
+.cc-pn-next-left {
+	color: var(--cc-text-secondary);
+	font-size: 13px;
+}
+
+/* The same thing on the row itself, for picking somebody out of order.
+   Pushed to the right like the "Saved" tick it sits in place of, and
+   kept on one line so it cannot land on top of the name beside it. */
+.cc-pn-fix {
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	/* 44px of tap target on a phone. */
+	min-height: 44px;
+	margin-left: auto;
+	white-space: nowrap;
+	font-size: 13px;
+}
+
+/* In a narrow column the link drops under the name instead of squeezing it. */
+@media (max-width: 460px) {
+	.cc-pn-row { flex-wrap: wrap; }
+	.cc-pn-fix { margin-left: 0; }
+}
+
+@media (max-width: 560px) {
+	.cc-pn-next-btn { flex: 1 1 100%; }
+}
+
+/* ---------------------------------------------------------------------
+ * Renewal
+ *
+ * A recurring occasion is paid a year at a time. This is the panel the
+ * reminder email lands on, and the one thing on the screen that says a
+ * paused occasion has stopped writing cards — so a stopped one is drawn
+ * in the warning tone rather than quietly.
+ * ------------------------------------------------------------------ */
+
+.cc-renew {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--cc-space-6);
+	align-items: flex-start;
+	justify-content: space-between;
+	padding: var(--cc-space-6);
+	margin-bottom: var(--cc-space-6);
+	background: var(--cc-surface-default);
+	border: 1px solid var(--cc-accent-default);
+	border-radius: var(--cc-radius-lg);
+}
+
+.cc-renew.is-stopped {
+	border-color: var(--cc-danger-default, #b42318);
+	background: var(--cc-danger-subtle, #fef3f2);
+}
+
+.cc-renew-text { flex: 1 1 320px; min-width: 0; }
+
+.cc-renew-head {
+	margin: 0 0 var(--cc-space-1);
+	font-family: var(--cc-font-display);
+	font-size: var(--cc-h4-size);
+	line-height: var(--cc-h4-line);
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary);
+}
+
+.cc-renew-what {
+	margin: 0 0 var(--cc-space-3);
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary);
+}
+
+.cc-renew-blurb,
+.cc-renew-note {
+	margin: 0 0 var(--cc-space-2);
+	color: var(--cc-text-secondary);
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+}
+
+.cc-renew-money {
+	flex: 0 0 auto;
+	text-align: right;
+	min-width: 180px;
+}
+
+.cc-renew-total {
+	margin: 0;
+	font-family: var(--cc-font-display);
+	font-size: var(--cc-h3-size);
+	line-height: var(--cc-h3-line);
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary);
+}
+
+.cc-renew-each {
+	margin: 0 0 var(--cc-space-4);
+	color: var(--cc-text-secondary);
+	font-size: var(--cc-body-s-size);
+}
+
+/* Stacked on a phone, with the money and the button full width. */
+@media (max-width: 640px) {
+	.cc-renew { flex-direction: column; padding: var(--cc-space-5); }
+	.cc-renew-money { text-align: left; min-width: 0; width: 100%; }
+	.cc-renew-money .cc-btn { width: 100%; justify-content: center; }
 }

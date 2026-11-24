@@ -26,7 +26,7 @@ defined( 'ABSPATH' ) || exit;
 	<?php endif; ?>
 
 	<div class="cardsco-bar">
-		<?php $admin->company_switcher( $company_id, CardsCo_Wizard::PAGE ); ?>
+		<?php $admin->company_switcher( $company_id, CardsCo_Wizard::PAGE, false ); ?>
 	</div>
 
 	<p class="cardsco-stepline"><?php esc_html_e( 'Step 1 of 7', 'cardsco' ); ?></p>

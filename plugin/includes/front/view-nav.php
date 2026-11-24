@@ -32,10 +32,82 @@ $cc = 'CardsCo_Shortcodes';
 
 $cc_new = add_query_arg( 'new', '1', $atts['campaigns'] );
 ?>
-<button type="button" class="cc-nav-toggle" data-cc-nav-open aria-controls="ccNav" aria-expanded="false">
-	<?php echo call_user_func( array( $cc, 'icon' ), 'menu', 'cc-nav-glyph' ); // phpcs:ignore WordPress.Security.EscapeOutput -- inline svg built in PHP. ?>
-	<span><?php esc_html_e( 'Menu', 'cardsco' ); ?></span>
-</button>
+<?php
+/*
+ * On a phone the sidebar becomes two pieces: a bar across the top that
+ * carries the logo, and a row of tabs along the bottom.
+ *
+ * The bar used to be a bare "Menu" button and nothing else — no logo, no
+ * sign of which product you were in, and every destination hidden behind
+ * a tap. Tabs put the three screens people actually use in the thumb's
+ * reach and leave them visible, which is the point: a drawer hides
+ * navigation, and people stop exploring what they cannot see.
+ *
+ * The right-hand side of the bar is deliberately empty. A bell sat there
+ * in the drawing, and there is nothing yet for it to report; a button
+ * that does nothing is worse than a gap.
+ *
+ * Both pieces are hidden on a desktop, where the sidebar itself is right.
+ */
+$cc_tabs = array();
+
+foreach ( $items as $cc_item ) {
+	if ( __( 'Orders', 'cardsco' ) !== $cc_item['label'] ) {
+		$cc_tabs[] = $cc_item;
+	}
+}
+?>
+<header class="cc-mbar" role="banner">
+	<a class="cc-mbar-logo" href="<?php echo esc_url( $atts['dashboard'] ); ?>"
+		aria-label="<?php esc_attr_e( 'CardsCo — go to your dashboard', 'cardsco' ); ?>">
+		<img src="<?php echo esc_url( $atts['logo'] ? $atts['logo'] : CARDSCO_URL . 'assets/img/logo.svg' ); ?>" alt="CardsCo" />
+	</a>
+
+	<?php
+	/*
+	 * The bell reports nothing yet, and says so rather than sitting there
+	 * inert. There is real material for it — recipients with no address, a
+	 * campaign waiting on review, an occasion abandoned halfway — but
+	 * gathering that is its own piece of work, so until then it tells the
+	 * truth: there is nothing waiting.
+	 */
+	?>
+	<div class="cc-mbell">
+		<button type="button" class="cc-mbell-btn" data-cc-bell
+			aria-controls="ccBell" aria-expanded="false"
+			aria-label="<?php esc_attr_e( 'Anything needing attention', 'cardsco' ); ?>">
+			<?php echo call_user_func( array( $cc, 'icon' ), 'bell', '' ); // phpcs:ignore WordPress.Security.EscapeOutput -- inline svg built in PHP. ?>
+		</button>
+
+		<div class="cc-mbell-panel" id="ccBell" role="status" hidden>
+			<p class="cc-mbell-head"><?php esc_html_e( 'You’re all caught up', 'cardsco' ); ?></p>
+			<p class="cc-mbell-sub"><?php esc_html_e( 'Anything needing you — a missing address, a campaign waiting — will show up here.', 'cardsco' ); ?></p>
+		</div>
+	</div>
+</header>
+
+<nav class="cc-mtabs" aria-label="<?php esc_attr_e( 'Sections', 'cardsco' ); ?>">
+	<?php foreach ( $cc_tabs as $cc_tab ) : ?>
+		<?php $cc_on = call_user_func( array( $cc, 'is_here' ), $cc_tab['url'] ); ?>
+		<a class="cc-mtab<?php echo $cc_on ? ' is-on' : ''; ?>" href="<?php echo esc_url( $cc_tab['url'] ); ?>"
+			<?php echo $cc_on ? 'aria-current="page"' : ''; ?>>
+			<span class="cc-mtab-glyph">
+				<?php echo call_user_func( array( $cc, 'icon' ), $cc_tab['icon'], '' ); // phpcs:ignore WordPress.Security.EscapeOutput -- inline svg built in PHP. ?>
+				<?php if ( ! empty( $cc_tab['count'] ) ) : ?>
+					<span class="cc-mtab-count"><?php echo esc_html( number_format_i18n( (int) $cc_tab['count'] ) ); ?></span>
+				<?php endif; ?>
+			</span>
+			<span class="cc-mtab-label"><?php echo esc_html( $cc_tab['label'] ); ?></span>
+		</a>
+	<?php endforeach; ?>
+
+	<button type="button" class="cc-mtab" data-cc-nav-open aria-controls="ccNav" aria-expanded="false">
+		<span class="cc-mtab-glyph">
+			<?php echo call_user_func( array( $cc, 'icon' ), 'menu', '' ); // phpcs:ignore WordPress.Security.EscapeOutput -- inline svg built in PHP. ?>
+		</span>
+		<span class="cc-mtab-label"><?php esc_html_e( 'More', 'cardsco' ); ?></span>
+	</button>
+</nav>
 
 <div class="cc-nav-veil" data-cc-nav-close hidden></div>
 
@@ -155,7 +227,17 @@ $cc_new = add_query_arg( 'new', '1', $atts['campaigns'] );
 				<?php foreach ( $recent as $cc_c ) : ?>
 					<?php $cc_line = call_user_func( array( $cc, 'campaign_line' ), $cc_c ); ?>
 					<li data-cc-findable="<?php echo esc_attr( $cc_c['name'] ); ?>">
-						<a href="<?php echo esc_url( $atts['campaigns'] ); ?>">
+						<?php
+						/*
+						 * To the campaign, not to the list it is on. Every
+						 * one of these pointed at the bare campaigns page,
+						 * so a list headed "Recent campaigns", with each
+						 * one named and its state beside it, took you to
+						 * the same screen whichever you picked — and left
+						 * you to find it again yourself.
+						 */
+						?>
+						<a href="<?php echo esc_url( add_query_arg( CardsCo_Builder::ARG, (int) $cc_c['id'], $atts['campaigns'] ) ); ?>">
 							<span class="cc-nav-recent-name"><?php echo esc_html( $cc_c['name'] ); ?></span>
 							<span class="cc-nav-recent-line<?php echo $cc_line['tone'] ? ' is-' . esc_attr( $cc_line['tone'] ) : ''; ?>">
 								<?php echo esc_html( $cc_line['text'] ); ?>

@@ -123,9 +123,30 @@ $cc_base = remove_query_arg( array( 'cc_filter', 'cc_show' ) );
 									);
 									?>
 								</a>
-								<a class="cc-cat-use" href="<?php echo esc_url( CardsCo_Send::use_url( $cc_tile['id'], $links['use'] ? $links['use'] : $cc_tile['url'] ) ); ?>">
-									<?php esc_html_e( 'Use this card', 'cardsco' ); ?>
-								</a>
+								<?php
+								/*
+								 * Only offered when there is somewhere for it
+								 * to go.
+								 *
+								 * A card with no product behind it has no
+								 * permalink to fall back to, so when the send
+								 * page has not been found either this came out
+								 * as href="" — a green button, sitting under a
+								 * card, that quietly reloaded the catalogue.
+								 * A card nobody can buy should not be offering
+								 * to sell itself.
+								 */
+								$cc_use = CardsCo_Send::use_url( $cc_tile['id'], $links['use'] ? $links['use'] : $cc_tile['url'] );
+								?>
+								<?php if ( '' !== $cc_use ) : ?>
+									<a class="cc-cat-use" href="<?php echo esc_url( $cc_use ); ?>">
+										<?php esc_html_e( 'Use this card', 'cardsco' ); ?>
+									</a>
+								<?php else : ?>
+									<span class="cc-cat-use cc-cat-use-off">
+										<?php esc_html_e( 'Coming soon', 'cardsco' ); ?>
+									</span>
+								<?php endif; ?>
 							</div>
 						<?php endif; ?>
 					</div>

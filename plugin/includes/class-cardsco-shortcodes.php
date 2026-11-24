@@ -36,8 +36,75 @@ class CardsCo_Shortcodes {
 		add_shortcode( 'cardsco_nav', array( $this, 'nav' ) );
 		add_shortcode( 'cardsco_settings', array( $this, 'settings' ) );
 		add_action( 'init', array( $this, 'handle_settings' ) );
+		add_action( 'save_post_page', array( __CLASS__, 'forget_pages' ) );
+		add_action( 'deleted_post', array( __CLASS__, 'forget_pages' ) );
 
 		add_action( 'wp_enqueue_scripts', array( $this, 'assets' ) );
+
+		/*
+		 * Early enough to still be able to send headers, and to be heard by
+		 * a page cache before it decides to store the response.
+		 */
+		add_action( 'template_redirect', array( $this, 'never_cache' ), 0 );
+	}
+
+	/**
+	 * Keep the portal out of page caches.
+	 *
+	 * Every screen here is one person's own data a moment ago: a draft they
+	 * are part way through, a date they just changed, a list they just
+	 * ticked. A cached copy of that is wrong the instant anything is saved.
+	 *
+	 * This was not theoretical. On the live site LiteSpeed was answering
+	 * portal requests with "x-litespeed-cache: hit,private" — its private,
+	 * per-user cache — so after changing a campaign's arrival date and
+	 * pressing Continue, the review screen came back from the cache still
+	 * showing the old date. The date had saved correctly every time;
+	 * loading the same URL with any extra query string proved it. From the
+	 * outside it looked exactly like a save that silently did nothing, and
+	 * no amount of reading the save path was ever going to find it.
+	 *
+	 * WordPress's own no-cache headers were already going out — they are
+	 * in the response above — and a private cache stored it anyway, so the
+	 * headers alone are not enough. DONOTCACHEPAGE is the constant the
+	 * caching plugins agree on (LiteSpeed, WP Rocket, W3 Total Cache, WP
+	 * Super Cache all honour it), and the action beside it is LiteSpeed's
+	 * own switch, which it reads even when the constant is set late.
+	 *
+	 * @return void
+	 */
+	public function never_cache() {
+		if ( ! is_singular() ) {
+			return;
+		}
+
+		$post = get_post();
+
+		if ( ! $post || ! cardsco_page_uses_shortcode( $post, self::tags() ) ) {
+			return;
+		}
+
+		if ( ! defined( 'DONOTCACHEPAGE' ) ) {
+			define( 'DONOTCACHEPAGE', true );
+		}
+
+		if ( ! defined( 'DONOTCACHEOBJECT' ) ) {
+			define( 'DONOTCACHEOBJECT', true );
+		}
+
+		if ( ! defined( 'DONOTCACHEDB' ) ) {
+			define( 'DONOTCACHEDB', true );
+		}
+
+		/* LiteSpeed's own control, including for its private cache. */
+		do_action( 'litespeed_control_set_nocache', 'CardsCo portal page' );
+
+		nocache_headers();
+
+		if ( ! headers_sent() ) {
+			header( 'Cache-Control: no-cache, no-store, must-revalidate, max-age=0, private' );
+			header( 'X-LiteSpeed-Cache-Control: no-cache' );
+		}
 	}
 
 	/**
@@ -129,6 +196,7 @@ class CardsCo_Shortcodes {
 	 * @return string
 	 */
 	public function dashboard( $atts ) {
+		self::remember_page( 'cardsco_dashboard' );
 		self::enqueue();
 
 		$refusal = CardsCo_Access::refusal();
@@ -257,7 +325,21 @@ class CardsCo_Shortcodes {
 		wp_enqueue_script( 'cardsco-settings', CARDSCO_URL . 'assets/settings.js', array( 'cardsco-boot' ), CARDSCO_VERSION, true );
 
 		$settings = CardsCo_Dashboard::settings_screen( $tab );
-		$links    = array( 'logo' => $atts['logo'] ? $atts['logo'] : admin_url( 'upload.php' ) );
+		/*
+		 * The orders page is resolved the same way every other screen
+		 * resolves it, rather than assumed. page_for() asks the screen
+		 * that reported itself, because this site is built with Oxygen and
+		 * searching post_content for a shortcode finds nothing.
+		 *
+		 * An empty string here would print a link to the current page
+		 * instead of to the orders screen, which is the sort of link that
+		 * looks fine and goes nowhere, so the Billing tab checks before
+		 * offering it.
+		 */
+		$links    = array(
+			'logo'   => $atts['logo'] ? $atts['logo'] : admin_url( 'upload.php' ),
+			'orders' => (string) self::page_for( 'cardsco_orders' ),
+		);
 
 		ob_start();
 		include CARDSCO_PATH . 'includes/front/view-settings.php';
@@ -483,6 +565,29 @@ class CardsCo_Shortcodes {
 			$company['billing_address'] = sanitize_textarea_field( wp_unslash( $_POST['billing_address'] ) );
 		}
 
+		if ( isset( $_POST['billing_name'] ) ) {
+			$company['billing_name'] = sanitize_text_field( wp_unslash( $_POST['billing_name'] ) );
+		}
+
+		/*
+		 * Checked rather than just sanitised. sanitize_email() turns
+		 * anything it does not like into an empty string, so a typo would
+		 * save as blank and the screen would come back looking as though
+		 * the field had simply been cleared — and the next checkout would
+		 * quietly fall back to the contact address with nobody any the
+		 * wiser. Better to refuse it and say so.
+		 */
+		if ( isset( $_POST['billing_email'] ) ) {
+			$cc_email = sanitize_text_field( wp_unslash( $_POST['billing_email'] ) );
+
+			if ( '' !== $cc_email && ! is_email( $cc_email ) ) {
+				wp_safe_redirect( add_query_arg( 'cardsco_error', rawurlencode( __( 'That billing email does not look right. Check it and save again.', 'cardsco' ) ), $back ) );
+				exit;
+			}
+
+			$company['billing_email'] = $cc_email;
+		}
+
 		$keys = array( 'trading_name', 'company_number', 'vat_number', 'return_mode', 'return_address', 'card_signoff' );
 		$ours = array();
 
@@ -663,7 +768,7 @@ class CardsCo_Shortcodes {
 			// where Cancel goes, and what "Add another" builds on.
 			'here_step' => add_query_arg(
 				array( CardsCo_Setup::ARG => (int) $programme['id'], 'step' => $step ),
-				remove_query_arg( array( 'cc_add', 'cc_added', 'cc_person', 'cardsco_error' ), $here )
+				remove_query_arg( array( 'cc_add', 'cc_added', 'cc_joined', 'cc_person', 'cardsco_error' ), $here )
 			),
 			'exit'     => $atts['exit'] ? $atts['exit'] : home_url( '/occasions/' ),
 			/*
@@ -674,14 +779,23 @@ class CardsCo_Shortcodes {
 			 */
 			'people'   => $atts['people'] ? $atts['people'] : add_query_arg(
 				array( CardsCo_Setup::ARG => (int) $programme['id'], 'step' => 2, 'cc_add' => 1 ),
-				remove_query_arg( array( 'cc_add', 'cc_added', 'cc_person', 'cardsco_error' ), $here )
+				remove_query_arg( array( 'cc_add', 'cc_added', 'cc_joined', 'cc_person', 'cardsco_error' ), $here )
 			),
 			/*
-			 * The upload is a form on the step itself, so there is no page
-			 * to link to; the attribute stays only as an override for a site
-			 * that wants to send people somewhere else entirely.
+			 * The upload is a form on step 2 itself, so this points at that
+			 * step rather than at a page of its own — and it has to drop the
+			 * add-a-person state to get there. Left as the current URL, the
+			 * link reloaded whatever screen you were on: from the by-hand
+			 * form it went back to the by-hand form, and from the "person
+			 * added" screen back to that, so it did nothing at all.
+			 *
+			 * The attribute stays as an override for a site that wants to
+			 * send people somewhere else entirely.
 			 */
-			'import'   => $atts['import'] ? $atts['import'] : $here,
+			'import'   => $atts['import'] ? $atts['import'] : add_query_arg(
+				array( CardsCo_Setup::ARG => (int) $programme['id'], 'step' => 2 ),
+				remove_query_arg( array( 'cc_add', 'cc_added', 'cc_joined', 'cc_person', 'cardsco_error' ), $here )
+			),
 			'template' => $atts['template']
 				? $atts['template']
 				: ( $programme['id'] ? CardsCo_Setup::template_url( $programme ) : $here ),
@@ -784,6 +898,15 @@ class CardsCo_Shortcodes {
 					$person = CardsCo_Dashboard::setup_person( $programme, $added, $editing );
 
 					/*
+					 * This screen carries the upload too, so it needs the
+					 * same file row the list draws. Without it the partial
+					 * rendered an unnamed file and a button with no words
+					 * on it — an icon on its own, which is the shape of a
+					 * control that does nothing.
+					 */
+					$upload = $person['upload'];
+
+					/*
 					 * The frames put a running count where the rail's usual
 					 * footer line goes, and drop Continue entirely while the
 					 * form is open.
@@ -840,6 +963,7 @@ class CardsCo_Shortcodes {
 	 * @return string
 	 */
 	public function occasions( $atts ) {
+		self::remember_page( 'cardsco_occasions' );
 		self::enqueue();
 
 		$refusal = CardsCo_Access::refusal();
@@ -886,6 +1010,21 @@ class CardsCo_Shortcodes {
 			'all_dates' => $atts['all_dates'] ? $atts['all_dates'] : $here,
 		);
 
+		/*
+		 * Where a renewal reminder lands. The email carries a plain address
+		 * rather than anything that takes money on being opened, so this is
+		 * the screen that shows the figure and asks.
+		 */
+		$renewal = CardsCo_Dashboard::renewal_panel();
+
+		/*
+		 * This screen had nowhere to put a refusal, so anything that went
+		 * wrong on the renew button sent the person back here to a page
+		 * that looked exactly as it had before they pressed it.
+		 */
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only view state.
+		$error = isset( $_GET['cardsco_error'] ) ? sanitize_text_field( wp_unslash( $_GET['cardsco_error'] ) ) : '';
+
 		ob_start();
 		include CARDSCO_PATH . 'includes/front/view-occasions.php';
 
@@ -898,6 +1037,7 @@ class CardsCo_Shortcodes {
 	 * @return string
 	 */
 	public function campaigns( $atts ) {
+		self::remember_page( 'cardsco_campaigns' );
 		self::enqueue();
 
 		$refusal = CardsCo_Access::refusal();
@@ -917,6 +1057,51 @@ class CardsCo_Shortcodes {
 		);
 
 		$here = remove_query_arg( array( 'tab' ) );
+
+		/*
+		 * ?new=1 starts one, ?campaign=<id> carries on with one. Either
+		 * replaces the list with the builder: a campaign is built in the
+		 * portal now, not in the admin.
+		 */
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only view state.
+		$building = isset( $_GET[ CardsCo_Builder::ARG ] ) ? absint( $_GET[ CardsCo_Builder::ARG ] ) : 0;
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only view state.
+		$starting = ! empty( $_GET['new'] );
+
+		/*
+		 * An occasion can come with the link, from the tile on step 1 of
+		 * the wizard that belongs here rather than there.
+		 */
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only view state.
+		$wants_type = isset( $_GET['occasion_type_id'] ) ? absint( $_GET['occasion_type_id'] ) : 0;
+
+		if ( $starting && ! $building ) {
+			/*
+			 * Straight into step 1. There used to be a Start / Not now
+			 * screen here, which was a page whose only content was a
+			 * button to see the next page — the campaign is a draft until
+			 * it is paid for, so there is nothing to confirm.
+			 *
+			 * It is created on a POST rather than on this GET, so that a
+			 * crawler or a prefetch cannot litter the list with drafts.
+			 * The form submits itself the moment the page loads, and the
+			 * button below it is what somebody without scripting sees.
+			 */
+			return self::builder_start( $here, $wants_type );
+		}
+
+		if ( $building ) {
+			$built = self::builder( $building, $here );
+
+			/*
+			 * A campaign belonging to somebody else, or one that is not
+			 * there, falls through to the list rather than saying which it
+			 * was. Confirming that a campaign exists is itself an answer.
+			 */
+			if ( '' !== $built ) {
+				return $built;
+			}
+		}
 
 		/*
 		 * The tab is in the query string so a filtered view can be linked to
@@ -948,10 +1133,33 @@ class CardsCo_Shortcodes {
 		 * address. Without one the buttons come back to this page rather
 		 * than pointing at nothing.
 		 */
+		/*
+		 * An address into wp-admin is dropped. Portal customers are blocked
+		 * from wp-admin, so such a link is a button that answers "Sorry,
+		 * you are not allowed to access this page" — which is what the
+		 * builder's own New campaign button did, because the attribute
+		 * still pointed at the admin screen the builder used to live on.
+		 * The default is right now, so a stale attribute should not beat
+		 * it.
+		 */
+		$portal = static function ( $given, $fallback ) {
+			if ( ! $given || false !== strpos( (string) $given, '/wp-admin/' ) ) {
+				return $fallback;
+			}
+
+			return $given;
+		};
+
 		$links = array(
-			'new'    => $atts['new'] ? $atts['new'] : add_query_arg( 'new', '1', $here ),
-			'single' => $atts['single'] ? $atts['single'] : add_query_arg( 'new', '1', $here ),
-			'one'    => $atts['one'] ? $atts['one'] : $here,
+			'new'    => $portal( $atts['new'], add_query_arg( 'new', '1', $here ) ),
+			/*
+			 * One card to one person is the Sending Card flow, not a
+			 * campaign. Pointing it at the builder sent somebody who wanted
+			 * to post a single card through seven steps of audience and
+			 * scheduling.
+			 */
+			'single' => $portal( $atts['single'], CardsCo_Send::page_url() ? CardsCo_Send::page_url() : add_query_arg( 'new', '1', $here ) ),
+			'one'    => $portal( $atts['one'], $here ),
 			'past'   => add_query_arg( 'tab', 'past', $here ),
 		);
 
@@ -959,6 +1167,398 @@ class CardsCo_Shortcodes {
 		include CARDSCO_PATH . 'includes/front/view-campaigns.php';
 
 		return (string) ob_get_clean();
+	}
+
+	/**
+	 * The page a given shortcode lives on, or '' if nobody has made one.
+	 *
+	 * Found by looking for the shortcode rather than by asking for a
+	 * setting, so a portal page works the moment it is published with
+	 * nothing to configure and nothing to keep in step. Cached, and the
+	 * cache is dropped whenever any page is saved.
+	 *
+	 * @param string $tag The shortcode, without brackets.
+	 * @return string
+	 */
+	public static function page_for( $tag ) {
+		$tag = sanitize_key( $tag );
+
+		/*
+		 * What the screen itself reported, first.
+		 *
+		 * Searching post_content finds nothing on a site built with a
+		 * page builder: Oxygen, Elementor and the rest keep their layout
+		 * in their own storage, so the page's own content is a stub and
+		 * the shortcode is nowhere the search can see it. That is not an
+		 * edge case here — it is how this site is built, and it meant the
+		 * panel after paying rendered with no way back on it at all.
+		 *
+		 * A screen that has rendered knows its own address, so it writes
+		 * it down and this reads it.
+		 */
+		$known = get_option( 'cardsco_page_url_' . $tag );
+
+		/*
+		 * A remembered address is only worth having while the page behind
+		 * it is still there. Deleting that page left this pointing at it
+		 * for good, and every link built from it — a renewal email, the
+		 * offer of an account — went to a page that was gone.
+		 */
+		if ( $known && ! self::page_still_there( (string) $known ) ) {
+			delete_option( 'cardsco_page_url_' . $tag );
+			$known = '';
+		}
+
+		/*
+		 * A remembered address is only worth having while the page behind
+		 * it is still there. Deleting that page left this pointing at it
+		 * for good, and every link built from it — a renewal email, the
+		 * offer of an account — went to a page that was gone.
+		 */
+
+
+		if ( $known ) {
+			return (string) $known;
+		}
+
+		$key   = 'cardsco_page_' . $tag;
+		$found = get_transient( $key );
+
+		if ( false !== $found ) {
+			return (string) $found;
+		}
+
+		$pages = get_posts(
+			array(
+				'post_type'        => 'page',
+				'post_status'      => 'publish',
+				'numberposts'      => 20,
+				's'                => '[' . $tag,
+				'fields'           => 'ids',
+				'suppress_filters' => false,
+			)
+		);
+
+		$url = '';
+
+		foreach ( $pages as $page_id ) {
+			if ( has_shortcode( (string) get_post_field( 'post_content', $page_id ), $tag ) ) {
+				$url = (string) get_permalink( $page_id );
+				break;
+			}
+		}
+
+		set_transient( $key, $url, DAY_IN_SECONDS );
+
+		return $url;
+	}
+
+	/**
+	 * Note where a portal screen lives, from the screen itself.
+	 *
+	 * Called as each portal shortcode renders. Written only when it
+	 * changes, so the usual request does one option read and nothing
+	 * else.
+	 *
+	 * @param string $tag The shortcode being rendered.
+	 * @return void
+	 */
+	public static function remember_page( $tag ) {
+		$id = get_queried_object_id();
+
+		if ( ! $id || ! is_singular() ) {
+			return;
+		}
+
+		$url = (string) get_permalink( $id );
+
+		if ( ! $url ) {
+			return;
+		}
+
+		$key = 'cardsco_page_url_' . sanitize_key( $tag );
+
+		if ( get_option( $key ) !== $url ) {
+			update_option( $key, $url, true );
+		}
+	}
+
+	/**
+	 * Whether a remembered address still leads to a published page.
+	 *
+	 * url_to_postid() reads an id straight out of ?page_id= without
+	 * asking whether anything is behind it, so on a site with plain
+	 * permalinks it answers just as readily for a page that has been
+	 * deleted. The post itself has to be looked at.
+	 *
+	 * @param string $url A remembered address.
+	 * @return bool
+	 */
+	protected static function page_still_there( $url ) {
+		$id = url_to_postid( $url );
+
+		if ( ! $id ) {
+			/* A pretty permalink that resolves to nothing is gone too. */
+			return false;
+		}
+
+		return 'publish' === get_post_status( $id );
+	}
+
+	/**
+	 * Forget the cached portal pages whenever any page is saved.
+	 *
+	 * @return void
+	 */
+	public static function forget_pages() {
+		/*
+		 * Every screen, not the four this began with. page_for() caches a
+		 * miss for a day as readily as a hit, so a tag left out of this
+		 * list stayed missing for twenty-four hours after its page was
+		 * published — long enough for a link that needs it to point at the
+		 * home page instead and for nobody to understand why.
+		 */
+		$tags = array_unique(
+			array_merge(
+				self::tags(),
+				array(
+					'cardsco_orders',
+					'cardsco_catalogue',
+					'cardsco_collections',
+					'cardsco_send',
+					'cardsco_login',
+					'cardsco_signup',
+					'cardsco_reset',
+					'cardsco_accept_invite',
+				)
+			)
+		);
+
+		foreach ( $tags as $tag ) {
+			delete_transient( 'cardsco_page_' . $tag );
+
+			/*
+			 * The remembered address too: a page that has just been saved
+			 * may have had the shortcode taken out of it, and one that has
+			 * just been deleted is not anywhere any more.
+			 */
+			$known = get_option( 'cardsco_page_url_' . $tag );
+
+			if ( $known && ! self::page_still_there( (string) $known ) ) {
+				delete_option( 'cardsco_page_url_' . $tag );
+			}
+		}
+	}
+
+	/**
+	 * The button that starts a campaign.
+	 *
+	 * A form rather than a link, because starting one writes a row, and a
+	 * plain link would do that on a crawl or a prefetch.
+	 *
+	 * @param string $here Where to post to.
+	 * @return string
+	 */
+	protected static function builder_start( $here, $type_id = 0 ) {
+		ob_start();
+		?>
+		<div class="cc cc-wz cc-bd cc-bd-begin">
+			<form method="post" action="<?php echo esc_url( $here ); ?>" id="ccBdStart">
+				<?php wp_nonce_field( 'cardsco_builder', '_cardsco_nonce' ); ?>
+				<input type="hidden" name="cardsco_builder_action" value="start" />
+				<?php if ( $type_id ) : ?>
+					<input type="hidden" name="occasion_type_id" value="<?php echo esc_attr( (int) $type_id ); ?>" />
+				<?php endif; ?>
+				<noscript>
+					<h1 class="cc-wz-head"><?php esc_html_e( 'Send a one-off campaign', 'cardsco' ); ?></h1>
+					<p class="cc-wz-sub"><?php esc_html_e( 'A single send to a group you choose, on a date you choose.', 'cardsco' ); ?></p>
+				</noscript>
+				<button type="submit" class="cc-btn cc-btn-go"><?php esc_html_e( 'Start a campaign', 'cardsco' ); ?></button>
+			</form>
+			<p class="cc-bd-begin-wait" aria-live="polite"><?php esc_html_e( 'Opening…', 'cardsco' ); ?></p>
+		</div>
+		<script>
+		/* Submit at once, so this is a moment rather than a page. */
+		( function () {
+			var f = document.getElementById( 'ccBdStart' );
+			if ( f ) { f.submit(); }
+		}() );
+		</script>
+		<?php
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * The campaign builder, for one campaign.
+	 *
+	 * @param int    $campaign_id Which campaign.
+	 * @param string $here        The page it lives on.
+	 * @return string Empty when there is nothing to show.
+	 */
+	protected static function builder( $campaign_id, $here ) {
+		$campaign = CardsCo_Campaign::get( $campaign_id );
+
+		if ( ! $campaign || (int) $campaign['company_id'] !== (int) CardsCo_Access::company_id() ) {
+			return '';
+		}
+
+		$company_id = (int) $campaign['company_id'];
+		$steps      = CardsCo_Builder::steps();
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only view state.
+		$asked = isset( $_GET['step'] ) ? absint( $_GET['step'] ) : 0;
+		$step  = CardsCo_Builder::step_on_screen( $campaign, $asked );
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only view state.
+		$error = isset( $_GET['cardsco_error'] ) ? sanitize_text_field( wp_unslash( $_GET['cardsco_error'] ) ) : '';
+
+		$finished = 'draft' !== $campaign['status'];
+		$links    = array(
+			'here' => add_query_arg( CardsCo_Builder::ARG, (int) $campaign['id'], $here ),
+			'exit' => $here,
+		);
+
+		$type_id  = (int) $campaign['occasion_type_id'];
+		$types    = CardsCo_Occasion_Type::all( $company_id );
+		$segments = CardsCo_Segment::all( $company_id );
+		$cards    = CardsCo_Card::for_occasion( $type_id, $company_id );
+		$messages = CardsCo_Message::for_occasion( $type_id, $company_id );
+
+		/*
+		 * Falls back to every starter when this occasion has none of its
+		 * own. Written to show only the occasion's wording, which meant an
+		 * occasion nobody had written for lost the whole section without a
+		 * word — the screen simply had no starters on it, and nothing said
+		 * whether that was a choice or a fault. A birthday opener is still
+		 * a better place to begin than an empty box.
+		 */
+		$narrow = $messages;
+
+		if ( ! $messages && $type_id ) {
+			$messages = CardsCo_Message::for_occasion( 0, $company_id );
+		}
+
+		$starters_are_general = $messages && ! $narrow;
+		$fields   = CardsCo_Merge::fields_for( true );
+		$audience = CardsCo_Campaign::audience( $campaign );
+		$picked   = CardsCo_Campaign::clean_audience( $campaign['audience'] );
+		$found    = CardsCo_Recipient::query( array( 'company_id' => $company_id, 'limit' => 200 ) );
+		$people   = isset( $found['items'] ) ? (array) $found['items'] : array();
+		$preview  = CardsCo_Campaign::preview( $campaign );
+		$ready    = CardsCo_Campaign::can_schedule( $campaign );
+		$warning  = CardsCo_Campaign::offer_warning( $campaign );
+		/*
+		 * The earliest a campaign can land, which is today plus the time it
+		 * takes to write the cards.
+		 *
+		 * This used to call lock_date( today ), and lock_date runs the other
+		 * way: given a landing date it answers when the list has to be
+		 * settled, which is earlier. Handed today, it returned a date in the
+		 * past and step 6 offered it as the soonest we could manage — with
+		 * the date field's own min set to it, so a campaign could be pointed
+		 * at a day that had already gone. can_schedule() refused it at the
+		 * payment screen, six steps later, which is exactly where step 6
+		 * exists not to find out.
+		 */
+		$earliest = CardsCo_Campaign::earliest_send_date( $company_id );
+		$summary  = self::campaign_summary( $campaign, $audience, $types, $cards );
+
+		wp_enqueue_script( 'cardsco-builder', CARDSCO_URL . 'assets/builder.js', array( 'cardsco-boot' ), CARDSCO_VERSION, true );
+
+		$body = CARDSCO_PATH . 'includes/front/view-builder-' . $step . '.php';
+
+		if ( ! is_readable( $body ) ) {
+			return '';
+		}
+
+		ob_start();
+		include CARDSCO_PATH . 'includes/front/view-builder.php';
+
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * The review screen's list of what is going out.
+	 *
+	 * Each row carries the step it came from, so "Change" goes back to the
+	 * screen that set it rather than to the start.
+	 *
+	 * @param array $campaign The campaign.
+	 * @param array $audience Who it reaches.
+	 * @param array $types    Occasion types, to name the one chosen.
+	 * @param array $cards    Cards, to name the one chosen.
+	 * @return array
+	 */
+	protected static function campaign_summary( array $campaign, array $audience, array $types, array $cards ) {
+		/*
+		 * Occasion types come back as arrays and cards as WP_Post objects,
+		 * so this reads either rather than assuming one. Guessing the shape
+		 * is what made the first version of this fatal.
+		 */
+		$name_of = static function ( array $rows, $id, $key = 'label' ) {
+			foreach ( $rows as $row ) {
+				if ( is_object( $row ) ) {
+					if ( (int) $row->ID === (int) $id ) {
+						return (string) $row->post_title;
+					}
+
+					continue;
+				}
+
+				if ( (int) $row['id'] === (int) $id ) {
+					return (string) ( $row[ $key ] ?? '' );
+				}
+			}
+
+			return '';
+		};
+
+		$dash = __( '—', 'cardsco' );
+		$when = $campaign['send_date'] && '0000-00-00' !== $campaign['send_date']
+			? date_i18n( get_option( 'date_format' ), strtotime( $campaign['send_date'] ) )
+			: $dash;
+
+		$rows = array(
+			array(
+				'label' => __( 'Name', 'cardsco' ),
+				'value' => '' !== trim( (string) $campaign['name'] ) ? $campaign['name'] : $dash,
+				'step'  => 1,
+			),
+			array(
+				'label' => __( 'Occasion', 'cardsco' ),
+				'value' => $name_of( $types, $campaign['occasion_type_id'], 'label' ) ?: $dash,
+				'step'  => 1,
+			),
+			array(
+				'label' => __( 'Who gets it', 'cardsco' ),
+				'value' => sprintf(
+					/* translators: %s: how many people. */
+					_n( '%s person', '%s people', count( $audience['ids'] ), 'cardsco' ),
+					number_format_i18n( count( $audience['ids'] ) )
+				),
+				'step'  => 2,
+			),
+			array(
+				'label' => __( 'Card', 'cardsco' ),
+				'value' => $name_of( $cards, $campaign['card_id'] ) ?: $dash,
+				'step'  => 3,
+			),
+			array(
+				'label' => __( 'Arrives', 'cardsco' ),
+				'value' => $when,
+				'step'  => 6,
+			),
+		);
+
+		if ( ! empty( $campaign['offer_enabled'] ) ) {
+			$rows[] = array(
+				'label' => __( 'Offer', 'cardsco' ),
+				'value' => trim( $campaign['offer_code'] . ' · ' . $campaign['offer_description'], ' ·' ) ?: $dash,
+				'step'  => 5,
+			);
+		}
+
+		return $rows;
 	}
 
 	/**
@@ -971,6 +1571,7 @@ class CardsCo_Shortcodes {
 	 * @return string
 	 */
 	public function orders( $atts ) {
+		self::remember_page( 'cardsco_orders' );
 		self::enqueue();
 		wp_enqueue_script( 'cardsco-orders', CARDSCO_URL . 'assets/orders.js', array(), CARDSCO_VERSION, true );
 
@@ -1068,6 +1669,16 @@ class CardsCo_Shortcodes {
 	 */
 	public function send( $atts ) {
 		self::enqueue();
+		self::remember_page( 'cardsco_send' );
+
+		/*
+		 * The flow's own styles live in catalogue.css, beside the card
+		 * picker it shares. Without this the page renders with the design
+		 * tokens loaded and nothing using them: the steps come out as a
+		 * numbered list and every field runs the full width of the window.
+		 */
+		CardsCo_Catalogue::enqueue_catalogue();
+
 		wp_enqueue_script( 'cardsco-writer', CARDSCO_URL . 'assets/writer.js', array( 'cardsco-boot' ), CARDSCO_VERSION, true );
 
 		$atts = shortcode_atts( array( 'cards' => '' ), $atts, 'cardsco_send' );
@@ -1105,11 +1716,8 @@ class CardsCo_Shortcodes {
 			)
 		);
 
-		$order = array(
-			'card' => CardsCo_Send::card_price( $draft ),
-		);
-
-		$order['total'] = $order['card'];
+		$order         = CardsCo_Send::order_sum( $draft );
+		$order['card'] = $order['each'];
 
 		ob_start();
 		include CARDSCO_PATH . 'includes/front/view-send.php';
@@ -1408,10 +2016,17 @@ class CardsCo_Shortcodes {
 		}
 
 		if ( 'scheduled' === $row['status'] ) {
+			/*
+			 * It used to say "you can edit until <lock date>", which was a
+			 * promise nothing kept: a paid campaign is read-only, and the
+			 * only way to change one is to cancel it and build another.
+			 * The lock date is still what matters to the customer, but it
+			 * is the date the writing starts, not an editing window.
+			 */
 			$note = $row['send_date']
 				? sprintf(
-					/* translators: 1: the date it posts, 2: the last date it can be changed. */
-					__( 'Posts %1$s · you can edit until %2$s', 'cardsco' ),
+					/* translators: 1: the date it posts, 2: the date writing starts. */
+					__( 'Posts %1$s · writing starts %2$s', 'cardsco' ),
 					gmdate( 'D j M', strtotime( $row['send_date'] ) ),
 					gmdate( 'D j M', strtotime( $row['lock_date'] ? $row['lock_date'] : $row['send_date'] ) )
 				)
@@ -1466,7 +2081,9 @@ class CardsCo_Shortcodes {
 		}
 
 		if ( 'scheduled' === $row['status'] ) {
-			return array( 'label' => __( 'Edit campaign', 'cardsco' ), 'url' => $url, 'primary' => false );
+			/* Not "Edit": a paid campaign is read-only, and the button led
+			   to a wizard that looked editable and was not. */
+			return array( 'label' => __( 'View campaign', 'cardsco' ), 'url' => $url, 'primary' => false );
 		}
 
 		return array( 'label' => __( 'View progress', 'cardsco' ), 'url' => $url, 'primary' => false );

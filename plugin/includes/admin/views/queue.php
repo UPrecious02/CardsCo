@@ -5,7 +5,8 @@
  * @package CardsCo
  *
  * @var CardsCo_Admin $this
- * @var int           $company_id
+ * @var int           $company_id Company being looked at, 0 for all of them.
+ * @var array[]       $companies  Every company, to tell "none picked" from "none exist".
  * @var array         $results
  * @var array         $counts
  * @var array|null    $last_scan
@@ -27,7 +28,7 @@ $cardsco_holds  = CardsCo_Queue::hold_reasons();
 
 	<?php $this->print_notices(); ?>
 
-	<?php if ( ! $company_id ) : ?>
+	<?php if ( ! $companies ) : ?>
 		<div class="cardsco-empty">
 			<p><strong><?php esc_html_e( 'No companies yet.', 'cardsco' ); ?></strong></p>
 			<a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=cardsco-companies' ) ); ?>"><?php esc_html_e( 'Go to Companies', 'cardsco' ); ?></a>

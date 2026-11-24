@@ -37,7 +37,13 @@ class CardsCo_Wizard {
 	 * @return void
 	 */
 	public function render( CardsCo_Admin $admin ) {
-		$company_id   = $admin->current_company();
+		/*
+		 * The list below shows every company unless one is chosen. A
+		 * programme already open overrides this with its own, a few lines
+		 * down, because a programme belongs to one company whatever the
+		 * filter says.
+		 */
+		$company_id   = $admin->viewing_company();
 		$programme_id = absint( $_GET['programme'] ?? 0 );
 		$programme    = $programme_id ? CardsCo_Programme::get( $programme_id ) : null;
 		$action       = sanitize_key( $_GET['action'] ?? '' );

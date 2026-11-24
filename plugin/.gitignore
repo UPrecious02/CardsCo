@@ -1,0 +1,10 @@
+# WordPress install used to run the suite — not part of the project.
+wp/
+core/
+
+# Scratch copies run.sh makes inside the WordPress folder.
+t-*.php
+
+node_modules/
+.DS_Store
+*.zip

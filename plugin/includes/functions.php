@@ -531,6 +531,24 @@ function cardsco_lcfirst( $text ) {
 	$first = function_exists( 'mb_substr' ) ? mb_substr( $text, 0, 1 ) : substr( $text, 0, 1 );
 	$rest  = function_exists( 'mb_substr' ) ? mb_substr( $text, 1 ) : substr( $text, 1 );
 
+	/*
+	 * Left alone when anything after the first word is capitalised.
+	 *
+	 * This exists so a heading reads "Choose a birthday card" rather than
+	 * "Choose a Birthday card", and for one-word occasions that is right.
+	 * Run over a name that is capitalised throughout it produced "Choose a
+	 * christmas & Seasonal card" — the one word it lowercased being the
+	 * only one that was a proper noun to begin with, and the mixture
+	 * reading as a mistake rather than a style.
+	 *
+	 * A capital later in the string is the signal: "Birthday" has none and
+	 * is lowercased, "Christmas & Seasonal" and "Work Anniversaries" do and
+	 * are left as their owner wrote them.
+	 */
+	if ( preg_match( '/\p{Lu}/u', $rest ) ) {
+		return $text;
+	}
+
 	return ( function_exists( 'mb_strtolower' ) ? mb_strtolower( $first ) : strtolower( $first ) ) . $rest;
 }
 
@@ -548,4 +566,41 @@ function cardsco_ordinal( $n ) {
 	$day = max( 1, min( 31, $n ) );
 
 	return number_format_i18n( $n ) . date_i18n( 'S', mktime( 0, 0, 0, 1, $day, 2001 ) );
+}
+
+/**
+ * A date a number of working days after another, Saturdays and Sundays skipped.
+ *
+ * The promise on a single card is "within so many working days", so the date
+ * it has to be written by is counted the same way the promise is worded. The
+ * day it was ordered does not count as one of them: a card ordered on Friday
+ * with two working days allowed is due on Tuesday, not Monday.
+ *
+ * Bank holidays are not in here. They would need a list kept up to date per
+ * country, and getting that wrong quietly moves real deadlines, so the
+ * writing team's own slack covers them instead.
+ *
+ * @param string $from  Y-m-d to count from.
+ * @param int    $days  How many working days to add.
+ * @return string Y-m-d.
+ */
+function cardsco_add_working_days( $from, $days ) {
+	$timestamp = strtotime( (string) $from );
+
+	if ( ! $timestamp ) {
+		return (string) $from;
+	}
+
+	$days = max( 0, (int) $days );
+
+	while ( $days > 0 ) {
+		$timestamp += DAY_IN_SECONDS;
+
+		// 6 Saturday, 7 Sunday.
+		if ( (int) gmdate( 'N', $timestamp ) < 6 ) {
+			$days--;
+		}
+	}
+
+	return gmdate( 'Y-m-d', $timestamp );
 }

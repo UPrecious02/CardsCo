@@ -163,8 +163,10 @@ class CardsCo_Campaign {
 			)
 		);
 
-		$where  = array( 'company_id = %d' );
-		$params = array( absint( $company_id ) );
+		/* 0 means every company, for the admin's listing screens. */
+		$company_id = absint( $company_id );
+		$where      = $company_id ? array( 'company_id = %d' ) : array( '1 = %d' );
+		$params     = array( $company_id ? $company_id : 1 );
 
 		if ( $args['status'] ) {
 			$where[]  = 'status = %s';
@@ -448,6 +450,27 @@ class CardsCo_Campaign {
 		$days = $days > 0 ? $days : 3;
 
 		return cardsco_write_by_date( $send_date, $days );
+	}
+
+	/**
+	 * The soonest a campaign started today could land.
+	 *
+	 * The mirror of lock_date(): that one goes backwards from a landing
+	 * date to the day the list must be settled, this one goes forwards from
+	 * today to the first landing date that leaves enough time to write.
+	 *
+	 * They are easy to mix up, and mixing them up is not loud — it returns
+	 * a real date, just one in the past. Step 6 did exactly that and offered
+	 * it as the earliest date a customer could choose.
+	 *
+	 * @param int $company_id Company, for its own lock days.
+	 * @return string Y-m-d.
+	 */
+	public static function earliest_send_date( $company_id = 0 ) {
+		$days = (int) CardsCo_Settings::get( 'campaign_lock_days', null, $company_id );
+		$days = $days > 0 ? $days : 3;
+
+		return gmdate( 'Y-m-d', strtotime( '+' . $days . ' days', strtotime( cardsco_now( 'date' ) ) ) );
 	}
 
 	/* ---------------------------------------------------------------------

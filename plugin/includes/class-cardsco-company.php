@@ -179,6 +179,44 @@ class CardsCo_Company {
 	}
 
 	/**
+	 * The names of exactly these companies, as id => name.
+	 *
+	 * A screen listing other people's rows needs the name beside each
+	 * one, and all() stops at 200, so looking a name up in that list
+	 * quietly turns every company past the two hundredth into
+	 * "Unknown". This asks for the ids actually on the page.
+	 *
+	 * @param int[] $ids Company ids.
+	 * @return string[]
+	 */
+	public static function names( array $ids ) {
+		global $wpdb;
+
+		$ids = array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) );
+
+		if ( ! $ids ) {
+			return array();
+		}
+
+		$holders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+		$rows    = $wpdb->get_results(
+			$wpdb->prepare(
+				'SELECT id, name FROM ' . cardsco_table( 'companies' ) . " WHERE id IN ({$holders})", // phpcs:ignore WordPress.DB
+				$ids
+			),
+			ARRAY_A
+		);
+
+		$names = array();
+
+		foreach ( (array) $rows as $row ) {
+			$names[ (int) $row['id'] ] = $row['name'];
+		}
+
+		return $names;
+	}
+
+	/**
 	 * All companies, newest first.
 	 *
 	 * @param array $args Optional status filter and limit.

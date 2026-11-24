@@ -191,8 +191,10 @@ class CardsCo_Box {
 			)
 		);
 
-		$where  = array( 'company_id = %d' );
-		$params = array( absint( $company_id ) );
+		/* 0 means every company, for the admin's listing screens. */
+		$company_id = absint( $company_id );
+		$where      = $company_id ? array( 'company_id = %d' ) : array( '1 = %d' );
+		$params     = array( $company_id ? $company_id : 1 );
 
 		if ( $args['status'] ) {
 			$where[]  = 'status = %s';

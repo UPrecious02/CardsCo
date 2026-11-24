@@ -63,10 +63,16 @@ $cardsco_months = cardsco_month_choices();
 	</h2>
 
 	<?php if ( ! $company_id ) : ?>
-		<div class="cardsco-empty" style="margin-top:16px">
-			<p><strong><?php esc_html_e( 'No companies yet.', 'cardsco' ); ?></strong></p>
-			<a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=cardsco-companies' ) ); ?>"><?php esc_html_e( 'Go to Companies', 'cardsco' ); ?></a>
-		</div>
+		<?php
+		/* Two tabs behind one guard, so the reason has to match the tab you are on. */
+		CardsCo_Admin::pick_a_company(
+			'cardsco-occasions',
+			'library' === $tab
+				? 'The library holds each company’s own occasions alongside the standard ones.'
+				: 'Upcoming occasions are worked out per company.',
+			'library' === $tab ? array( 'tab' => 'library' ) : array()
+		);
+		?>
 	</div>
 		<?php return; ?>
 	<?php endif; ?>
@@ -74,7 +80,7 @@ $cardsco_months = cardsco_month_choices();
 	<?php if ( 'upcoming' === $tab ) : ?>
 
 		<div class="cardsco-bar">
-			<?php $this->company_switcher( $company_id, 'cardsco-occasions' ); ?>
+			<?php $this->company_switcher( $company_id, 'cardsco-occasions', false ); ?>
 
 			<form method="get">
 				<input type="hidden" name="page" value="cardsco-occasions" />
@@ -168,7 +174,7 @@ $cardsco_months = cardsco_month_choices();
 	<?php else : ?>
 
 		<div class="cardsco-bar">
-			<?php $this->company_switcher( $company_id, 'cardsco-occasions' ); ?>
+			<?php $this->company_switcher( $company_id, 'cardsco-occasions', false, array( 'tab' => 'library' ) ); ?>
 
 			<form method="get">
 				<input type="hidden" name="page" value="cardsco-occasions" />

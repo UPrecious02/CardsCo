@@ -1083,3 +1083,316 @@ body.woocommerce-checkout .wc-block-components-notice-banner {
 		font-size: 22px;
 	}
 }
+
+/* ==========================================================================
+   Order received
+   --------------------------------------------------------------------------
+   The page somebody lands on after paying, which WooCommerce ships as a
+   grey sentence, an unstyled row of facts and two full-bleed tables. It is
+   the last thing a customer sees, so it is worth as much care as the
+   checkout: a clear confirmation, then the detail underneath for anyone who
+   wants it.
+
+   The body class is WooCommerce's own for this endpoint. It is also a
+   checkout page, so the checkout rules above still apply where they touch
+   shared furniture.
+   ========================================================================== */
+
+body.woocommerce-order-received .woocommerce {
+	max-width: 880px;
+	margin: 0 auto;
+	padding: var(--cc-space-48) var(--cc-space-24) var(--cc-space-80);
+	font-family: var(--cc-font-ui);
+	color: var(--cc-text-primary);
+}
+
+/* --- the confirmation itself --- */
+
+/*
+ * Woo renders this as a <p> with the same weight as body copy. It is the
+ * answer to the only question the customer has at this moment — did that
+ * work — so it is given the size to say so.
+ */
+body.woocommerce-order-received .woocommerce-thankyou-order-received {
+	margin: 0 0 var(--cc-space-8);
+	font-family: var(--cc-font-display);
+	font-size: var(--cc-display-m-size);
+	line-height: var(--cc-display-m-line);
+	letter-spacing: var(--cc-display-m-track);
+	color: var(--cc-text-primary);
+}
+
+/* The tick, drawn rather than imported, sitting on its own line above. */
+body.woocommerce-order-received .woocommerce-thankyou-order-received::before {
+	content: "";
+	display: block;
+	width: 40px;
+	height: 40px;
+	margin-bottom: var(--cc-space-16);
+	border-radius: var(--cc-radius-full);
+	background-color: var(--cc-status-success-bg);
+	background-repeat: no-repeat;
+	background-position: center;
+	background-size: 20px 20px;
+	/* A tick. Inlined so the page needs nothing else to draw it. */
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23156e3f' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
+}
+
+/* --- the row of facts --- */
+
+body.woocommerce-order-received .woocommerce-order-overview {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--cc-space-8) var(--cc-space-32);
+	margin: var(--cc-space-32) 0 var(--cc-space-48);
+	padding: var(--cc-space-20) var(--cc-space-24);
+	list-style: none;
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: var(--cc-radius-lg);
+	background: var(--cc-bg-subtle);
+}
+
+body.woocommerce-order-received .woocommerce-order-overview li {
+	flex: 1 1 auto;
+	margin: 0;
+	padding: 0;
+	border: 0;
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--cc-text-tertiary);
+}
+
+/* The value, which Woo wraps in <strong>, is the part worth reading. */
+body.woocommerce-order-received .woocommerce-order-overview li strong {
+	display: block;
+	margin-top: var(--cc-space-4);
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	letter-spacing: normal;
+	text-transform: none;
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary);
+}
+
+/* --- headings over each block --- */
+
+body.woocommerce-order-received .woocommerce-order-details__title,
+body.woocommerce-order-received .woocommerce-column__title,
+body.woocommerce-order-received .woocommerce-customer-details h2 {
+	margin: 0 0 var(--cc-space-16);
+	font-family: var(--cc-font-display);
+	font-size: var(--cc-h3-size);
+	line-height: var(--cc-h3-line);
+	letter-spacing: var(--cc-h3-track);
+	color: var(--cc-text-primary);
+}
+
+/* --- the order table --- */
+
+body.woocommerce-order-received .woocommerce-table--order-details {
+	width: 100%;
+	margin: 0 0 var(--cc-space-48);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: var(--cc-radius-lg);
+	border-collapse: separate;
+	border-spacing: 0;
+	overflow: hidden;
+	font-size: var(--cc-body-m-size);
+}
+
+body.woocommerce-order-received .woocommerce-table--order-details th,
+body.woocommerce-order-received .woocommerce-table--order-details td {
+	padding: var(--cc-space-14) var(--cc-space-20);
+	border: 0;
+	border-bottom: 1px solid var(--cc-border-subtle);
+	text-align: left;
+	vertical-align: top;
+}
+
+body.woocommerce-order-received .woocommerce-table--order-details thead th {
+	background: var(--cc-bg-subtle);
+	font-size: var(--cc-caption-size);
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--cc-text-tertiary);
+	font-weight: var(--cc-weight-semi);
+}
+
+/*
+ * The amount column. Right-aligned so the figures line up under each
+ * other, which is the whole reason anybody scans this table.
+ */
+body.woocommerce-order-received .woocommerce-table--order-details th:last-child,
+body.woocommerce-order-received .woocommerce-table--order-details td:last-child {
+	text-align: right;
+	white-space: nowrap;
+}
+
+/* Woo puts the row labels in <th> inside <tfoot>; they are labels, not heads. */
+body.woocommerce-order-received .woocommerce-table--order-details tfoot th {
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-secondary);
+	text-transform: none;
+	letter-spacing: normal;
+	font-size: var(--cc-body-m-size);
+	background: transparent;
+}
+
+body.woocommerce-order-received .woocommerce-table--order-details tfoot tr:last-child th,
+body.woocommerce-order-received .woocommerce-table--order-details tfoot tr:last-child td {
+	border-bottom: 0;
+	padding-top: var(--cc-space-16);
+	padding-bottom: var(--cc-space-20);
+	font-size: var(--cc-body-l-size);
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary);
+}
+
+body.woocommerce-order-received .woocommerce-table--order-details tbody tr:last-child td {
+	border-bottom: 1px solid var(--cc-border-default);
+}
+
+/* The product link, which Woo leaves as a default blue anchor. */
+body.woocommerce-order-received .woocommerce-table--order-details .product-name a {
+	color: var(--cc-text-primary);
+	font-weight: var(--cc-weight-medium);
+	text-decoration: none;
+	border-bottom: 1px solid var(--cc-border-default);
+}
+
+body.woocommerce-order-received .woocommerce-table--order-details .product-name a:hover,
+body.woocommerce-order-received .woocommerce-table--order-details .product-name a:focus {
+	border-bottom-color: var(--cc-text-primary);
+}
+
+/*
+ * The card's own details, which the Sending Card flow writes onto the line
+ * as readable meta — who it goes to, the address, the message. Woo renders
+ * these as a definition list and they are the point of the order, so they
+ * are set as a readable block rather than a run-on line.
+ */
+body.woocommerce-order-received .wc-item-meta {
+	margin: var(--cc-space-10) 0 0;
+	padding: 0;
+	list-style: none;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-secondary);
+}
+
+body.woocommerce-order-received .wc-item-meta li {
+	margin: 0 0 var(--cc-space-4);
+}
+
+body.woocommerce-order-received .wc-item-meta li p,
+body.woocommerce-order-received .wc-item-meta li strong {
+	display: inline;
+	margin: 0;
+}
+
+body.woocommerce-order-received .wc-item-meta strong {
+	color: var(--cc-text-tertiary);
+	font-weight: var(--cc-weight-medium);
+}
+
+body.woocommerce-order-received .wc-item-meta strong::after {
+	content: " ";
+}
+
+/* --- the address blocks --- */
+
+body.woocommerce-order-received .woocommerce-customer-details .woocommerce-columns {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--cc-space-24);
+	margin: 0;
+}
+
+body.woocommerce-order-received .woocommerce-customer-details .woocommerce-column {
+	flex: 1 1 260px;
+	margin: 0;
+}
+
+body.woocommerce-order-received .woocommerce-customer-details address {
+	padding: var(--cc-space-20) var(--cc-space-24);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: var(--cc-radius-lg);
+	background: var(--cc-paper);
+	font-style: normal;
+	font-size: var(--cc-body-m-size);
+	line-height: 1.7;
+	color: var(--cc-text-secondary);
+}
+
+/*
+ * Woo renders the phone and email as <p> inside the address with its own
+ * icons. They sit tight against the street lines without this.
+ */
+body.woocommerce-order-received .woocommerce-customer-details address p {
+	margin: var(--cc-space-10) 0 0;
+	font-size: var(--cc-body-s-size);
+}
+
+/* --- narrow --- */
+
+@media (max-width: 720px) {
+	body.woocommerce-order-received .woocommerce {
+		padding: var(--cc-space-32) var(--cc-space-16) var(--cc-space-48);
+	}
+
+	body.woocommerce-order-received .woocommerce-thankyou-order-received {
+		font-size: var(--cc-h2-size);
+		line-height: var(--cc-h2-line);
+	}
+
+	/*
+	 * The row of facts becomes a list: five columns on a phone makes five
+	 * unreadable slivers.
+	 */
+	body.woocommerce-order-received .woocommerce-order-overview {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: var(--cc-space-16);
+	}
+
+	body.woocommerce-order-received .woocommerce-table--order-details th,
+	body.woocommerce-order-received .woocommerce-table--order-details td {
+		padding: var(--cc-space-12) var(--cc-space-14);
+	}
+}
+
+/* --- what the payment did, and the way back --- */
+
+body.woocommerce-order-received .cc-paid {
+	margin: 0 0 var(--cc-space-32);
+	padding: var(--cc-space-24);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: var(--cc-radius-lg);
+	background: var(--cc-status-success-bg);
+}
+
+body.woocommerce-order-received .cc-paid-head {
+	margin: 0 0 var(--cc-space-8);
+	font-family: var(--cc-font-display);
+	font-size: var(--cc-h3-size);
+	line-height: var(--cc-h3-line);
+	color: var(--cc-text-primary);
+}
+
+body.woocommerce-order-received .cc-paid-blurb {
+	margin: 0;
+	font-size: var(--cc-body-m-size);
+	line-height: var(--cc-body-m-line);
+	color: var(--cc-text-secondary);
+}
+
+body.woocommerce-order-received .cc-paid-go {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--cc-space-12);
+	margin: var(--cc-space-20) 0 0;
+}
+
+body.woocommerce-order-received .cc-sent-go { margin: var(--cc-space-20) 0 0; }

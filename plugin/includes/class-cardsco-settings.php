@@ -197,7 +197,11 @@ class CardsCo_Settings {
 			'price_default'           => array( 'label' => __( 'Default card price', 'cardsco' ), 'group' => 'money', 'type' => 'decimal', 'scope' => 'platform', 'default' => '3.60' ),
 			'bulk_mode'               => array( 'label' => __( 'Bulk orders', 'cardsco' ), 'group' => 'money', 'type' => 'choice', 'scope' => 'platform', 'default' => 'quote', 'choices' => array( 'quote', 'checkout' ) ),
 			'price_bulk'              => array( 'label' => __( 'Bulk card price', 'cardsco' ), 'group' => 'money', 'type' => 'decimal', 'scope' => 'platform', 'default' => '1.99' ),
-			'bulk_from'               => array( 'label' => __( 'Standard price covers the first', 'cardsco' ), 'group' => 'money', 'type' => 'int', 'scope' => 'platform', 'default' => 25, 'min' => 2, 'max' => 10000 ),
+			// The label describes the rule: the bulk price applies to every
+			// card in an order of this many or more, not only to the ones
+			// past it. It read "Standard price covers the first" while the
+			// pricing was tiered, which is the opposite of what it now does.
+			'bulk_from'               => array( 'label' => __( 'Bulk price applies from', 'cardsco' ), 'group' => 'money', 'type' => 'int', 'scope' => 'platform', 'default' => 25, 'min' => 2, 'max' => 10000 ),
 
 			/* ---- Billing. ---- */
 			'billing_mode'           => array( 'label' => __( 'How companies pay', 'cardsco' ), 'group' => 'billing', 'type' => 'choice', 'scope' => 'platform', 'default' => 'card', 'choices' => array( 'card', 'invoice' ) ),
@@ -208,8 +212,16 @@ class CardsCo_Settings {
 			'default_lead_days'   => array( 'label' => __( 'Days to write a card before the date', 'cardsco' ), 'group' => 'scheduling', 'type' => 'int', 'scope' => 'company', 'default' => 7, 'min' => 1, 'max' => 60 ),
 			'queue_horizon_days'  => array( 'label' => __( 'How far ahead the scan looks', 'cardsco' ), 'group' => 'scheduling', 'type' => 'int', 'scope' => 'platform', 'default' => 30, 'min' => 1, 'max' => 365 ),
 			'postage_days'        => array( 'label' => __( 'Days allowed for postage', 'cardsco' ), 'group' => 'scheduling', 'type' => 'int', 'scope' => 'platform', 'default' => 2, 'min' => 0, 'max' => 30 ),
+			'single_card_days'    => array( 'label' => __( 'Working days to write a single card', 'cardsco' ), 'group' => 'scheduling', 'type' => 'int', 'scope' => 'platform', 'default' => 3, 'min' => 1, 'max' => 30, 'help' => __( 'What a one-off card bought on the site is promised in. The writing deadline is counted this many working days from the order.', 'cardsco' ) ),
 			'box_production_days' => array( 'label' => __( 'Days to make up a box', 'cardsco' ), 'group' => 'scheduling', 'type' => 'int', 'scope' => 'platform', 'default' => 7, 'min' => 1, 'max' => 60 ),
 			'campaign_lock_days'  => array( 'label' => __( 'Days before a campaign locks', 'cardsco' ), 'group' => 'scheduling', 'type' => 'int', 'scope' => 'platform', 'default' => 3, 'min' => 0, 'max' => 60 ),
+
+			'guest_max_people'  => array( 'label' => __( 'People per guest order', 'cardsco' ), 'group' => 'billing', 'type' => 'int', 'scope' => 'platform', 'default' => 10, 'min' => 1, 'max' => 100, 'help' => __( 'How many separately addressed people somebody can send to without an account. Past this they are asked to create one. A batch posted to a single address is not limited.', 'cardsco' ) ),
+
+			/* ---- Renewal. ---- */
+			'renewal_notice_1'  => array( 'label' => __( 'First renewal reminder, weeks before', 'cardsco' ), 'group' => 'billing', 'type' => 'int', 'scope' => 'platform', 'default' => 4, 'min' => 1, 'max' => 26, 'help' => __( 'A recurring occasion is paid for a year at a time. These are the three reminders sent before the next year is due. Set any of them to the same number to send fewer.', 'cardsco' ) ),
+			'renewal_notice_2'  => array( 'label' => __( 'Second renewal reminder, weeks before', 'cardsco' ), 'group' => 'billing', 'type' => 'int', 'scope' => 'platform', 'default' => 2, 'min' => 1, 'max' => 26 ),
+			'renewal_notice_3'  => array( 'label' => __( 'Last renewal reminder, weeks before', 'cardsco' ), 'group' => 'billing', 'type' => 'int', 'scope' => 'platform', 'default' => 1, 'min' => 1, 'max' => 26 ),
 
 			/* ---- Content. ---- */
 			'message_max_chars'    => array( 'label' => __( 'Longest message', 'cardsco' ), 'group' => 'content', 'type' => 'int', 'scope' => 'platform', 'default' => 400, 'min' => 40, 'max' => 2000 ),

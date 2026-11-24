@@ -191,8 +191,10 @@ class CardsCo_Programme {
 		global $wpdb;
 
 		$table  = cardsco_table( 'programmes' );
-		$sql    = "SELECT * FROM {$table} WHERE company_id = %d";
-		$params = array( absint( $company_id ) );
+		/* 0 means every company, for the admin's listing screens. */
+		$company_id = absint( $company_id );
+		$sql        = $company_id ? "SELECT * FROM {$table} WHERE company_id = %d" : "SELECT * FROM {$table} WHERE 1 = %d";
+		$params     = array( $company_id ? $company_id : 1 );
 
 		if ( $status && 'any' !== $status ) {
 			$sql     .= ' AND status = %s';
@@ -383,6 +385,17 @@ class CardsCo_Programme {
 			$format[]              = '%s';
 		}
 
+		if ( array_key_exists( 'renews_on', $data ) ) {
+			$renews              = trim( (string) $data['renews_on'] );
+			$fields['renews_on'] = ( $renews && CardsCo_Validator::date( $renews ) ) ? $renews : null;
+			$format[]            = '%s';
+		}
+
+		if ( array_key_exists( 'renewal_notices', $data ) ) {
+			$fields['renewal_notices'] = min( 9, absint( $data['renewal_notices'] ) );
+			$format[]                  = '%d';
+		}
+
 		if ( array_key_exists( 'status', $data ) ) {
 			$fields['status'] = in_array( $data['status'], array( 'draft', 'active', 'paused', 'finished' ), true ) ? $data['status'] : 'draft';
 			$format[]         = '%s';
@@ -441,7 +454,70 @@ class CardsCo_Programme {
 
 		$sql = "INSERT IGNORE INTO {$table} (programme_id, company_id, recipient_id, created_at) VALUES " . implode( ', ', $values );
 
-		return (int) $wpdb->query( $wpdb->prepare( $sql, $params ) ); // phpcs:ignore WordPress.DB.PreparedSQL
+		$added = (int) $wpdb->query( $wpdb->prepare( $sql, $params ) ); // phpcs:ignore WordPress.DB.PreparedSQL
+
+		/*
+		 * Somebody taken off the list had their occasion switched off.
+		 * Putting them back puts the card back with them, using the date
+		 * they already gave us.
+		 */
+		self::set_occasions_active( (int) $programme['id'], $recipient_ids, 1 );
+
+		return $added;
+	}
+
+	/**
+	 * People the company already has who are not on this programme yet.
+	 *
+	 * A company that has uploaded its list once should not have to upload
+	 * it again for the next occasion. Step 2 offered a spreadsheet or
+	 * typing names in by hand, and nothing else, so the people already
+	 * sitting in the account were invisible to it.
+	 *
+	 * Only those the occasion is actually for: a customer welcome does
+	 * not offer the warehouse staff.
+	 *
+	 * @param array $programme  Programme row.
+	 * @param int   $limit      Most to return.
+	 * @return array[] Recipient rows, name order.
+	 */
+	public static function available_recipients( array $programme, $limit = 500 ) {
+		global $wpdb;
+
+		$company_id = (int) $programme['company_id'];
+
+		if ( ! $company_id ) {
+			return array();
+		}
+
+		$table = cardsco_table( 'recipients' );
+		$link  = cardsco_table( 'programme_recipients' );
+		$where = array( 'r.company_id = %d', "r.status = 'active'" );
+		$args  = array( $company_id );
+
+		/* Who this occasion is for, when it is for one kind of person. */
+		$type = CardsCo_Category::primary_type( (string) $programme['category'], $company_id );
+
+		if ( $type && in_array( (string) $type['applies_to'], array( 'employee', 'customer' ), true ) ) {
+			$where[] = 'r.type = %s';
+			$args[]  = (string) $type['applies_to'];
+		}
+
+		if ( $programme['id'] ) {
+			$where[] = "r.id NOT IN ( SELECT recipient_id FROM {$link} WHERE programme_id = %d )";
+			$args[]  = (int) $programme['id'];
+		}
+
+		$args[] = absint( $limit );
+
+		return (array) $wpdb->get_results(
+			$wpdb->prepare(
+				"SELECT r.* FROM {$table} r WHERE " . implode( ' AND ', $where ) // phpcs:ignore WordPress.DB
+				. ' ORDER BY r.first_name ASC, r.last_name ASC LIMIT %d',
+				$args
+			),
+			ARRAY_A
+		);
 	}
 
 	/**
@@ -464,10 +540,64 @@ class CardsCo_Programme {
 		$table        = cardsco_table( 'programme_recipients' );
 		$placeholders = implode( ',', array_fill( 0, count( $recipient_ids ), '%d' ) );
 
-		return (int) $wpdb->query(
+		$gone = (int) $wpdb->query(
 			$wpdb->prepare(
 				"DELETE FROM {$table} WHERE programme_id = %d AND recipient_id IN ({$placeholders})", // phpcs:ignore WordPress.DB.PreparedSQL
 				array_merge( array( $programme_id ), $recipient_ids )
+			)
+		);
+
+		/*
+		 * And stop the card.
+		 *
+		 * The scheduler reads the occasions table and never looks at this
+		 * link, so taking somebody off the list on its own left their
+		 * occasion live and their card still coming. Switched off rather
+		 * than deleted, because the row holds the date they gave us and
+		 * putting them back should not mean asking for it again.
+		 */
+		self::set_occasions_active( $programme_id, $recipient_ids, 0 );
+
+		return $gone;
+	}
+
+	/**
+	 * Switch these people's occasions on or off for one programme.
+	 *
+	 * @param int   $programme_id  Programme ID.
+	 * @param int[] $recipient_ids Recipient IDs.
+	 * @param int   $active        1 to switch on, 0 to switch off.
+	 * @return int Rows changed.
+	 */
+	public static function set_occasions_active( $programme_id, array $recipient_ids, $active ) {
+		global $wpdb;
+
+		$programme = self::get( absint( $programme_id ) );
+
+		if ( ! $programme ) {
+			return 0;
+		}
+
+		$type_id = (int) $programme['occasion_type_id'];
+
+		if ( ! $type_id ) {
+			$type    = CardsCo_Category::primary_type( (string) $programme['category'], (int) $programme['company_id'] );
+			$type_id = $type ? (int) $type['id'] : 0;
+		}
+
+		$recipient_ids = array_filter( array_unique( array_map( 'absint', $recipient_ids ) ) );
+
+		if ( ! $type_id || ! $recipient_ids ) {
+			return 0;
+		}
+
+		$placeholders = implode( ',', array_fill( 0, count( $recipient_ids ), '%d' ) );
+
+		return (int) $wpdb->query(
+			$wpdb->prepare(
+				'UPDATE ' . cardsco_table( 'occasions' ) . " SET is_active = %d, updated_at = %s
+				 WHERE occasion_type_id = %d AND recipient_id IN ({$placeholders})", // phpcs:ignore WordPress.DB.PreparedSQL
+				array_merge( array( $active ? 1 : 0, cardsco_now(), $type_id ), $recipient_ids )
 			)
 		);
 	}
@@ -591,6 +721,21 @@ class CardsCo_Programme {
 				return 'complete' === cardsco_address_status( $programme['ship_address'], $programme['ship_postcode'] );
 
 			case 6:
+				/*
+				 * Step 6 is three different screens, so ask for whatever the
+				 * screen in front of the person actually offered. The
+				 * fixed-date screen carries no start date — the date is the
+				 * occasion's own, held on the occasion type — so asking for
+				 * one here left the step permanently unfinished and the
+				 * wizard with no way forward. What marks that screen as
+				 * answered is the mode it writes, since the column defaults
+				 * to the per-person mode and never to this one.
+				 */
+				if ( class_exists( 'CardsCo_Dashboard' )
+					&& 'fixed' === CardsCo_Dashboard::timing_shape( $programme ) ) {
+					return 'fixed_date' === (string) $programme['timing_mode'];
+				}
+
 				return (bool) $programme['starts_on'];
 
 			case 7:

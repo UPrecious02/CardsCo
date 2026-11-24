@@ -69,8 +69,17 @@ $cc_pv_mode = isset( $cc_pv_mode ) && 'pick' === $cc_pv_mode ? 'pick' : 'shop';
 					?>
 					<button type="button" class="cc-pv-use" id="cc-pv-pick"><?php esc_html_e( 'Choose this card', 'cardsco' ); ?></button>
 				<?php else : ?>
-					<a class="cc-pv-use" id="cc-pv-use" href=""><?php esc_html_e( 'Use this card', 'cardsco' ); ?></a>
-					<a class="cc-pv-more" id="cc-pv-more" href=""><?php esc_html_e( 'See full details', 'cardsco' ); ?></a>
+					<?php
+					/*
+					 * No href and hidden until a card is chosen: preview.js
+					 * points these at the card being shown, and already
+					 * hides either one that has nowhere to go. Starting
+					 * them as href="" meant the template shipped two links
+					 * to the current page, which is what an empty href is.
+					 */
+					?>
+					<a class="cc-pv-use" id="cc-pv-use" hidden><?php esc_html_e( 'Use this card', 'cardsco' ); ?></a>
+					<a class="cc-pv-more" id="cc-pv-more" hidden><?php esc_html_e( 'See full details', 'cardsco' ); ?></a>
 				<?php endif; ?>
 			</div>
 		</div>

@@ -47,15 +47,11 @@ $cardsco_now  = in_array( $step, array( 'run', 'done' ), true ) ? 'review' : $st
 	<?php if ( 'upload' === $step ) : ?>
 
 		<?php if ( ! $company_id ) : ?>
-			<div class="cardsco-empty">
-				<p><strong><?php esc_html_e( 'No companies yet.', 'cardsco' ); ?></strong></p>
-				<p><?php esc_html_e( 'People are imported into a company, so create one first.', 'cardsco' ); ?></p>
-				<a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=cardsco-companies' ) ); ?>"><?php esc_html_e( 'Go to Companies', 'cardsco' ); ?></a>
-			</div>
+			<?php CardsCo_Admin::pick_a_company( 'cardsco-import', 'A list is imported into one company.' ); ?>
 		<?php else : ?>
 
 			<div class="cardsco-bar">
-				<?php $this->company_switcher( $company_id, 'cardsco-import' ); ?>
+				<?php $this->company_switcher( $company_id, 'cardsco-import', false ); ?>
 			</div>
 
 			<form method="post" enctype="multipart/form-data" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="cardsco-form">
@@ -209,9 +205,13 @@ $cardsco_now  = in_array( $step, array( 'run', 'done' ), true ) ? 'review' : $st
 		$cardsco_detect        = ( ! is_wp_error( $cardsco_csv ) && $cardsco_date_headers )
 			? CardsCo_Import::inspect_date_order( $cardsco_csv, $cardsco_date_headers )
 			: array(
-				'order'     => $batch['column_map']['date_order'] ?? 'day',
-				'confident' => true,
-				'ambiguous' => 0,
+				/* Every key detect_order() answers with, because the block
+				   below reads the evidence counts as well as the verdict. */
+				'order'          => $batch['column_map']['date_order'] ?? 'day',
+				'confident'      => true,
+				'day_evidence'   => 0,
+				'month_evidence' => 0,
+				'ambiguous'      => 0,
 			);
 		$cardsco_order    = $batch['column_map']['date_order'] ?? $cardsco_detect['order'];
 		$cardsco_segments = CardsCo_Segment::all( $company_id );
@@ -272,7 +272,35 @@ $cardsco_now  = in_array( $step, array( 'run', 'done' ), true ) ? 'review' : $st
 			<div class="cardsco-form" style="margin-top:20px;max-width:720px">
 				<h2 style="margin-top:0"><?php esc_html_e( 'How dates are written', 'cardsco' ); ?></h2>
 
-				<?php if ( ! $cardsco_detect['confident'] ) : ?>
+				<?php
+				/*
+				 * Two different things make the file unable to settle this,
+				 * and they need different advice. Every date working either
+				 * way is a choice to make. Some dates proving one order
+				 * while others prove the opposite is a broken file, where
+				 * no choice is right and picking one quietly puts a share
+				 * of the rows in the wrong month. Both used to get the
+				 * first message, which told somebody holding the worse of
+				 * the two that it was a matter of preference.
+				 */
+				$cardsco_contradicts = $cardsco_detect['day_evidence'] > 0 && $cardsco_detect['month_evidence'] > 0;
+				?>
+
+				<?php if ( $cardsco_contradicts ) : ?>
+					<div class="notice notice-error inline" style="margin:0 0 12px">
+						<p>
+							<strong><?php esc_html_e( 'This file contradicts itself.', 'cardsco' ); ?></strong>
+							<?php
+							printf(
+								/* translators: 1: dates that can only be day first, 2: dates that can only be month first. */
+								esc_html__( '%1$s of the dates can only be read day first, and %2$s can only be read month first. Whichever you pick here, the others land in the wrong month. Worth fixing the spreadsheet so one column is written one way, then uploading it again.', 'cardsco' ),
+								esc_html( number_format_i18n( $cardsco_detect['day_evidence'] ) ),
+								esc_html( number_format_i18n( $cardsco_detect['month_evidence'] ) )
+							);
+							?>
+						</p>
+					</div>
+				<?php elseif ( ! $cardsco_detect['confident'] ) : ?>
 					<div class="notice notice-warning inline" style="margin:0 0 12px">
 						<p>
 							<strong><?php esc_html_e( 'Worth checking.', 'cardsco' ); ?></strong>

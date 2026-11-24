@@ -264,8 +264,16 @@ class CardsCo_Admin {
 	public function page_recipients() {
 		$this->guard();
 
-		$company_id = $this->current_company();
-		$action     = isset( $_GET['action'] ) ? sanitize_key( wp_unslash( $_GET['action'] ) ) : 'list';
+		$action = isset( $_GET['action'] ) ? sanitize_key( wp_unslash( $_GET['action'] ) ) : 'list';
+
+		/*
+		 * The list shows every company unless one is chosen; the form has
+		 * to belong to exactly one, so it falls back to a real company
+		 * rather than to "all of them".
+		 */
+		$company_id = in_array( $action, array( 'new', 'edit' ), true )
+			? $this->current_company()
+			: $this->viewing_company();
 
 		if ( in_array( $action, array( 'new', 'edit' ), true ) ) {
 			$recipient = 'edit' === $action ? CardsCo_Recipient::get( absint( $_GET['recipient'] ?? 0 ) ) : null;
@@ -300,13 +308,29 @@ class CardsCo_Admin {
 			)
 		);
 
-		$counts   = $company_id ? CardsCo_Recipient::counts( $company_id ) : array(
-			'total'         => 0,
-			'customers'     => 0,
-			'employees'     => 0,
-			'needs_address' => 0,
-		);
+		$counts   = CardsCo_Recipient::counts( $company_id );
 		$segments = $company_id ? CardsCo_Segment::all( $company_id ) : array();
+
+		/*
+		 * Viewing every company, each row has to say whose person it is.
+		 * The list's own Company column is the recipient's employer,
+		 * which is a different thing and often empty.
+		 */
+		$company_names = $company_id
+			? array()
+			: CardsCo_Company::names( wp_list_pluck( $results['items'], 'company_id' ) );
+
+		/*
+		 * The list no longer asks which company, so the one thing left
+		 * worth stopping for is an install where none exist: an empty
+		 * table says "no recipients" when the answer is "no companies".
+		 */
+		$any_company = (bool) CardsCo_Company::all(
+			array(
+				'status' => 'any',
+				'limit'  => 1,
+			)
+		);
 
 		include CARDSCO_PATH . 'includes/admin/views/recipients.php';
 	}
@@ -319,7 +343,7 @@ class CardsCo_Admin {
 	public function page_segments() {
 		$this->guard();
 
-		$company_id = $this->current_company();
+		$company_id = $this->viewing_company();
 		$segments   = $company_id ? CardsCo_Segment::all( $company_id ) : array();
 		$editing    = isset( $_GET['segment'] ) ? CardsCo_Segment::get( absint( $_GET['segment'] ) ) : null;
 
@@ -334,7 +358,7 @@ class CardsCo_Admin {
 	public function page_occasions() {
 		$this->guard();
 
-		$company_id = $this->current_company();
+		$company_id = $this->viewing_company();
 		$tab        = isset( $_GET['tab'] ) && 'library' === $_GET['tab'] ? 'library' : 'upcoming';
 		$days       = absint( $_GET['days'] ?? 60 );
 		$days       = $days ? min( 365, $days ) : 60;
@@ -507,7 +531,7 @@ class CardsCo_Admin {
 	public function page_queue() {
 		$this->guard();
 
-		$company_id = $this->current_company();
+		$company_id = $this->viewing_company();
 		$per_page   = 50;
 		$paged      = max( 1, absint( $_GET['paged'] ?? 1 ) );
 
@@ -527,6 +551,17 @@ class CardsCo_Admin {
 		$counts    = CardsCo_Queue::counts( $company_id );
 		$last_scan = CardsCo_Scheduler::last_run();
 		$needs     = $company_id ? CardsCo_Scheduler::needs_setup( $company_id ) : array();
+
+		/*
+		 * Whether there are any companies at all, which is a different
+		 * question from whether one is being looked at. The screen used to
+		 * ask the second and answer with the first, so the view every admin
+		 * lands on — all companies, nothing picked yet — said "no companies
+		 * yet" and showed no cards on an install full of them. A card
+		 * bought by somebody without an account has no company behind it,
+		 * so this was also the only screen it could ever have appeared on.
+		 */
+		$companies = CardsCo_Company::all( array( 'status' => 'any' ) );
 
 		include CARDSCO_PATH . 'includes/admin/views/queue.php';
 	}
@@ -1063,13 +1098,70 @@ class CardsCo_Admin {
 	}
 
 	/**
+	 * The company a listing screen is filtered to, or 0 for all of them.
+	 *
+	 * Different from current_company(), which falls back to whichever
+	 * company happens to be first. That is right for a screen that has to
+	 * act on one — the set-up wizard, the campaign builder, an import —
+	 * and wrong for a list, where it quietly hides every other company
+	 * behind a name somebody has to notice and change.
+	 *
+	 * @return int
+	 */
+	public function viewing_company() {
+		$company_id = absint( $_GET['company'] ?? 0 );
+
+		return ( $company_id && CardsCo_Company::get( $company_id ) ) ? $company_id : 0;
+	}
+
+	/**
 	 * Company switcher markup.
 	 *
-	 * @param int    $company_id Selected company.
-	 * @param string $page Page slug to stay on.
+	 * @param int    $company_id Selected company, or 0 for all of them.
+	 * @param string $page       Page slug to stay on.
+	 * @param bool   $all        Offer "All companies". False where a screen
+	 *                           has to act on exactly one.
 	 * @return void
 	 */
-	public function company_switcher( $company_id, $page ) {
+	/**
+	 * The screen somebody sees when no company is being looked at.
+	 *
+	 * Every company-scoped screen said "No companies yet" here, and most of
+	 * them said it on an install full of companies: they asked whether one
+	 * was being looked at and answered with whether any existed. Recipients
+	 * is the screen the CardsCo menu opens on, so the first thing anybody
+	 * saw was that the system was empty, under a button offering to create
+	 * a company they already had.
+	 *
+	 * Worse, the empty state returned before the company picker was drawn,
+	 * so there was no way to choose one from the screen you were stuck on.
+	 *
+	 * @param string $page  The page slug, for the picker's form.
+	 * @param string $needs One line saying why a company is needed.
+	 * @return void
+	 */
+	public static function pick_a_company( $page, $needs, $keep = array() ) {
+		$companies = CardsCo_Company::all( array( 'status' => 'any' ) );
+
+		echo '<div class="cardsco-empty">';
+
+		if ( $companies ) {
+			echo '<p><strong>' . esc_html__( 'Choose a company.', 'cardsco' ) . '</strong></p>';
+			echo '<p>' . esc_html( $needs ) . '</p>';
+
+			/* The picker itself, so the way out is on the screen. */
+			self::company_switcher( 0, $page, false, $keep );
+		} else {
+			echo '<p><strong>' . esc_html__( 'No companies yet.', 'cardsco' ) . '</strong></p>';
+			echo '<p>' . esc_html( $needs ) . '</p>';
+			echo '<a class="button button-primary" href="' . esc_url( admin_url( 'admin.php?page=cardsco-companies' ) ) . '">'
+				. esc_html__( 'Go to Companies', 'cardsco' ) . '</a>';
+		}
+
+		echo '</div>';
+	}
+
+	public static function company_switcher( $company_id, $page, $all = true, $keep = array() ) {
 		$companies = CardsCo_Company::all( array( 'status' => 'any' ) );
 
 		if ( count( $companies ) < 1 ) {
@@ -1078,8 +1170,41 @@ class CardsCo_Admin {
 
 		echo '<form method="get" class="cardsco-field">';
 		echo '<input type="hidden" name="page" value="' . esc_attr( $page ) . '" />';
+
+		/*
+		 * Anything else that says where you are. Without it, picking a
+		 * company on the Occasion library tab answers the question and
+		 * then drops you on Upcoming, which is not where you were.
+		 */
+		foreach ( (array) $keep as $cardsco_k => $cardsco_v ) {
+			echo '<input type="hidden" name="' . esc_attr( $cardsco_k ) . '" value="' . esc_attr( $cardsco_v ) . '" />';
+		}
 		echo '<label for="cardsco-company">' . esc_html__( 'Company', 'cardsco' ) . '</label>';
 		echo '<select name="company" id="cardsco-company" onchange="this.form.submit()">';
+
+		/*
+		 * All companies first, and the default. A list that opens on one
+		 * company shows a fraction of the work with nothing to say so.
+		 *
+		 * Where a screen can only work on one company there is no such
+		 * option, and then nothing is selected until the admin picks —
+		 * so the browser selects the first real company for us and the
+		 * box reads "Acme Ltd" over a screen still asking which company
+		 * it should be. A placeholder gives the unpicked state its own
+		 * line to sit on. It is disabled so it cannot be chosen back.
+		 */
+		if ( $all ) {
+			printf(
+				'<option value="0" %s>%s</option>',
+				selected( $company_id, 0, false ),
+				esc_html__( 'All companies', 'cardsco' )
+			);
+		} elseif ( ! $company_id ) {
+			printf(
+				'<option value="" selected disabled>%s</option>',
+				esc_html__( 'Select a company…', 'cardsco' )
+			);
+		}
 
 		foreach ( $companies as $company ) {
 			printf(

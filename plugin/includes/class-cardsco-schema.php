@@ -16,7 +16,7 @@ class CardsCo_Schema {
 	/**
 	 * Schema version. Bump on any change to the statements in this class.
 	 */
-	const DB_VERSION = '1.2.0';
+	const DB_VERSION = '1.3.0';
 
 	/**
 	 * Option that stores the installed schema version.
@@ -483,6 +483,8 @@ class CardsCo_Schema {
 			notify_before_box tinyint(1) NOT NULL DEFAULT 1,
 			starts_on date NULL DEFAULT NULL,
 			recurrence varchar(20) NOT NULL DEFAULT 'annual',
+			renews_on date NULL DEFAULT NULL,
+			renewal_notices tinyint(1) unsigned NOT NULL DEFAULT 0,
 			status varchar(20) NOT NULL DEFAULT 'draft',
 			setup_step tinyint(2) unsigned NOT NULL DEFAULT 1,
 			unit_price decimal(10,2) NULL DEFAULT NULL,
@@ -492,6 +494,7 @@ class CardsCo_Schema {
 			updated_at datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
 			PRIMARY KEY  (id),
 			KEY company_status (company_id,status),
+			KEY renews_on (renews_on),
 			KEY category (category)
 		) {$charset};";
 

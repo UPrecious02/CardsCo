@@ -141,7 +141,20 @@ class CardsCo_Roles {
 			return;
 		}
 
-		wp_safe_redirect( home_url( '/dashboard/' ) );
+		/*
+		 * The configured dashboard, not a guess at where it lives. This
+		 * pointed at /dashboard/ while every other part of the plugin asks
+		 * the setting, and on a site whose portal sits somewhere else the
+		 * only thing keeping it working is a redirect nobody here owns.
+		 * Move the page and a company account that lands on wp-admin gets
+		 * bounced to a 404 instead of their own dashboard.
+		 *
+		 * The old path is kept as the fallback rather than the site root,
+		 * because the setting has no screen to set it on yet: on an install
+		 * where it was never filled in, falling back to the front page
+		 * would be worse than what this did before.
+		 */
+		wp_safe_redirect( (string) CardsCo_Settings::get( 'dashboard_url', home_url( '/dashboard/' ) ) );
 		exit;
 	}
 

@@ -18,16 +18,13 @@ defined( 'ABSPATH' ) || exit;
 	<?php $this->print_notices(); ?>
 
 	<?php if ( ! $company_id ) : ?>
-		<div class="cardsco-empty">
-			<p><strong><?php esc_html_e( 'No companies yet.', 'cardsco' ); ?></strong></p>
-			<a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=cardsco-companies' ) ); ?>"><?php esc_html_e( 'Go to Companies', 'cardsco' ); ?></a>
-		</div>
+		<?php CardsCo_Admin::pick_a_company( 'cardsco-segments', 'Segments are groups of one company’s people.' ); ?>
 	</div>
 		<?php return; ?>
 	<?php endif; ?>
 
 	<div class="cardsco-bar">
-		<?php $this->company_switcher( $company_id, 'cardsco-segments' ); ?>
+		<?php $this->company_switcher( $company_id, 'cardsco-segments', false ); ?>
 	</div>
 
 	<div style="display:flex;gap:24px;align-items:flex-start;flex-wrap:wrap">

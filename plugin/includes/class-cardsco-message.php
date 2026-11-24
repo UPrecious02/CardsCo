@@ -563,6 +563,15 @@ class CardsCo_Message {
 		$type_id = absint( $type_id );
 
 		if ( $type_id ) {
+			/*
+			 * This occasion's messages, plus a company's own untagged ones.
+			 *
+			 * Untagged used to mean "offer it for everything", which let a
+			 * message written for one occasion appear under all of them —
+			 * a welcome card offering "Happy birthday {first name}". A
+			 * message we ship has to say what it is for. One a company
+			 * wrote for itself is its own business and stays general.
+			 */
 			$args['meta_query'][] = array(
 				'relation' => 'OR',
 				array(
@@ -570,8 +579,17 @@ class CardsCo_Message {
 					'value' => $type_id,
 				),
 				array(
-					'key'     => self::OCCASION,
-					'compare' => 'NOT EXISTS',
+					'relation' => 'AND',
+					array(
+						'key'     => self::OCCASION,
+						'compare' => 'NOT EXISTS',
+					),
+					array(
+						'key'     => CardsCo_Card::COMPANY,
+						'value'   => 0,
+						'compare' => '>',
+						'type'    => 'NUMERIC',
+					),
 				),
 			);
 		}

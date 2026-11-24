@@ -124,7 +124,20 @@ class CardsCo_Setup {
 	 * @return bool
 	 */
 	public static function done( array $programme, $step ) {
-		return (int) $programme['setup_step'] > (int) $step;
+		/*
+		 * Passed AND finished. This used to answer "has the person been
+		 * past this step", which the stepper drew as a tick, so a step
+		 * walked through with nothing in it wore the same tick as one that
+		 * was actually done. Now that Continue refuses an unfinished step
+		 * the two almost always agree — but a programme set up before that
+		 * change, or one edited since, can still have a gap in the middle,
+		 * and a tick over it would be a lie.
+		 */
+		if ( (int) $programme['setup_step'] <= (int) $step ) {
+			return false;
+		}
+
+		return CardsCo_Programme::step_complete( $programme, (int) $step );
 	}
 
 	/**
@@ -329,6 +342,26 @@ class CardsCo_Setup {
 			return;
 		}
 
+		if ( 'add_existing' === $action ) {
+			$this->add_existing( $programme );
+			return;
+		}
+
+		if ( 'remove_person' === $action ) {
+			$this->remove_person( $programme );
+			return;
+		}
+
+		if ( 'upload_choice' === $action ) {
+			$this->upload_choice( $programme );
+			return;
+		}
+
+		if ( 'upload_cancel' === $action ) {
+			$this->upload_cancel( $programme );
+			return;
+		}
+
 		if ( 'write_message' === $action ) {
 			$this->write_message( $programme );
 			return;
@@ -375,7 +408,39 @@ class CardsCo_Setup {
 			self::go( $back );
 		}
 
-		$result = CardsCo_Programme_Import::run( (int) $programme['id'], (array) $file );
+		/*
+		 * Keep the file before doing anything with it, so the question
+		 * below can be asked without making somebody upload twice.
+		 */
+		$path = CardsCo_Programme_Import::stash( (array) $file );
+
+		if ( is_wp_error( $path ) ) {
+			$back['cardsco_error'] = $path->get_error_message();
+			self::go( $back );
+		}
+
+		/*
+		 * An upload onto an occasion that already has people could mean
+		 * two different things — these are more people, or this is the
+		 * list now — and it used to assume the first without asking. A
+		 * company re-uploading a corrected spreadsheet quietly ended up
+		 * with both versions of it.
+		 */
+		if ( CardsCo_Programme::recipient_ids( (int) $programme['id'] ) ) {
+			set_transient(
+				self::upload_key( (int) $programme['id'] ),
+				array(
+					'path' => $path,
+					'name' => sanitize_file_name( (string) $file['name'] ),
+				),
+				HOUR_IN_SECONDS
+			);
+
+			$back['cc_up_ask'] = 1;
+			self::go( $back );
+		}
+
+		$result = CardsCo_Programme_Import::read_file( (int) $programme['id'], $path );
 
 		if ( is_wp_error( $result ) ) {
 			$back['cardsco_error'] = $result->get_error_message();
@@ -389,6 +454,7 @@ class CardsCo_Setup {
 		 */
 		$back['cc_up_added']   = (int) ( $result['added'] ?? 0 );
 		$back['cc_up_matched'] = (int) ( $result['matched'] ?? 0 );
+		$back['cc_up_on']      = (int) ( $result['on_occasion'] ?? 0 );
 		$back['cc_up_nodate']  = (int) ( $result['missing_date'] ?? 0 );
 		$back['cc_up_bad']     = count( (array) ( $result['problems'] ?? array() ) );
 
@@ -623,12 +689,236 @@ class CardsCo_Setup {
 	 * @param array $programme Programme row.
 	 * @return void
 	 */
+	/**
+	 * Where a waiting upload is kept between the two requests.
+	 *
+	 * The path never travels through the form. A posted path is a path
+	 * somebody could choose, and this one is opened and read.
+	 *
+	 * @param int $programme_id Programme ID.
+	 * @return string
+	 */
+	protected static function upload_key( $programme_id ) {
+		return 'cardsco_up_' . get_current_user_id() . '_' . absint( $programme_id );
+	}
+
+	/**
+	 * Read the waiting file, adding to the list or becoming it.
+	 *
+	 * @param array $programme Programme row.
+	 * @return void
+	 */
+	protected function upload_choice( array $programme ) {
+		$back = array(
+			self::ARG => (int) $programme['id'],
+			'step'    => 2,
+		);
+
+		$key     = self::upload_key( (int) $programme['id'] );
+		$waiting = get_transient( $key );
+
+		if ( ! is_array( $waiting ) || empty( $waiting['path'] ) || ! is_readable( $waiting['path'] ) ) {
+			$back['cardsco_error'] = __( 'That upload is no longer waiting. Please upload the file again.', 'cardsco' );
+			self::go( $back );
+		}
+
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- verified in handle().
+		$how = 'replace' === ( $_POST['how'] ?? '' ) ? 'replace' : 'add';
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
+		/*
+		 * Read the file before touching the list.
+		 *
+		 * Replacing used to take everyone off and read afterwards, so a
+		 * file that turned out to hold nobody — an empty sheet, a header
+		 * row on its own, rows with no name in them — emptied the
+		 * occasion and put nothing back. The report said so plainly
+		 * ("6 people taken off · 0 people from the file are on this
+		 * occasion") and by then the work was gone.
+		 *
+		 * read_into_company() puts the people in the company's books
+		 * without touching this occasion, which is what lets the check
+		 * happen before anything is lost.
+		 */
+		$company_id = (int) $programme['company_id'];
+		$read       = CardsCo_Programme_Import::read_into_company(
+			$company_id,
+			CardsCo_Category::primary_type( (string) $programme['category'], $company_id ),
+			CardsCo_Category::get( (string) $programme['category'] )['audience'] ?? 'both',
+			$waiting['path'],
+			true
+		);
+
+		delete_transient( $key );
+
+		if ( is_wp_error( $read ) ) {
+			$back['cardsco_error'] = $read->get_error_message();
+			self::go( $back );
+		}
+
+		$coming = array_values( array_unique( array_map( 'absint', (array) $read['recipient_ids'] ) ) );
+
+		/* Nothing to replace the list with, so the list stays as it is. */
+		if ( 'replace' === $how && ! $coming ) {
+			$back['cardsco_error'] = __( 'There is nobody in that file, so the list has been left as it was.', 'cardsco' );
+			self::go( $back );
+		}
+
+		$dropped = 0;
+
+		/*
+		 * Now it is safe. Taking people off stops their cards and keeps
+		 * the dates they gave us; they stay in the company's people list,
+		 * because they belong to the company and not to this occasion.
+		 */
+		if ( 'replace' === $how ) {
+			$on      = CardsCo_Programme::recipient_ids( (int) $programme['id'] );
+			$dropped = CardsCo_Programme::remove_recipients( (int) $programme['id'], $on );
+		}
+
+		CardsCo_Programme::add_recipients( (int) $programme['id'], $coming );
+
+		$result                = (array) $read['summary'];
+		$result['on_occasion'] = count( $coming );
+
+		$back['cc_up_added']   = (int) ( $result['added'] ?? 0 );
+		$back['cc_up_matched'] = (int) ( $result['matched'] ?? 0 );
+		$back['cc_up_on']      = (int) ( $result['on_occasion'] ?? 0 );
+		$back['cc_up_nodate']  = (int) ( $result['missing_date'] ?? 0 );
+		$back['cc_up_bad']     = count( (array) ( $result['problems'] ?? array() ) );
+		$back['cc_up_took']    = (int) $dropped;
+
+		self::go( $back );
+	}
+
+	/**
+	 * Forget a waiting upload without reading it.
+	 *
+	 * @param array $programme Programme row.
+	 * @return void
+	 */
+	protected function upload_cancel( array $programme ) {
+		$waiting = get_transient( self::upload_key( (int) $programme['id'] ) );
+
+		if ( is_array( $waiting ) && ! empty( $waiting['path'] ) && is_readable( $waiting['path'] ) ) {
+			wp_delete_file( $waiting['path'] );
+		}
+
+		delete_transient( self::upload_key( (int) $programme['id'] ) );
+
+		self::go(
+			array(
+				self::ARG => (int) $programme['id'],
+				'step'    => 2,
+			)
+		);
+	}
+
+	/**
+	 * Take one person off this occasion.
+	 *
+	 * Only somebody actually on it, which also settles that they belong
+	 * to this company — the ids come from a form. Their card stops with
+	 * them; the date they gave us is kept, so putting them back does not
+	 * mean asking for it again.
+	 *
+	 * @param array $programme Programme row.
+	 * @return void
+	 */
+	protected function remove_person( array $programme ) {
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- verified in handle().
+		$who = absint( $_POST['recipient_id'] ?? 0 );
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
+		$back = array(
+			self::ARG => (int) $programme['id'],
+			'step'    => 2,
+		);
+
+		if ( ! $who || ! in_array( $who, CardsCo_Programme::recipient_ids( (int) $programme['id'] ), true ) ) {
+			$back['cardsco_error'] = __( 'That person is not on this occasion.', 'cardsco' );
+			self::go( $back );
+			return;
+		}
+
+		$person = CardsCo_Recipient::get( $who );
+		$name   = $person ? trim( $person['first_name'] . ' ' . $person['last_name'] ) : '';
+
+		CardsCo_Programme::remove_recipients( (int) $programme['id'], array( $who ) );
+
+		$back['cc_dropped'] = $name ? $name : '1';
+		self::go( $back );
+	}
+
+	/**
+	 * Put people the company already has onto this programme.
+	 *
+	 * Only people the company owns and the occasion is for: the ids come
+	 * from a form, so the list offered is worked out again here rather
+	 * than trusted. Anyone already on the programme is ignored by the
+	 * insert, so pressing the button twice adds nobody twice.
+	 *
+	 * @param array $programme Programme row.
+	 * @return void
+	 */
+	protected function add_existing( array $programme ) {
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- verified in handle().
+		$wanted = array_map( 'absint', (array) ( $_POST['recipients'] ?? array() ) );
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
+		$back = array(
+			self::ARG => (int) $programme['id'],
+			'step'    => 2,
+		);
+
+		if ( ! $wanted ) {
+			$back['cardsco_error'] = __( 'Tick at least one person to add.', 'cardsco' );
+			self::go( $back );
+			return;
+		}
+
+		$offered = wp_list_pluck( CardsCo_Programme::available_recipients( $programme ), 'id' );
+		$allowed = array_intersect( $wanted, array_map( 'absint', $offered ) );
+
+		if ( ! $allowed ) {
+			/*
+			 * Everyone ticked is already on it — a second submit from the
+			 * back button, usually. That is not a failure, so it does not
+			 * read as one.
+			 */
+			$on_already = array_intersect( $wanted, CardsCo_Programme::recipient_ids( (int) $programme['id'] ) );
+
+			if ( count( $on_already ) === count( $wanted ) ) {
+				$back['cc_joined'] = 0;
+			} else {
+				$back['cardsco_error'] = __( 'Those people could not be added.', 'cardsco' );
+			}
+
+			self::go( $back );
+			return;
+		}
+
+		/* The id, not the row: this takes an id and absint()s an array to 1. */
+		$added = CardsCo_Programme::add_recipients( (int) $programme['id'], $allowed );
+
+		/*
+		 * cc_joined, not cc_added: cc_added is one recipient's id and sends
+		 * the screen to the add-by-hand form to confirm that person. Adding
+		 * two people from the list put a 2 in it, so the wizard read "2" as
+		 * a recipient and opened an empty "Person 3" form instead of the
+		 * list with the two new people on it.
+		 */
+		$back['cc_joined'] = (int) $added;
+		self::go( $back );
+	}
+
 	protected function add_person( array $programme ) {
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- verified in handle().
 		$first   = sanitize_text_field( wp_unslash( $_POST['first_name'] ?? '' ) );
 		$last    = sanitize_text_field( wp_unslash( $_POST['last_name'] ?? '' ) );
 		$day     = absint( $_POST['event_day'] ?? 0 );
 		$month   = absint( $_POST['event_month'] ?? 0 );
+		$year    = absint( $_POST['event_year'] ?? 0 );
 		$editing = absint( $_POST['person_id'] ?? 0 );
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
@@ -668,9 +958,28 @@ class CardsCo_Setup {
 				$fail( __( 'Pick a day and a month.', 'cardsco' ) );
 			}
 
+			/*
+			 * An occasion that happens once needs the year as well: there
+			 * is no next time for it to come round to. Checked here rather
+			 * than left to the save, because a failure down there deletes
+			 * the person who was just created and sends back an error
+			 * about a field the form had not asked for.
+			 */
+			$needs_year = 'once' === (string) ( $type['recurrence'] ?? 'annual' );
+
+			if ( $needs_year && ! $year ) {
+				$fail(
+					sprintf(
+						/* translators: %s: occasion label, e.g. "Welcome". */
+						__( '%s happens once, so pick a year as well.', 'cardsco' ),
+						$type['label']
+					)
+				);
+			}
+
 			// 2024 because it is a leap year: 29 February is a real birthday
 			// and must be accepted even though no year is collected.
-			if ( ! checkdate( $month, $day, 2024 ) ) {
+			if ( ! checkdate( $month, $day, $needs_year ? $year : 2024 ) ) {
 				$fail( __( 'That is not a real date.', 'cardsco' ) );
 			}
 		}
@@ -715,6 +1024,7 @@ class CardsCo_Setup {
 					'occasion_type_id' => (int) $type['id'],
 					'event_day'        => $day,
 					'event_month'      => $month,
+					'event_year'       => $year,
 				)
 			);
 
@@ -762,6 +1072,36 @@ class CardsCo_Setup {
 		}
 
 		/*
+		 * Only occasions that run off a date each person holds are set up
+		 * here. The rest — Christmas, seasonal and promotional cards — go
+		 * out as a campaign on a day somebody chooses, and can_activate()
+		 * has always refused them outright.
+		 *
+		 * It refused them on step 7, so people, a card, a message, an
+		 * address and timing were all filled in first and then thrown away.
+		 * The two halves of the plugin disagreed about whether they belonged
+		 * here at all: there is a fixed-date timing screen built for exactly
+		 * these, and nothing that would ever switch one on. The client
+		 * settled it — recurring occasions are the dated ones — so this is
+		 * the same refusal, moved to the moment it can still save the work.
+		 *
+		 * The occasion types are what say whether a category runs off dates,
+		 * so this asks whether the install has any at all before trusting
+		 * their answer. On one that has never been seeded every category
+		 * would read as campaign-driven and the whole wizard would turn
+		 * people away. Asking the category for its own types is not enough:
+		 * a campaign-driven one can have none.
+		 */
+		if ( CardsCo_Occasion_Type::all( $company_id )
+			&& ! CardsCo_Category::is_dated( $category, $company_id ) ) {
+			self::go(
+				array(
+					'cardsco_error' => __( 'This one goes out as a campaign on a day you choose, not from dates people hold, so it is set up under Campaigns rather than here.', 'cardsco' ),
+				)
+			);
+		}
+
+		/*
 		 * Pick up where they left off rather than starting again. Choosing
 		 * the same occasion twice used to create a second draft and strand
 		 * the first, which, with nothing on the site listing drafts, meant
@@ -804,17 +1144,117 @@ class CardsCo_Setup {
 	 * @param array $programme Programme row.
 	 * @return void
 	 */
+	/**
+	 * The addresses typed into step 5, one per person.
+	 *
+	 * Only people actually on this programme: the ids come from a form,
+	 * so who is on it is worked out again here rather than believed.
+	 *
+	 * A box left empty clears that person's address, because on this
+	 * screen an empty box is somebody deleting what was there — unlike an
+	 * empty column in a spreadsheet, which is a column nobody filled in.
+	 *
+	 * @param array $programme Programme row.
+	 * @return void
+	 */
+	protected static function save_each_address( array $programme ) {
+		// phpcs:disable WordPress.Security.NonceVerification.Missing -- verified in handle().
+		$addresses = (array) ( $_POST['each_address'] ?? array() );
+		$postcodes = (array) ( $_POST['each_postcode'] ?? array() );
+		// phpcs:enable WordPress.Security.NonceVerification.Missing
+
+		if ( ! $addresses && ! $postcodes ) {
+			return;
+		}
+
+		$mine = array_flip( CardsCo_Programme::recipient_ids( (int) $programme['id'] ) );
+
+		foreach ( array_keys( $addresses + $postcodes ) as $rid ) {
+			$rid = absint( $rid );
+
+			if ( ! $rid || ! isset( $mine[ $rid ] ) ) {
+				continue;
+			}
+
+			CardsCo_Recipient::update(
+				$rid,
+				array(
+					'address'  => sanitize_textarea_field( wp_unslash( (string) ( $addresses[ $rid ] ?? '' ) ) ),
+					'postcode' => sanitize_text_field( wp_unslash( (string) ( $postcodes[ $rid ] ?? '' ) ) ),
+				)
+			);
+		}
+	}
+
 	protected function save_step( array $programme ) {
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified in handle().
 		$step = absint( $_POST['step'] ?? 0 );
 		$step = max( 1, min( 7, $step ) );
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput -- verified in handle(); each field is sanitised in fields().
+		/*
+		 * And nothing may be saved for a step whose predecessors are
+		 * unfinished.
+		 *
+		 * The check below governs the step being posted and nothing in
+		 * front of it, so a programme sitting on step 3 with step 2 still
+		 * empty — which is every draft made before Continue started
+		 * refusing — could be carried on from there, stepping over the gap
+		 * rather than through it.
+		 */
+		/*
+		 * The per-person addresses go in before that check, not after it.
+		 *
+		 * They belong to the people rather than to the step, so they are
+		 * worth keeping whatever state the wizard is in — and the check
+		 * below redirects, which on a draft left mid-way by an older
+		 * version threw away everything somebody had just typed into
+		 * twenty address boxes and sent them to another step to find out
+		 * why.
+		 */
+		if ( 5 === $step ) {
+			self::save_each_address( $programme );
+		}
+
+		for ( $cc_before = 1; $cc_before < $step; $cc_before++ ) {
+			if ( CardsCo_Programme::step_complete( $programme, $cc_before ) ) {
+				continue;
+			}
+
+			$cc_steps = self::steps();
+
+			self::go(
+				array(
+					self::ARG       => (int) $programme['id'],
+					'step'          => $cc_before,
+					'cardsco_error' => sprintf(
+						/* translators: %s: the name of a step, such as "People". */
+						__( 'Finish %s first.', 'cardsco' ),
+						$cc_steps[ $cc_before ]['label'] ?? ''
+					),
+				)
+			);
+		}
+
 		$data = self::fields( $step, (array) $_POST, $programme );
 		$next = min( 7, max( 2, $step + 1 ) );
 
-		$data['setup_step'] = max( (int) $programme['setup_step'], $next );
-
+		/*
+		 * What the step sent, saved on its own. The furthest step reached
+		 * is not touched yet.
+		 *
+		 * It used to be set in this same write, before anything was
+		 * checked, so Continue moved you on whatever you had filled in.
+		 * Press it on step 2 with nobody ticked and you went to step 3,
+		 * with no error, and the occasion carried on being set up for
+		 * nobody — right up to the payment screen, which refused it with
+		 * "Step 2, Who's celebrating, is not finished". Six steps after
+		 * the one that could have said so.
+		 *
+		 * step_on_screen()'s own docblock said a programme must not skip
+		 * past the furthest step it has finished. This is what makes that
+		 * true: setup_step now means finished, not merely visited.
+		 */
 		$saved = CardsCo_Programme::update( (int) $programme['id'], $data );
 
 		if ( is_wp_error( $saved ) ) {
@@ -826,6 +1266,29 @@ class CardsCo_Setup {
 				)
 			);
 		}
+
+		$fresh = CardsCo_Programme::get( (int) $programme['id'] );
+
+		if ( $fresh && ! CardsCo_Programme::step_complete( $fresh, $step ) ) {
+			$steps = self::steps();
+
+			self::go(
+				array(
+					self::ARG       => (int) $programme['id'],
+					'step'          => $step,
+					'cardsco_error' => sprintf(
+						/* translators: %s: the name of a step, such as "Who's celebrating". */
+						__( 'There is something still to fill in on %s.', 'cardsco' ),
+						$steps[ $step ]['label'] ?? ''
+					),
+				)
+			);
+		}
+
+		CardsCo_Programme::update(
+			(int) $programme['id'],
+			array( 'setup_step' => max( (int) $programme['setup_step'], $next ) )
+		);
 
 		self::go( array( self::ARG => (int) $programme['id'], 'step' => $next ) );
 	}
@@ -943,6 +1406,11 @@ class CardsCo_Setup {
 			'cardsco_error',
 			'cc_add',
 			'cc_added',
+			'cc_joined',
+			'cc_dropped',
+			'cc_up_ask',
+			'cc_up_took',
+			'cc_up_on',
 			'cc_person',
 			'cc_write',
 			'cc_up_added',

@@ -9,6 +9,8 @@
  * @var array         $results
  * @var array         $counts
  * @var array[]       $segments
+ * @var string[]      $company_names Company id => name, only when viewing them all.
+ * @var bool          $any_company   Whether any company exists at all.
  * @var int           $paged
  * @var int           $per_page
  */
@@ -34,14 +36,18 @@ $cardsco_search  = sanitize_text_field( wp_unslash( $_GET['s'] ?? '' ) );
 
 	<?php $this->print_notices(); ?>
 
-	<?php if ( ! $company_id ) : ?>
-		<div class="cardsco-empty">
-			<p><strong><?php esc_html_e( 'No companies yet.', 'cardsco' ); ?></strong></p>
-			<p><?php esc_html_e( 'Recipients belong to a company, so create one first.', 'cardsco' ); ?></p>
-			<a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=cardsco-companies' ) ); ?>">
-				<?php esc_html_e( 'Go to Companies', 'cardsco' ); ?>
-			</a>
-		</div>
+	<?php
+	/*
+	 * Recipients is the screen the CardsCo menu opens on, and it opens
+	 * on every company: an admin arriving here wants to see the people,
+	 * not a question. Screens that can only act on one company still
+	 * ask. The one thing still worth stopping for is an install with no
+	 * companies at all, where an empty table would say "no recipients"
+	 * when the answer is "nothing has been set up yet".
+	 */
+	?>
+	<?php if ( ! $any_company ) : ?>
+		<?php CardsCo_Admin::pick_a_company( CardsCo_Admin::MENU, 'Recipients belong to a company.' ); ?>
 		</div>
 		<?php return; ?>
 	<?php endif; ?>
@@ -69,17 +75,20 @@ $cardsco_search  = sanitize_text_field( wp_unslash( $_GET['s'] ?? '' ) );
 				</select>
 			</div>
 
-			<div class="cardsco-field">
-				<label for="cardsco-segment"><?php esc_html_e( 'Segment', 'cardsco' ); ?></label>
-				<select name="segment" id="cardsco-segment">
-					<option value="0"><?php esc_html_e( 'Any segment', 'cardsco' ); ?></option>
-					<?php foreach ( $segments as $cardsco_seg ) : ?>
-						<option value="<?php echo esc_attr( $cardsco_seg['id'] ); ?>" <?php selected( $cardsco_segment, (int) $cardsco_seg['id'] ); ?>>
-							<?php echo esc_html( $cardsco_seg['name'] ); ?>
-						</option>
-					<?php endforeach; ?>
-				</select>
-			</div>
+			<?php /* Segments belong to one company, so there are none to filter by across all of them. */ ?>
+			<?php if ( $company_id ) : ?>
+				<div class="cardsco-field">
+					<label for="cardsco-segment"><?php esc_html_e( 'Segment', 'cardsco' ); ?></label>
+					<select name="segment" id="cardsco-segment">
+						<option value="0"><?php esc_html_e( 'Any segment', 'cardsco' ); ?></option>
+						<?php foreach ( $segments as $cardsco_seg ) : ?>
+							<option value="<?php echo esc_attr( $cardsco_seg['id'] ); ?>" <?php selected( $cardsco_segment, (int) $cardsco_seg['id'] ); ?>>
+								<?php echo esc_html( $cardsco_seg['name'] ); ?>
+							</option>
+						<?php endforeach; ?>
+					</select>
+				</div>
+			<?php endif; ?>
 
 			<div class="cardsco-field">
 				<label for="cardsco-address"><?php esc_html_e( 'Address', 'cardsco' ); ?></label>
@@ -115,18 +124,28 @@ $cardsco_search  = sanitize_text_field( wp_unslash( $_GET['s'] ?? '' ) );
 	<?php if ( empty( $results['items'] ) ) : ?>
 		<div class="cardsco-empty">
 			<p><strong><?php esc_html_e( 'Nothing to show.', 'cardsco' ); ?></strong></p>
-			<p><?php esc_html_e( 'Either this company has no recipients yet, or the filters above are too narrow.', 'cardsco' ); ?></p>
+			<p>
+				<?php
+				echo $company_id
+					? esc_html__( 'Either this company has no recipients yet, or the filters above are too narrow.', 'cardsco' )
+					: esc_html__( 'No company has any recipients yet, or the filters above are too narrow.', 'cardsco' );
+				?>
+			</p>
 		</div>
 	<?php else : ?>
 		<table class="wp-list-table widefat fixed striped">
 			<thead>
 				<tr>
-					<th scope="col" style="width:20%"><?php esc_html_e( 'Name', 'cardsco' ); ?></th>
-					<th scope="col" style="width:10%"><?php esc_html_e( 'Type', 'cardsco' ); ?></th>
-					<th scope="col" style="width:20%"><?php esc_html_e( 'Company', 'cardsco' ); ?></th>
-					<th scope="col" style="width:22%"><?php esc_html_e( 'Address', 'cardsco' ); ?></th>
-					<th scope="col" style="width:16%"><?php esc_html_e( 'Segments', 'cardsco' ); ?></th>
-					<th scope="col" style="width:12%"><?php esc_html_e( 'Status', 'cardsco' ); ?></th>
+					<th scope="col" style="width:<?php echo $company_id ? 20 : 17; ?>%"><?php esc_html_e( 'Name', 'cardsco' ); ?></th>
+					<?php if ( ! $company_id ) : ?>
+						<?php /* Whose person this is. Only earns a column when the list spans companies. */ ?>
+						<th scope="col" style="width:17%"><?php esc_html_e( 'Account', 'cardsco' ); ?></th>
+					<?php endif; ?>
+					<th scope="col" style="width:<?php echo $company_id ? 10 : 9; ?>%"><?php esc_html_e( 'Type', 'cardsco' ); ?></th>
+					<th scope="col" style="width:<?php echo $company_id ? 20 : 15; ?>%"><?php esc_html_e( 'Company', 'cardsco' ); ?></th>
+					<th scope="col" style="width:<?php echo $company_id ? 22 : 18; ?>%"><?php esc_html_e( 'Address', 'cardsco' ); ?></th>
+					<th scope="col" style="width:<?php echo $company_id ? 16 : 13; ?>%"><?php esc_html_e( 'Segments', 'cardsco' ); ?></th>
+					<th scope="col" style="width:<?php echo $company_id ? 12 : 11; ?>%"><?php esc_html_e( 'Status', 'cardsco' ); ?></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -194,6 +213,14 @@ $cardsco_search  = sanitize_text_field( wp_unslash( $_GET['s'] ?? '' ) );
 							<span class="trash"><a href="<?php echo esc_url( $cardsco_delete ); ?>" class="submitdelete" onclick="return confirm('<?php echo esc_js( __( 'Delete this recipient permanently? Cards already queued are kept.', 'cardsco' ) ); ?>');"><?php esc_html_e( 'Delete', 'cardsco' ); ?></a></span>
 						</div>
 					</td>
+					<?php if ( ! $company_id ) : ?>
+						<?php $cardsco_acct = (int) $cardsco_row['company_id']; ?>
+						<td>
+							<a href="<?php echo esc_url( add_query_arg( array( 'page' => CardsCo_Admin::MENU, 'company' => $cardsco_acct ), admin_url( 'admin.php' ) ) ); ?>">
+								<?php echo esc_html( $company_names[ $cardsco_acct ] ?? __( 'Unknown', 'cardsco' ) ); ?>
+							</a>
+						</td>
+					<?php endif; ?>
 					<td><?php echo 'employee' === $cardsco_row['type'] ? esc_html__( 'Employee', 'cardsco' ) : esc_html__( 'Customer', 'cardsco' ); ?></td>
 					<td><?php echo $cardsco_row['recipient_company'] ? esc_html( $cardsco_row['recipient_company'] ) : '&mdash;'; ?></td>
 					<td>

@@ -433,6 +433,37 @@ class CardsCo_Orders {
 	}
 
 	/**
+	 * Everyone currently on a company's account.
+	 *
+	 * Used to find orders that carry no company of their own. Only active
+	 * members: somebody removed from the account should not pull their
+	 * orders back into its list.
+	 *
+	 * @param int $company_id Company.
+	 * @return array User ids.
+	 */
+	protected static function company_user_ids( $company_id ) {
+		global $wpdb;
+
+		$company_id = (int) $company_id;
+
+		if ( ! $company_id ) {
+			return array();
+		}
+
+		$table = cardsco_table( 'company_users' );
+
+		$ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT user_id FROM {$table} WHERE company_id = %d AND status = 'active'", // phpcs:ignore WordPress.DB.PreparedSQL
+				$company_id
+			)
+		);
+
+		return array_map( 'intval', (array) $ids );
+	}
+
+	/**
 	 * Cards bought outright — WooCommerce orders.
 	 *
 	 * @param int $company_id Company.
@@ -443,6 +474,20 @@ class CardsCo_Orders {
 			return array();
 		}
 
+		/*
+		 * Found two ways, because for a long time only one of them worked.
+		 *
+		 * The company used to be written onto an order by a hook the block
+		 * checkout never fires, so orders placed through the shop carried
+		 * no company at all and this list came back empty for people who
+		 * had definitely bought something. The meta is written on a hook
+		 * both checkouts fire now, but that does nothing for orders already
+		 * placed, and asking people to take our word for a missing order is
+		 * not a fix.
+		 *
+		 * So the customers are asked for as well: whoever is on this
+		 * company's account. An order belongs here if either says so.
+		 */
 		$orders = wc_get_orders(
 			array(
 				'limit'      => 200,
@@ -450,6 +495,37 @@ class CardsCo_Orders {
 				'meta_value' => (int) $company_id,     // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 			)
 		);
+
+		$people = self::company_user_ids( (int) $company_id );
+
+		if ( $people ) {
+			$also = wc_get_orders(
+				array(
+					'limit'    => 200,
+					'customer' => $people,
+				)
+			);
+
+			$seen = array();
+
+			foreach ( (array) $orders as $order ) {
+				if ( is_object( $order ) && method_exists( $order, 'get_id' ) ) {
+					$seen[ (int) $order->get_id() ] = true;
+				}
+			}
+
+			foreach ( (array) $also as $order ) {
+				if ( ! is_object( $order ) || ! method_exists( $order, 'get_id' ) ) {
+					continue;
+				}
+
+				if ( isset( $seen[ (int) $order->get_id() ] ) ) {
+					continue;
+				}
+
+				$orders[] = $order;
+			}
+		}
 
 		$out = array();
 
@@ -460,7 +536,19 @@ class CardsCo_Orders {
 
 			$cards = 0;
 
-			foreach ( $order->get_items() as $item ) {
+			/*
+			 * Checked before it is called. get_items() is documented to
+			 * return item objects, and mostly does, but an order can come
+			 * back from a store with a line that is not one — a half-built
+			 * record, or an item type this shop has no class for — and the
+			 * whole Orders screen died on it with a fatal rather than
+			 * showing the other nineteen orders.
+			 */
+			foreach ( (array) $order->get_items() as $item ) {
+				if ( ! is_object( $item ) || ! method_exists( $item, 'get_quantity' ) ) {
+					continue;
+				}
+
 				$cards += (int) $item->get_quantity();
 			}
 
@@ -497,7 +585,12 @@ class CardsCo_Orders {
 	protected static function bulk_title( $order ) {
 		$names = array();
 
-		foreach ( $order->get_items() as $item ) {
+		/* Same guard as the quantity count above, and for the same reason. */
+		foreach ( (array) $order->get_items() as $item ) {
+			if ( ! is_object( $item ) || ! method_exists( $item, 'get_name' ) ) {
+				continue;
+			}
+
 			$names[] = $item->get_name();
 		}
 

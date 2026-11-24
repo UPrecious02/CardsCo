@@ -23,16 +23,13 @@ defined( 'ABSPATH' ) || exit;
 	</p>
 
 	<?php if ( ! $company_id ) : ?>
-		<div class="cardsco-empty">
-			<p><strong><?php esc_html_e( 'No companies yet.', 'cardsco' ); ?></strong></p>
-			<a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=cardsco-companies' ) ); ?>"><?php esc_html_e( 'Go to Companies', 'cardsco' ); ?></a>
-		</div>
+		<?php CardsCo_Admin::pick_a_company( 'cardsco-campaigns', 'Campaigns are sent by a company.' ); ?>
 	</div>
 		<?php return; ?>
 	<?php endif; ?>
 
 	<div class="cardsco-bar">
-		<?php $admin->company_switcher( $company_id, CardsCo_Campaign_Builder::PAGE ); ?>
+		<?php $admin->company_switcher( $company_id, CardsCo_Campaign_Builder::PAGE, false ); ?>
 	</div>
 
 	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="cardsco-bar">
@@ -92,6 +89,33 @@ defined( 'ABSPATH' ) || exit;
 					</td>
 					<td><?php echo esc_html( $statuses[ $cardsco_c['status'] ] ?? $cardsco_c['status'] ); ?></td>
 					<td>
+						<?php
+						/*
+						 * Once the cards are queued they are written and posted by
+						 * hand, and nothing can know when that happened except the
+						 * person who did it. These say so for the whole batch: the
+						 * customer's portal counts written, posted and delivered
+						 * cards, so pressing one of these is what moves their
+						 * progress bar.
+						 *
+						 * Cards on hold are left alone by the handler — a card with
+						 * no address cannot have been posted.
+						 */
+						$cardsco_queued = in_array( $cardsco_c['status'], array( 'locked', 'sent' ), true );
+						?>
+
+						<?php if ( $cardsco_queued ) : ?>
+							<?php foreach ( array( 'written' => __( 'Mark written', 'cardsco' ), 'posted' => __( 'Mark posted', 'cardsco' ) ) as $cardsco_s => $cardsco_label ) : ?>
+								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline">
+									<?php wp_nonce_field( CardsCo_Admin::NONCE ); ?>
+									<input type="hidden" name="action" value="cardsco_campaign_mark" />
+									<input type="hidden" name="campaign_id" value="<?php echo esc_attr( (int) $cardsco_c['id'] ); ?>" />
+									<input type="hidden" name="status" value="<?php echo esc_attr( $cardsco_s ); ?>" />
+									<button type="submit" class="button button-small"><?php echo esc_html( $cardsco_label ); ?></button>
+								</form>
+							<?php endforeach; ?>
+						<?php endif; ?>
+
 						<?php if ( $cardsco_open ) : ?>
 							<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" onsubmit="return confirm('<?php echo esc_js( __( 'Cancel this campaign?', 'cardsco' ) ); ?>')">
 								<?php wp_nonce_field( CardsCo_Admin::NONCE ); ?>

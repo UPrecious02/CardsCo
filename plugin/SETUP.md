@@ -137,9 +137,17 @@ Set under CardsCo → Settings. The ones that decide what people pay:
 
 - `price_default` — the standard price for a card (currently £3.60)
 - `price_bulk` (£1.99) and `bulk_from` (25) — the bulk rate, and the
-  quantity it starts above. **Tiered, not whole-order**: with the limit at 25, the first 25
-  cards are at the standard price and only the cards past the 25th get the
-  bulk rate. Thirty cards is 25 × standard + 5 × bulk.
+  quantity it starts **at**. **Whole-order, not tiered**: once an order
+  reaches the limit every card in it is at the bulk rate. Twenty-five cards
+  is 25 × £1.99 = £49.75, thirty is £59.70, a hundred is £199.
+  - This is what the published terms promise, so the two have to move
+    together. It was tiered until 19 Nov 2026 (first 25 at standard, only
+    the rest at bulk, so thirty came to £99.95); the CEO confirmed the terms
+    were what he meant and the code was changed to match.
+  - There is a **deliberate cliff** at the limit: 24 cards cost £86.40 and
+    25 cost £49.75, so an order just under the limit is worse value than one
+    at it. That is the shape of a whole-order discount, not a bug — don't
+    "fix" it without changing the terms page too.
 - `currency` (GBP), `message_max_chars` (400), `campaign_lock_days` (3),
   `postage_days`, `box_production_days`
 

@@ -39,7 +39,8 @@ $cc_has = '' !== trim( (string) $writer['text'] );
 
 <form method="post" id="ccWriter" class="cc-wr" action="<?php echo esc_url( $links['here'] ); ?>"
 	data-cc-max="<?php echo esc_attr( (int) $writer['max'] ); ?>"
-	data-cc-blanks="<?php echo esc_attr( wp_json_encode( array_map( 'cardsco_tag_label', (array) $writer['blanks'] ) ) ); ?>">
+	data-cc-blanks="<?php echo esc_attr( wp_json_encode( array_map( 'cardsco_tag_label', (array) $writer['blanks'] ) ) ); ?>"
+	data-cc-sample="<?php echo esc_attr( wp_json_encode( (array) $writer['sample'] ) ); ?>">
 
 	<?php wp_nonce_field( 'cardsco_setup', '_cardsco_nonce' ); ?>
 	<input type="hidden" name="cardsco_setup_action" value="write_message" />
@@ -84,8 +85,26 @@ $cc_has = '' !== trim( (string) $writer['text'] );
 	?>
 	<div class="cc-wr-blank" data-cc-blank <?php echo $cc_has ? 'hidden' : ''; ?>>
 		<h2 class="cc-wr-blank-h"><?php esc_html_e( 'What would you like to say?', 'cardsco' ); ?></h2>
-		<p class="cc-wr-blank-p"><?php esc_html_e( 'Write your message, or start from one of ours. A pen writes it in real ink.', 'cardsco' ); ?></p>
+		<p class="cc-wr-blank-p">
+			<?php
+			echo esc_html(
+				$writer['templates']
+					? __( 'Write your message, or start from one of ours. A pen writes it in real ink.', 'cardsco' )
+					: __( 'Write your message. A pen writes it in real ink.', 'cardsco' )
+			);
+			?>
+		</p>
 
+		<?php
+		/*
+		 * The ready-written messages for this occasion, if there are any.
+		 *
+		 * Not every occasion has them: the client's own wording covers six
+		 * of the eleven, and the rest have none until somebody writes
+		 * them. The line above used to offer "start from one of ours"
+		 * regardless, over the empty space where they would have been.
+		 */
+		?>
 		<?php if ( $writer['templates'] ) : ?>
 			<div class="cc-wr-starters">
 				<?php foreach ( $writer['templates'] as $cc_t ) : ?>
@@ -150,6 +169,40 @@ $cc_has = '' !== trim( (string) $writer['text'] );
 			<button type="button" class="cc-wr-clear" data-cc-clear><?php esc_html_e( 'Clear', 'cardsco' ); ?></button>
 		</div>
 	</div>
+
+	<?php
+	/*
+	 * The merge tags.
+	 *
+	 * The engine has known about these all along — it is what writes each
+	 * person's own name onto their card — but the writer gave no way to
+	 * put one in, so the only people who could use them were the ones who
+	 * already knew the wording by heart. Pressing a chip drops the tag in
+	 * at the cursor.
+	 *
+	 * A tag that would come out empty for somebody on this occasion says
+	 * so rather than being hidden: it is still usable, and the person
+	 * writing needs to know a card may land with a hole in it.
+	 */
+	$cc_blank = (array) $writer['blanks'];
+	?>
+	<div class="cc-wr-tags">
+		<span class="cc-wr-tags-head"><?php esc_html_e( 'Put in', 'cardsco' ); ?></span>
+
+		<?php foreach ( $writer['tags'] as $cc_tag ) : ?>
+			<?php $cc_empty = in_array( $cc_tag['key'], $cc_blank, true ); ?>
+			<button type="button"
+				class="cc-wr-tag<?php echo $cc_empty ? ' is-empty' : ''; ?>"
+				data-cc-insert="<?php echo esc_attr( $cc_tag['tag'] ); ?>"
+				title="<?php echo esc_attr( $cc_empty ? $cc_tag['empty'] : $cc_tag['note'] ); ?>">
+				<?php echo esc_html( $cc_tag['label'] ); ?>
+			</button>
+		<?php endforeach; ?>
+	</div>
+
+	<p class="cc-wr-tags-hint">
+		<?php esc_html_e( 'Each card is written with that person’s own details in place of the tag.', 'cardsco' ); ?>
+	</p>
 
 	<div class="cc-wr-sign-row">
 		<label for="cc-wr-sign"><?php esc_html_e( 'Sign off as', 'cardsco' ); ?></label>

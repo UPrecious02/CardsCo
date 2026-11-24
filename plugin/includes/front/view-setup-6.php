@@ -188,16 +188,29 @@ defined( 'ABSPATH' ) || exit;
 
 			<p class="cc-field">
 				<label for="cc-tim-runs"><?php esc_html_e( 'Runs', 'cardsco' ); ?></label>
-				<span class="cc-select">
-					<select id="cc-tim-runs" name="recurrence">
-						<?php foreach ( $timing['runs'] as $cc_value => $cc_label ) : ?>
-							<option value="<?php echo esc_attr( $cc_value ); ?>" <?php selected( $timing['run'], $cc_value ); ?>>
-								<?php echo esc_html( $cc_label ); ?>
-							</option>
-						<?php endforeach; ?>
-					</select>
-					<?php echo call_user_func( array( 'CardsCo_Shortcodes', 'icon' ), 'chevron-down', 'cc-select-glyph' ); // phpcs:ignore WordPress.Security.EscapeOutput -- inline svg built in PHP. ?>
-				</span>
+
+				<?php if ( empty( $timing['runs'] ) ) : ?>
+					<?php
+					/*
+					 * Nothing to choose: this occasion happens once for each
+					 * person. The value still goes with the form so the saved
+					 * programme says the same thing the screen does.
+					 */
+					?>
+					<span class="cc-tim-fixed"><?php echo esc_html( $timing['run_fixed'] ); ?></span>
+					<input type="hidden" name="recurrence" value="<?php echo esc_attr( $timing['run'] ); ?>" />
+				<?php else : ?>
+					<span class="cc-select">
+						<select id="cc-tim-runs" name="recurrence">
+							<?php foreach ( $timing['runs'] as $cc_value => $cc_label ) : ?>
+								<option value="<?php echo esc_attr( $cc_value ); ?>" <?php selected( $timing['run'], $cc_value ); ?>>
+									<?php echo esc_html( $cc_label ); ?>
+								</option>
+							<?php endforeach; ?>
+						</select>
+						<?php echo call_user_func( array( 'CardsCo_Shortcodes', 'icon' ), 'chevron-down', 'cc-select-glyph' ); // phpcs:ignore WordPress.Security.EscapeOutput -- inline svg built in PHP. ?>
+					</span>
+				<?php endif; ?>
 			</p>
 		</div>
 
@@ -210,7 +223,16 @@ defined( 'ABSPATH' ) || exit;
 		<label class="cc-switch">
 			<input type="checkbox" name="weekend_rule" value="1" <?php checked( $timing['weekend'] ); ?> />
 			<span class="cc-switch-track" aria-hidden="true"><span class="cc-switch-knob"></span></span>
-			<span class="cc-switch-text"><?php esc_html_e( 'Send a card for birthdays that fall at the weekend on the Friday before', 'cardsco' ); ?></span>
+			<span class="cc-switch-text">
+				<?php
+				/* Named rather than assumed: not every occasion is a birthday. */
+				printf(
+					/* translators: %s: the occasion, e.g. "birthday". */
+					esc_html__( 'If a %s falls at the weekend, send the card on the Friday before', 'cardsco' ),
+					esc_html( $timing['noun'] ?? __( 'date', 'cardsco' ) )
+				);
+				?>
+			</span>
 		</label>
 	</section>
 

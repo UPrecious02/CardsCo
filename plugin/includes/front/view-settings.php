@@ -65,11 +65,116 @@ $cc_base = remove_query_arg( array( 'cardsco_saved', 'cardsco_error' ) );
 
 		<?php include CARDSCO_PATH . 'includes/front/partial-team.php'; ?>
 
+	<?php elseif ( 'billing' === $settings['tab'] ) : ?>
+
+		<?php
+		/*
+		 * Not a plan or a renewal date — there is no subscription here,
+		 * cards are paid for as they are ordered. What this holds is who
+		 * the invoice is made out to and where it goes, which the checkout
+		 * has been reading from the company record all along with no way
+		 * for anyone to set it.
+		 *
+		 * The billing address moved here from Company profile, where it
+		 * sat under a heading about logos and sign-offs. Nothing about the
+		 * field changed; it is the same name, the same column, and anything
+		 * already saved is still here.
+		 */
+		?>
+		<form class="cc-set-form" method="post" action="<?php echo esc_url( $cc_base ); ?>">
+			<?php wp_nonce_field( 'cardsco_settings', '_cardsco_nonce' ); ?>
+			<input type="hidden" name="cardsco_settings_action" value="save" />
+
+			<section class="cc-set-sec">
+				<div class="cc-set-side">
+					<h2><?php esc_html_e( 'Invoices', 'cardsco' ); ?></h2>
+					<p><?php esc_html_e( 'Who your invoices are made out to, and where they are sent. Used to fill in the checkout too.', 'cardsco' ); ?></p>
+				</div>
+
+				<div class="cc-set-panel">
+					<div class="cc-set-grid">
+						<p class="cc-field">
+							<label for="cc-bill-to"><?php esc_html_e( 'Invoice to', 'cardsco' ); ?></label>
+							<input type="text" id="cc-bill-to" name="billing_name" value="<?php echo esc_attr( $settings['bill_to'] ); ?>" autocomplete="billing name" />
+							<span class="cc-field-help"><?php esc_html_e( 'A person or a department — whoever handles the bills', 'cardsco' ); ?></span>
+						</p>
+						<p class="cc-field">
+							<label for="cc-bill-at"><?php esc_html_e( 'Send invoices to', 'cardsco' ); ?></label>
+							<input type="email" id="cc-bill-at" name="billing_email" value="<?php echo esc_attr( $settings['bill_at'] ); ?>" autocomplete="billing email" />
+							<span class="cc-field-help"><?php esc_html_e( 'Leave blank to use your main contact email', 'cardsco' ); ?></span>
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<section class="cc-set-sec">
+				<div class="cc-set-side">
+					<h2><?php esc_html_e( 'Billing address', 'cardsco' ); ?></h2>
+					<p><?php esc_html_e( 'Printed on your invoices, and offered as the return address on envelopes.', 'cardsco' ); ?></p>
+				</div>
+
+				<div class="cc-set-panel">
+					<p class="cc-field cc-field-half">
+						<label for="cc-set-address"><?php esc_html_e( 'Billing address', 'cardsco' ); ?></label>
+						<textarea id="cc-set-address" name="billing_address" rows="4" autocomplete="billing street-address"><?php echo esc_textarea( $settings['address'] ); ?></textarea>
+						<span class="cc-field-help"><?php esc_html_e( 'UK addresses only for now', 'cardsco' ); ?></span>
+					</p>
+				</div>
+			</section>
+
+			<section class="cc-set-sec">
+				<div class="cc-set-side">
+					<h2><?php esc_html_e( 'Past invoices', 'cardsco' ); ?></h2>
+					<p><?php esc_html_e( 'Every order you have paid for, with its invoice.', 'cardsco' ); ?></p>
+				</div>
+
+				<div class="cc-set-panel">
+					<p class="cc-set-plain">
+						<?php
+						/*
+						 * Only offered as a link when there is somewhere for
+						 * it to go. If the orders page has not been found —
+						 * the shortcode not placed yet, say — the sentence
+						 * still reads, without a link that would quietly
+						 * reload this screen instead.
+						 */
+						if ( ! empty( $links['orders'] ) ) {
+							printf(
+								/* translators: %s: a link to the orders screen, reading "your orders". */
+								esc_html__( 'Invoices live with %s, where you can download them one at a time or all together.', 'cardsco' ),
+								'<a href="' . esc_url( $links['orders'] ) . '">' . esc_html__( 'your orders', 'cardsco' ) . '</a>'
+							);
+						} else {
+							esc_html_e( 'Invoices live with your orders, where you can download them one at a time or all together.', 'cardsco' );
+						}
+						?>
+					</p>
+				</div>
+			</section>
+
+			<?php
+			/*
+			 * The same footer the profile tab uses, including the disabled
+			 * state: every company account carries the same WordPress
+			 * capability, so whether somebody may actually change this
+			 * depends on their role in the company, and the save handler
+			 * refuses them either way.
+			 */
+			?>
+			<footer class="cc-set-foot">
+				<span class="cc-set-saved"><?php echo esc_html( $settings['saved'] ); ?></span>
+				<a class="cc-set-cancel" href="<?php echo esc_url( $cc_base ); ?>"><?php esc_html_e( 'Cancel', 'cardsco' ); ?></a>
+				<button type="submit" class="cc-btn cc-btn-primary cc-btn-r8"<?php echo $settings['may_edit'] ? '' : ' disabled'; ?>>
+					<span><?php esc_html_e( 'Save changes', 'cardsco' ); ?></span>
+				</button>
+			</footer>
+		</form>
+
 	<?php elseif ( 'profile' !== $settings['tab'] ) : ?>
 
 		<section class="cc-set-soon">
-			<p class="cc-set-soon-head"><?php esc_html_e( 'Billing is not built yet', 'cardsco' ); ?></p>
-			<p><?php esc_html_e( 'Your plan, renewal date and invoices will live here once pricing is agreed.', 'cardsco' ); ?></p>
+			<p class="cc-set-soon-head"><?php esc_html_e( 'Not built yet', 'cardsco' ); ?></p>
+			<p><?php esc_html_e( 'There is nothing here at the moment.', 'cardsco' ); ?></p>
 		</section>
 
 	<?php else : ?>
@@ -113,17 +218,20 @@ $cc_base = remove_query_arg( array( 'cardsco_saved', 'cardsco_error' ) );
 
 			<section class="cc-set-sec">
 				<div class="cc-set-side">
-					<h2><?php esc_html_e( 'Addresses', 'cardsco' ); ?></h2>
-					<p><?php esc_html_e( 'Your billing address, and where returned cards come back to.', 'cardsco' ); ?></p>
+					<h2><?php esc_html_e( 'Return address', 'cardsco' ); ?></h2>
+					<p><?php esc_html_e( 'Where a card comes back to if it cannot be delivered.', 'cardsco' ); ?></p>
 				</div>
 
 				<div class="cc-set-panel">
-					<p class="cc-field cc-field-half">
-						<label for="cc-set-address"><?php esc_html_e( 'Billing address', 'cardsco' ); ?></label>
-						<textarea id="cc-set-address" name="billing_address" rows="4"><?php echo esc_textarea( $settings['address'] ); ?></textarea>
-						<span class="cc-field-help"><?php esc_html_e( 'UK addresses only for now', 'cardsco' ); ?></span>
-					</p>
-
+					<?php
+					/*
+					 * The billing address used to sit here. It is on the
+					 * Billing tab now, which is where somebody looking for
+					 * it would go. "Use my billing address" below still
+					 * means the same field — the same column, the same
+					 * saved value — it is just edited elsewhere.
+					 */
+					?>
 					<fieldset class="cc-set-radios">
 						<legend><?php esc_html_e( 'Return address on envelopes', 'cardsco' ); ?></legend>
 						<?php foreach ( $settings['choices'] as $cc_key => $cc_label ) : ?>

@@ -89,6 +89,7 @@ class CardsCo_Auth {
 
 		add_action( 'wp_enqueue_scripts', array( $this, 'assets' ) );
 		add_action( 'template_redirect', array( $this, 'handle' ) );
+		add_action( 'template_redirect', array( __CLASS__, 'home_to_dashboard' ), 2 );
 	}
 
 	/**
@@ -163,6 +164,79 @@ class CardsCo_Auth {
 	/* ---------------------------------------------------------------------
 	 * The handler
 	 * ------------------------------------------------------------------ */
+
+	/**
+	 * Send somebody already signed in to their own dashboard.
+	 *
+	 * Closing the tab does not sign anybody out, so the next visit to the
+	 * front page would otherwise land them on the marketing home page as
+	 * though they had never signed up.
+	 *
+	 * Only the front page, and only for somebody who belongs to a company:
+	 * an administrator is left alone, because the home page is a page they
+	 * have every reason to be looking at.
+	 *
+	 * @return void
+	 */
+	public static function home_to_dashboard() {
+		$to = self::home_lands_on();
+
+		if ( '' === $to ) {
+			return;
+		}
+
+		wp_safe_redirect( $to );
+		exit;
+	}
+
+	/**
+	 * Where this visit to the front page should end up.
+	 *
+	 * Separate from the redirect itself because the redirect ends in exit,
+	 * and a decision that can only be made by leaving cannot be tested at
+	 * all. This answers the question; the caller acts on it.
+	 *
+	 * @return string A URL, or '' to stay where they are.
+	 */
+	public static function home_lands_on() {
+		if ( is_admin() || wp_doing_ajax() || is_feed() || ! is_front_page() ) {
+			return '';
+		}
+
+		if ( 'GET' !== ( $_SERVER['REQUEST_METHOD'] ?? 'GET' ) ) {
+			return '';
+		}
+
+		/* A way to look at the home page on purpose. */
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- reading a view preference.
+		if ( isset( $_GET['home'] ) ) {
+			return '';
+		}
+
+		if ( ! is_user_logged_in() || current_user_can( 'manage_options' ) ) {
+			return '';
+		}
+
+		if ( ! CardsCo_Access::company_id() ) {
+			return '';
+		}
+
+		$to = CardsCo_Shortcodes::page_for( 'cardsco_dashboard' );
+
+		if ( ! $to ) {
+			return '';
+		}
+
+		/*
+		 * If the dashboard is itself the front page there is nowhere to go,
+		 * and sending them there would be a loop with no way out of it.
+		 */
+		if ( untrailingslashit( $to ) === untrailingslashit( home_url( '/' ) ) ) {
+			return '';
+		}
+
+		return (string) $to;
+	}
 
 	/**
 	 * Deal with whichever form was posted.
@@ -308,53 +382,15 @@ class CardsCo_Auth {
 			return;
 		}
 
-		$user_id = wp_create_user( $email, $password, $email );
+		$made = self::make_account( $email, $password, $first, $last, $company );
 
-		if ( is_wp_error( $user_id ) ) {
-			self::$error = __( 'We could not create that account. Please try again.', 'cardsco' );
+		if ( is_wp_error( $made ) ) {
+			self::$error = $made->get_error_message();
 			return;
 		}
 
-		wp_update_user(
-			array(
-				'ID'           => $user_id,
-				'first_name'   => $first,
-				'last_name'    => $last,
-				'display_name' => trim( $first . ' ' . $last ),
-			)
-		);
-
-		$user = new WP_User( $user_id );
-		$user->set_role( CardsCo_Roles::COMPANY_ROLE );
-
-		$company_id = CardsCo_Company::create(
-			array(
-				'name'          => $company,
-				'owner_user_id' => $user_id,
-				'contact_name'  => trim( $first . ' ' . $last ),
-				'contact_email' => $email,
-			)
-		);
-
-		if ( is_wp_error( $company_id ) ) {
-			self::unwind( $user_id );
-			self::$error = $company_id->get_error_message();
-			return;
-		}
-
-		/*
-		 * Company::create() links the owner itself when it is given one, so
-		 * this reads the link back rather than writing it twice. If it is not
-		 * there the account is useless — a dashboard scoped to no company —
-		 * so it is unwound rather than left for somebody to report.
-		 */
-		wp_cache_delete( $user_id, 'cardsco_user_company' );
-
-		if ( cardsco_get_user_company_id( $user_id ) !== (int) $company_id ) {
-			self::unwind( $user_id, $company_id );
-			self::$error = __( 'We could not finish setting up your company. Please try again.', 'cardsco' );
-			return;
-		}
+		$user_id    = (int) $made['user_id'];
+		$company_id = (int) $made['company_id'];
 
 		wp_set_current_user( $user_id );
 		wp_set_auth_cookie( $user_id, false, is_ssl() );
@@ -416,6 +452,79 @@ class CardsCo_Auth {
 	 * @param int $company_id The company to remove, if one got as far as being made.
 	 * @return void
 	 */
+	/**
+	 * An account somebody can actually use: a user, a role, and a company.
+	 *
+	 * All three or none. A user without the role cannot reach the dashboard,
+	 * and one without a company reaches a dashboard scoped to nothing, so a
+	 * half-made account is unwound rather than left for somebody to report.
+	 *
+	 * Shared because there are two doors into this. Signing up is one. The
+	 * other is somebody who bought a single card as a guest and is then
+	 * offered an account on the thank-you page — which promises they can see
+	 * when the card is written and posted, send another, and set up cards
+	 * that go out on their own. Every one of those lives behind the role and
+	 * the company, and that door used to make a bare WordPress customer, so
+	 * they could sign in and reach nothing at all. Two doors to the same
+	 * room, so one way of building it.
+	 *
+	 * @param string $email    Address, which is also the username.
+	 * @param string $password Chosen password.
+	 * @param string $first    First name.
+	 * @param string $last     Last name, if there is one.
+	 * @param string $company  Company name.
+	 * @return array{user_id: int, company_id: int}|WP_Error
+	 */
+	public static function make_account( $email, $password, $first, $last, $company ) {
+		$user_id = wp_create_user( $email, $password, $email );
+
+		if ( is_wp_error( $user_id ) ) {
+			return new WP_Error( 'cardsco_account', __( 'We could not create that account. Please try again.', 'cardsco' ) );
+		}
+
+		wp_update_user(
+			array(
+				'ID'           => $user_id,
+				'first_name'   => $first,
+				'last_name'    => $last,
+				'display_name' => trim( $first . ' ' . $last ),
+			)
+		);
+
+		$user = new WP_User( $user_id );
+		$user->set_role( CardsCo_Roles::COMPANY_ROLE );
+
+		$company_id = CardsCo_Company::create(
+			array(
+				'name'          => $company,
+				'owner_user_id' => $user_id,
+				'contact_name'  => trim( $first . ' ' . $last ),
+				'contact_email' => $email,
+			)
+		);
+
+		if ( is_wp_error( $company_id ) ) {
+			self::unwind( $user_id );
+			return $company_id;
+		}
+
+		/*
+		 * Company::create() links the owner itself when it is given one, so
+		 * this reads the link back rather than writing it twice.
+		 */
+		wp_cache_delete( $user_id, 'cardsco_user_company' );
+
+		if ( cardsco_get_user_company_id( $user_id ) !== (int) $company_id ) {
+			self::unwind( $user_id, $company_id );
+			return new WP_Error( 'cardsco_account', __( 'We could not finish setting up your company. Please try again.', 'cardsco' ) );
+		}
+
+		return array(
+			'user_id'    => (int) $user_id,
+			'company_id' => (int) $company_id,
+		);
+	}
+
 	protected static function unwind( $user_id, $company_id = 0 ) {
 		global $wpdb;
 
@@ -828,10 +937,14 @@ class CardsCo_Auth {
 	/**
 	 * Where to send somebody once they are in.
 	 *
+	 * Public because signing in is not the only way in: somebody who bought
+	 * a card as a guest and then took the offer of an account lands in the
+	 * same place, and should not land somewhere else by accident.
+	 *
 	 * @param int $user_id The person signing in.
 	 * @return string
 	 */
-	protected static function landing_for( $user_id ) {
+	public static function landing_for( $user_id ) {
 		$to = isset( $_POST['redirect_to'] ) ? esc_url_raw( wp_unslash( $_POST['redirect_to'] ) ) : '';
 
 		if ( ! $to ) {

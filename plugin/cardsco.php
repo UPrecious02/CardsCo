@@ -3,7 +3,7 @@
  * Plugin Name:       CardsCo
  * Plugin URI:        https://cardsco.uk
  * Description:       Corporate greeting card platform. Recipient management, occasion scheduling, campaigns and fulfilment.
- * Version: 0.50.0
+ * Version: 0.93.0
  * Requires at least: 6.4
  * Requires PHP:      8.0
  * Author:            PT Digital Studio
@@ -15,7 +15,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'CARDSCO_VERSION', '0.50.0' );
+define( 'CARDSCO_VERSION', '0.93.0' );
 define( 'CARDSCO_FILE', __FILE__ );
 define( 'CARDSCO_PATH', plugin_dir_path( __FILE__ ) );
 define( 'CARDSCO_URL', plugin_dir_url( __FILE__ ) );
@@ -61,6 +61,7 @@ require_once CARDSCO_PATH . 'includes/class-cardsco-send.php';
 require_once CARDSCO_PATH . 'includes/class-cardsco-orders.php';
 require_once CARDSCO_PATH . 'includes/class-cardsco-orders-export.php';
 require_once CARDSCO_PATH . 'includes/class-cardsco-setup.php';
+require_once CARDSCO_PATH . 'includes/class-cardsco-builder.php';
 require_once CARDSCO_PATH . 'includes/class-cardsco-verify.php';
 require_once CARDSCO_PATH . 'includes/class-cardsco-catalogue.php';
 require_once CARDSCO_PATH . 'includes/class-cardsco-shop.php';
@@ -68,6 +69,7 @@ require_once CARDSCO_PATH . 'includes/class-cardsco-invite.php';
 require_once CARDSCO_PATH . 'includes/class-cardsco-auth.php';
 require_once CARDSCO_PATH . 'includes/class-cardsco-shortcodes.php';
 require_once CARDSCO_PATH . 'includes/class-cardsco-scheduler.php';
+require_once CARDSCO_PATH . 'includes/class-cardsco-renewal.php';
 require_once CARDSCO_PATH . 'includes/class-cardsco-activator.php';
 require_once CARDSCO_PATH . 'includes/class-cardsco-deactivator.php';
 require_once CARDSCO_PATH . 'includes/class-cardsco-plugin.php';
