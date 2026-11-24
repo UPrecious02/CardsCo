@@ -123,7 +123,8 @@ $cc_has = '' !== trim( (string) $writer['text'] );
 	 * and the script rewrites them as you type so the card keeps up.
 	 */
 	?>
-	<div class="cc-wr-preview" data-cc-preview <?php echo $cc_has ? '' : 'hidden'; ?>>
+	<?php /* Always on screen: the card is the thing being written on. */ ?>
+	<div class="cc-wr-preview" data-cc-preview>
 		<div class="cc-wr-card">
 			<div class="cc-wr-hand" data-cc-hand>
 				<?php foreach ( $writer['lines'] as $cc_line ) : ?>

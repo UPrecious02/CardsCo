@@ -107,9 +107,18 @@ $cc = 'CardsCo_Shortcodes';
 					<?php
 					/*
 					 * The frame gives a coming-soon row no button at all,
-					 * rather than a disabled one.
+					 * rather than a disabled one — which left nothing on
+					 * the row to press and no way to find out why. It gets
+					 * one that says what is going on.
 					 */
 					?>
+					<?php if ( $cc_occ['coming_soon'] ) : ?>
+						<button type="button" class="cc-btn cc-btn-outline cc-btn-r8"
+							data-cc-soon="<?php echo esc_attr( $cc_occ['label'] ); ?>">
+							<span><?php esc_html_e( 'Coming soon', 'cardsco' ); ?></span>
+						</button>
+					<?php endif; ?>
+
 					<?php if ( ! $cc_occ['coming_soon'] ) : ?>
 						<?php
 						/*
@@ -142,8 +151,22 @@ $cc = 'CardsCo_Shortcodes';
 								),
 								$links['setup']
 							);
-						} elseif ( $cc_occ['active'] ) {
-							$cc_href = add_query_arg( 'occasion', $cc_occ['slug'], $links['manage'] );
+						} elseif ( $cc_occ['active'] && ! empty( $cc_occ['programme']['id'] ) ) {
+							/*
+							 * The running occasion's own screen. This used
+							 * to hang ?occasion=<slug> off a link that
+							 * defaults to this very page, and nothing here
+							 * reads that — so clicking a live occasion
+							 * fetched the list of occasions again and
+							 * looked like nothing had happened.
+							 */
+							$cc_href = add_query_arg(
+								array(
+									CardsCo_Setup::ARG => (int) $cc_occ['programme']['id'],
+									'step'             => 7,
+								),
+								$links['setup']
+							);
 						}
 						?>
 						<?php if ( '' === $cc_href ) : ?>
@@ -217,3 +240,7 @@ $cc = 'CardsCo_Shortcodes';
 		</aside>
 	</div>
 </div>
+
+<?php
+/* What a coming-soon row opens. */
+include CARDSCO_PATH . 'includes/front/partial-soon.php';

@@ -64,11 +64,22 @@ foreach ( $collections as $cc_c ) {
 				? add_query_arg( 'cc_filter', $cc_c['slug'], $cc_catalogue )
 				: '';
 
-			$cc_tag = $cc_href ? 'a' : 'div';
+			/*
+			 * A collection that is not open yet says so on a chip and,
+			 * pressed, says what that means. Before this the tile either
+			 * went to the cards as though nothing were different, or sat
+			 * there as a div that did nothing.
+			 */
+			$cc_soon = ! empty( $cc_c['coming_soon'] );
+			$cc_tag  = $cc_soon ? 'button' : ( $cc_href ? 'a' : 'div' );
 			?>
 			<li class="cc-coll-tile<?php echo $cc_empty ? ' is-empty' : ''; ?>">
 				<<?php echo esc_attr( $cc_tag ); ?> class="cc-coll-card"
-					<?php echo $cc_href ? 'href="' . esc_url( $cc_href ) . '"' : ''; ?>>
+					<?php if ( $cc_soon ) : ?>
+						type="button" data-cc-soon="<?php echo esc_attr( $cc_c['label'] ); ?>"
+					<?php elseif ( $cc_href ) : ?>
+						href="<?php echo esc_url( $cc_href ); ?>"
+					<?php endif; ?>>
 
 					<span class="cc-coll-art">
 						<?php if ( $cc_c['cover'] ) : ?>
@@ -114,3 +125,7 @@ foreach ( $collections as $cc_c ) {
 	<?php endif; ?>
 
 </div>
+
+<?php
+/* What a coming-soon collection opens. */
+include CARDSCO_PATH . 'includes/front/partial-soon.php';

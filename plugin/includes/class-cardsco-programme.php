@@ -90,6 +90,30 @@ class CardsCo_Programme {
 			);
 		}
 
+		/*
+		 * Christmas and a promotion go out on a day somebody chooses, not
+		 * from dates people hold, so they are built in Campaigns and not
+		 * here. The wizard's tile says so and sends people there, and the
+		 * radio behind it is disabled — but that was the whole of it. An
+		 * address typed by hand, or a stale form, made a programme that can
+		 * never send a card: nothing it can read a date from.
+		 *
+		 * The occasion-types check mirrors the tile's. On an install that
+		 * has never been seeded every category reads as campaign-driven,
+		 * and refusing them all would leave nothing that can be set up at
+		 * all — a worse failure than the one being fixed.
+		 */
+		if (
+			CardsCo_Occasion_Type::all( $company_id )
+			&& ! CardsCo_Category::is_dated( $category, $company_id )
+		) {
+			return new WP_Error(
+				'cardsco_programme_campaign_only',
+				/* translators: %s: occasion name. */
+				sprintf( __( '%s is set up as a campaign, not as an occasion.', 'cardsco' ), $definition['label'] )
+			);
+		}
+
 		$row = array(
 			'company_id'  => $company_id,
 			'category'    => $category,

@@ -1240,7 +1240,9 @@ class CardsCo_Dashboard {
 				? sprintf(
 					/* translators: 1: the occasion, 2: the price of one card. */
 					__( '%1$s cards are %2$s each, charged as they’re written. Postage is extra.', 'cardsco' ),
-					self::card_noun( $programme['category'], $company_id ),
+					/* Starts the sentence; the nouns are written for the
+					   middle of one. */
+					cardsco_ucfirst( self::card_noun( $programme['category'], $company_id ) ),
 					$money
 				)
 				: __( 'Pick an occasion to see what each card costs.', 'cardsco' ),
@@ -1393,7 +1395,9 @@ class CardsCo_Dashboard {
 			return sprintf(
 				/* translators: %s: the occasion, e.g. Birthday. */
 				__( '%s cards are folded cards, written inside in real ink.', 'cardsco' ),
-				$noun
+				/* It starts the sentence, and the category nouns are written
+				 * for the middle of one. */
+				cardsco_ucfirst( $noun )
 			);
 		}
 
@@ -2869,30 +2873,70 @@ class CardsCo_Dashboard {
 		 * drafting here, so they do the one thing left that is useful —
 		 * drop a written message into the box for the person to edit.
 		 */
-		$type      = CardsCo_Category::primary_type( (string) $programme['category'], $company_id );
-		$templates = array();
-		$seen      = array();
+		/*
+		 * Every occasion in the category, not just its first. Customer
+		 * Milestones is a welcome and a customer anniversary, and all
+		 * eight of its messages are written for the anniversary — so
+		 * asking for the first one found nothing and the screen offered
+		 * the whole library instead, birthdays included.
+		 */
+		$type  = CardsCo_Category::primary_type( (string) $programme['category'], $company_id );
+		$types = wp_list_pluck( CardsCo_Category::types( (string) $programme['category'], $company_id ), 'id' );
+		$types = array_values( array_filter( array_map( 'absint', (array) $types ) ) );
 
-		foreach ( CardsCo_Message::for_occasion( $type ? (int) $type['id'] : 0, $company_id ) as $post ) {
+		/*
+		 * Six chips fit, and a category can hold more than six messages
+		 * across more than one occasion. Taken in order, the first occasion
+		 * fills the row and the second barely appears: Leaving & Retirement
+		 * has four of each, and somebody setting up a retirement was offered
+		 * four leaving messages and two retirements.
+		 *
+		 * So they are grouped by occasion first and then taken one from each
+		 * in turn. With a single occasion that is the plain order it always
+		 * was.
+		 */
+		$by_type = array();
+
+		foreach ( CardsCo_Message::for_occasion( $types, $company_id ) as $post ) {
 			$body = trim( CardsCo_Message::text( $post->ID ) );
 
-			// An empty template offers nothing, and two chips with the same
-			// wording behind them are one chip as far as the person is
-			// concerned.
-			if ( '' === $body || isset( $seen[ $body ] ) ) {
+			if ( '' === $body ) {
 				continue;
 			}
 
-			$seen[ $body ] = true;
+			$own = CardsCo_Message::occasions( $post->ID );
+			$key = $own ? (int) $own[0] : 0;
 
-			$templates[] = array(
+			$by_type[ $key ][] = array(
 				'id'    => (int) $post->ID,
 				'label' => get_the_title( $post ),
 				'text'  => $body,
 			);
+		}
 
-			if ( count( $templates ) >= 6 ) {
-				break;
+		$templates = array();
+		$seen      = array();
+
+		while ( $by_type && count( $templates ) < 6 ) {
+			foreach ( array_keys( $by_type ) as $key ) {
+				$next = array_shift( $by_type[ $key ] );
+
+				if ( ! $by_type[ $key ] ) {
+					unset( $by_type[ $key ] );
+				}
+
+				// Two chips with the same wording behind them are one chip
+				// as far as the person is concerned.
+				if ( null === $next || isset( $seen[ $next['text'] ] ) ) {
+					continue;
+				}
+
+				$seen[ $next['text'] ] = true;
+				$templates[]           = $next;
+
+				if ( count( $templates ) >= 6 ) {
+					break;
+				}
 			}
 		}
 
@@ -3262,7 +3306,7 @@ class CardsCo_Dashboard {
 			}
 		}
 
-		$noun = cardsco_lcfirst( self::card_noun( (string) $programme['category'], (int) $programme['company_id'] ) );
+		$noun = cardsco_lcfirst( self::date_noun( (string) $programme['category'], (int) $programme['company_id'] ) );
 
 		/*
 		 * The counts only make sense where a date is collected. Telling
@@ -3309,7 +3353,7 @@ class CardsCo_Dashboard {
 			'rows'       => $rows,
 			'total'      => count( $ids ),
 			'per_person' => $per_person,
-			'noun'       => self::card_noun( (string) $programme['category'], (int) $programme['company_id'] ),
+			'noun'       => self::date_noun( (string) $programme['category'], (int) $programme['company_id'] ),
 			'counts'     => $counts,
 			'available'  => array_map(
 				static function ( $person ) {
@@ -3544,7 +3588,7 @@ class CardsCo_Dashboard {
 			'upload'     => self::upload_row( $ids ),
 			// "Person 1" on an empty list, "Person 2" once one is on.
 			'ordinal'    => count( $rows ) + 1,
-			'noun'       => self::card_noun( (string) $programme['category'], (int) $programme['company_id'] ),
+			'noun'       => self::date_noun( (string) $programme['category'], (int) $programme['company_id'] ),
 		);
 	}
 
@@ -3732,6 +3776,41 @@ class CardsCo_Dashboard {
 	 * @return string
 	 */
 	public static function card_noun( $slug, $company_id ) {
+		/*
+		 * The first occasion's word only when it is the only one. Customer
+		 * Milestones is a welcome AND a customer anniversary, and naming
+		 * the first made every screen read as though the occasion were
+		 * welcomes alone — the card picker offered "welcome cards" to
+		 * somebody setting up client anniversaries.
+		 */
+		$types = CardsCo_Category::types( $slug, $company_id );
+
+		if ( 1 === count( $types ) && ! empty( $types[0]['label'] ) ) {
+			return $types[0]['label'];
+		}
+
+		if ( count( $types ) > 1 ) {
+			$cat = CardsCo_Category::get( $slug );
+
+			if ( $cat && ! empty( $cat['noun'] ) ) {
+				return $cat['noun'];
+			}
+
+			/* Two occasions, named as a pair: "welcome and anniversary". */
+			$labels = array_values( array_filter( wp_list_pluck( $types, 'label' ) ) );
+
+			if ( 2 === count( $labels ) ) {
+				return sprintf(
+					/* translators: 1 and 2: two occasions, e.g. "welcome" and "customer anniversary". */
+					__( '%1$s and %2$s', 'cardsco' ),
+					$labels[0],
+					$labels[1]
+				);
+			}
+
+			return $cat ? $cat['label'] : '';
+		}
+
 		$type = CardsCo_Category::primary_type( $slug, $company_id );
 
 		if ( $type && ! empty( $type['label'] ) ) {
@@ -3741,5 +3820,28 @@ class CardsCo_Dashboard {
 		$cat = CardsCo_Category::get( $slug );
 
 		return $cat ? $cat['label'] : '';
+	}
+
+	/**
+	 * The same word, where a date is meant rather than the occasion.
+	 *
+	 * "0 missing a birthday" reads perfectly well, because a birthday is a
+	 * date. "0 missing a leaving or retirement" does not: the occasion noun
+	 * names an event there, and the sentence wants the date of it. Categories
+	 * that need a different word for those slots give one; the rest fall back
+	 * to the occasion noun, so nothing else on the site changes.
+	 *
+	 * @param string $slug       Category slug.
+	 * @param int    $company_id Company ID.
+	 * @return string
+	 */
+	public static function date_noun( $slug, $company_id ) {
+		$cat = CardsCo_Category::get( $slug );
+
+		if ( $cat && ! empty( $cat['date_noun'] ) ) {
+			return $cat['date_noun'];
+		}
+
+		return self::card_noun( $slug, $company_id );
 	}
 }

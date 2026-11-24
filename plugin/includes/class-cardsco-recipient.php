@@ -61,12 +61,12 @@ class CardsCo_Recipient {
 		$row['created_at'] = cardsco_now();
 		$row['updated_at'] = cardsco_now();
 
-		$duplicate = self::find_duplicate( $company_id, $row['first_name'], $row['last_name'], $row['address_hash'] );
+		$duplicate = self::find_duplicate( $company_id, $row['first_name'], $row['last_name'], $row['address_hash'], 0, (string) ( $row['email'] ?? '' ) );
 
 		if ( $duplicate && empty( $data['allow_duplicate'] ) ) {
 			return new WP_Error(
 				'cardsco_recipient_duplicate',
-				__( 'Somebody with this name and address is already on the list.', 'cardsco' ),
+				__( 'This person is already on the list.', 'cardsco' ),
 				array( 'duplicate_id' => $duplicate )
 			);
 		}
@@ -489,35 +489,71 @@ class CardsCo_Recipient {
 	 * @param int    $exclude_id Recipient to ignore, when updating.
 	 * @return int Recipient ID, or 0.
 	 */
-	public static function find_duplicate( $company_id, $first_name, $last_name, $address_hash, $exclude_id = 0 ) {
+	public static function find_duplicate( $company_id, $first_name, $last_name, $address_hash, $exclude_id = 0, $email = '' ) {
 		global $wpdb;
 
-		if ( ! CardsCo_Settings::get( 'duplicate_detection', null, absint( $company_id ) ) ) {
-			return 0;
-		}
+		$company_id = absint( $company_id );
+		$exclude_id = absint( $exclude_id );
+		$email      = sanitize_email( (string) $email );
 
-		if ( '' === (string) $address_hash ) {
+		if ( ! CardsCo_Settings::get( 'duplicate_detection', null, $company_id ) ) {
 			return 0;
 		}
 
 		$table = cardsco_table( 'recipients' );
 
-		return (int) $wpdb->get_var(
-			$wpdb->prepare(
-				"SELECT id FROM {$table}
-				 WHERE company_id = %d
-				   AND address_hash = %s
-				   AND first_name = %s
-				   AND last_name = %s
-				   AND id <> %d
-				 LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL
-				absint( $company_id ),
-				$address_hash,
-				$first_name,
-				$last_name,
-				absint( $exclude_id )
-			)
-		);
+		/*
+		 * An address is one way of telling two people apart, and it was
+		 * the only one: an email address was never looked at, and anybody
+		 * entered without an address could be entered again and again
+		 * because the check gave up before it started. The same person
+		 * went on the list twice and was sent two cards.
+		 */
+		if ( '' !== $email ) {
+			$same = (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT id FROM {$table}
+					 WHERE company_id = %d AND email = %s AND id <> %d
+					 LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL
+					$company_id,
+					$email,
+					$exclude_id
+				)
+			);
+
+			if ( $same ) {
+				return $same;
+			}
+		}
+
+		if ( '' !== (string) $address_hash ) {
+			return (int) $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT id FROM {$table}
+					 WHERE company_id = %d
+					   AND address_hash = %s
+					   AND first_name = %s
+					   AND last_name = %s
+					   AND id <> %d
+					 LIMIT 1", // phpcs:ignore WordPress.DB.PreparedSQL
+					$company_id,
+					$address_hash,
+					$first_name,
+					$last_name,
+					$exclude_id
+				)
+			);
+		}
+
+		/*
+		 * Two people with the same name and no address are left alone.
+		 * There is nothing here to tell them apart, but nothing to say
+		 * they are the same person either — a company with two John
+		 * Smiths and no postal addresses is ordinary, and refusing the
+		 * second with no way to insist would lose a real person. The
+		 * email check above catches the case that is never a coincidence.
+		 */
+		return 0;
 	}
 
 	/**

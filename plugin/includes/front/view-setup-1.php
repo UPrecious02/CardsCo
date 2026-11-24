@@ -33,11 +33,22 @@ defined( 'ABSPATH' ) || exit;
 			 * which is still better than one that looks pickable.
 			 */
 			$cc_away = ! empty( $cc_pick['campaign_only'] ) && ! empty( $cc_pick['campaign_link'] );
-			$cc_tag  = $cc_away ? 'a' : 'label';
+
+			/*
+			 * A coming-soon occasion is a button rather than a label: the
+			 * radio behind it is disabled, so pressing the tile did
+			 * nothing at all and read as a broken control. It opens the
+			 * dialog at the foot of this screen instead.
+			 */
+			$cc_soon = ! empty( $cc_pick['coming_soon'] );
+			$cc_tag  = $cc_away ? 'a' : ( $cc_soon ? 'button' : 'label' );
 			?>
 			<<?php echo esc_attr( $cc_tag ); ?>
 				class="cc-pick<?php echo $cc_pick['coming_soon'] ? ' is-soon' : ''; ?><?php echo ! empty( $cc_pick['campaign_only'] ) ? ' is-elsewhere' : ''; ?><?php echo $cc_pick['chosen'] ? ' is-chosen' : ''; ?>"
-				<?php if ( $cc_away ) : ?>
+				<?php if ( $cc_soon ) : ?>
+					type="button"
+					data-cc-soon="<?php echo esc_attr( $cc_pick['label'] ); ?>"
+				<?php elseif ( $cc_away ) : ?>
 					href="<?php echo esc_url( $cc_pick['campaign_link'] ); ?>"
 					<?php
 					/*
@@ -52,10 +63,10 @@ defined( 'ABSPATH' ) || exit;
 					 */
 					?>
 					data-cc-full
-				<?php else : ?>
+				<?php elseif ( ! $cc_soon ) : ?>
 					for="<?php echo esc_attr( $cc_id ); ?>"
 				<?php endif; ?>>
-				<?php if ( ! $cc_away ) : ?>
+				<?php if ( ! $cc_away && ! $cc_soon ) : ?>
 				<input type="radio" id="<?php echo esc_attr( $cc_id ); ?>" name="category"
 					value="<?php echo esc_attr( $cc_pick['slug'] ); ?>"
 					<?php checked( $cc_pick['chosen'] ); ?>
@@ -99,3 +110,7 @@ defined( 'ABSPATH' ) || exit;
 		<p class="cc-wz-note"><?php echo esc_html( $note ); ?></p>
 	<?php endif; ?>
 </form>
+
+<?php
+/* What a coming-soon tile opens. */
+include CARDSCO_PATH . 'includes/front/partial-soon.php';

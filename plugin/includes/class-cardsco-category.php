@@ -63,6 +63,14 @@ class CardsCo_Category {
 			),
 			'customer-milestones' => array(
 				'label'       => __( 'Customer Milestones', 'cardsco' ),
+				/*
+				 * What one of these is called in a sentence. A category
+				 * holding several occasions cannot borrow the first one's
+				 * word: this one is a welcome and a client anniversary,
+				 * and naming it "welcome" everywhere made the whole
+				 * occasion read as though anniversaries were not part of it.
+				 */
+				'noun'        => __( 'customer milestone', 'cardsco' ),
 				'blurb'       => __( 'New customer welcomes and client anniversaries.', 'cardsco' ),
 				'format'      => __( 'Postcard 6 × 4 in', 'cardsco' ),
 				'types'       => array( 'welcome', 'customer-anniversary' ),
@@ -78,6 +86,27 @@ class CardsCo_Category {
 				// Marked "coming soon" in the approved designs, so it is shown
 				// but cannot be set up yet.
 				'coming_soon' => true,
+			),
+			'leaving-retirement'  => array(
+				'label'       => __( 'Leaving & Retirement', 'cardsco' ),
+				/*
+				 * Two occasions in one category — somebody moving on and
+				 * somebody finishing for good — so it is named by its own
+				 * word rather than by whichever happens to come first.
+				 */
+				'noun'        => __( 'leaving or retirement', 'cardsco' ),
+				/*
+				 * The date, not the event. "0 missing a leaving or
+				 * retirement" is not English; "0 missing a leaving date"
+				 * is, and it covers a retirement too — somebody retiring
+				 * still has a last day. See CardsCo_Dashboard::date_noun().
+				 */
+				'date_noun'   => __( 'leaving date', 'cardsco' ),
+				'blurb'       => __( 'Send somebody off properly, whether they are moving on or finishing for good.', 'cardsco' ),
+				'format'      => __( 'Folded card', 'cardsco' ),
+				'types'       => array( 'leaving', 'retirement' ),
+				'audience'    => 'employee',
+				'coming_soon' => false,
 			),
 			'promotions-offers'   => array(
 				'label'       => __( 'Promotions & Offers', 'cardsco' ),

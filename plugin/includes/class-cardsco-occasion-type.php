@@ -24,6 +24,12 @@ class CardsCo_Occasion_Type {
 	const ANNUAL_DATES = 'annual_dates';
 
 	/**
+	 * Option holding the slugs retire_unspecified() switched off rather than
+	 * deleted, because work was hanging off them. Read only by unretire().
+	 */
+	const RETIRED_OPTION = 'cardsco_retired_types';
+
+	/**
 	 * Types available to a company: the global library plus its own.
 	 *
 	 * @param int   $company_id Company ID.
@@ -543,6 +549,62 @@ class CardsCo_Occasion_Type {
 			)
 		);
 
+		/*
+		 * Remember which ones this switched off, so that if one of them is
+		 * later approved and joins the designed list, the seed can switch it
+		 * back on. Without the list the seed would have to either leave it
+		 * off — a category offering an occasion no picker holds — or switch
+		 * every designed occasion on, which would quietly undo the "On"
+		 * checkbox an administrator cleared on the Occasions screen.
+		 *
+		 * Appended to, not replaced: this runs once per upgrade step, and a
+		 * second run finding nothing must not wipe what the first recorded.
+		 */
+		if ( $result['kept'] ) {
+			update_option(
+				self::RETIRED_OPTION,
+				array_values( array_unique( array_merge( (array) get_option( self::RETIRED_OPTION, array() ), $result['kept'] ) ) ),
+				false
+			);
+		}
+
 		return $result;
+	}
+
+	/**
+	 * Switch a retired occasion back on, if this plugin was what switched it
+	 * off. Returns false for one a person switched off themselves, which is
+	 * their decision and not ours to reverse.
+	 *
+	 * @param string $slug Occasion slug.
+	 * @return bool Whether it was switched back on.
+	 */
+	public static function unretire( $slug ) {
+		global $wpdb;
+
+		$slug    = (string) $slug;
+		$retired = (array) get_option( self::RETIRED_OPTION, array() );
+
+		if ( ! in_array( $slug, $retired, true ) ) {
+			return false;
+		}
+
+		$table = cardsco_table( 'occasion_types' );
+
+		$wpdb->update(
+			$table,
+			array( 'is_active' => 1 ),
+			array(
+				'company_id' => 0,
+				'slug'       => $slug,
+			),
+			array( '%d' ),
+			array( '%d', '%s' )
+		);
+
+		/* Spent: from here on, "off" means somebody meant it. */
+		update_option( self::RETIRED_OPTION, array_values( array_diff( $retired, array( $slug ) ) ), false );
+
+		return true;
 	}
 }

@@ -112,6 +112,16 @@ class CardsCo_Activator {
 			array( 'congratulations', 'Congratulations', 'dated', 'once', null, null, 0, 'both' ),
 
 			/*
+			 * Leaving and retirement. Two separate moments rather than one:
+			 * somebody moving to another job and somebody finishing work
+			 * altogether are not the same card, and a company often sends
+			 * both in a year. Each happens once for the person it is about,
+			 * so neither comes round again.
+			 */
+			array( 'leaving', 'Leaving', 'dated', 'once', null, null, 0, 'employee' ),
+			array( 'retirement', 'Retirement', 'dated', 'once', null, null, 0, 'employee' ),
+
+			/*
 			 * Offers and follow-ups. Not in the catalogue filter, but the
 			 * setup screen has a Promotions & Offers card and the client's
 			 * own "Prompts for the occasion" supplies nine messages for it,
@@ -155,14 +165,39 @@ class CardsCo_Activator {
 
 			$sort += 10;
 
-			$exists = (int) $wpdb->get_var(
+			$row = $wpdb->get_row(
 				$wpdb->prepare(
-					"SELECT id FROM {$table} WHERE company_id = 0 AND slug = %s", // phpcs:ignore WordPress.DB.PreparedSQL
+					"SELECT id, is_active FROM {$table} WHERE company_id = 0 AND slug = %s", // phpcs:ignore WordPress.DB.PreparedSQL
 					$slug
-				)
+				),
+				ARRAY_A
 			);
 
-			if ( $exists ) {
+			if ( $row ) {
+				/*
+				 * An occasion that is here but switched off is not here as
+				 * far as anybody using the site is concerned: it is in no
+				 * picker and no wizard, so the category above it offers a
+				 * choice that cannot be made.
+				 *
+				 * That is not hypothetical. retire_unspecified() switches
+				 * off, rather than deletes, any occasion with work behind
+				 * it — and "retirement" was on its list until the client
+				 * approved it. A site that had a card design tagged with
+				 * retirement is holding exactly that row. Adding the
+				 * occasion back to the designed list would have left the
+				 * screens looking right and the occasion unusable.
+				 *
+				 * unretire() switches it on only if this plugin was what
+				 * switched it off. The "On" checkbox on the Occasions
+				 * screen turns a global occasion off too, and a setting
+				 * that comes back at the next upgrade is the same kind of
+				 * defect pointing the other way.
+				 */
+				if ( ! (int) $row['is_active'] ) {
+					CardsCo_Occasion_Type::unretire( $slug );
+				}
+
 				continue;
 			}
 

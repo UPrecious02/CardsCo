@@ -16,7 +16,7 @@ class CardsCo_Schema {
 	/**
 	 * Schema version. Bump on any change to the statements in this class.
 	 */
-	const DB_VERSION = '1.3.0';
+	const DB_VERSION = '1.4.0';
 
 	/**
 	 * Option that stores the installed schema version.
@@ -80,6 +80,19 @@ class CardsCo_Schema {
 		}
 
 		self::install();
+
+		/*
+		 * Occasions the plugin ships are seeded here too, not only when it
+		 * is first switched on. Leaving and Retirement were added to the
+		 * designed list and appeared nowhere on an existing site, because
+		 * the only thing that ever seeded them ran at activation — years
+		 * ago, for anybody already using this. Seeding skips whatever is
+		 * already there, so running it on an upgrade adds the new ones and
+		 * leaves the rest alone.
+		 */
+		if ( class_exists( 'CardsCo_Activator' ) ) {
+			CardsCo_Activator::seed_occasion_types();
+		}
 
 		update_option( self::VERSION_OPTION, self::DB_VERSION, false );
 	}

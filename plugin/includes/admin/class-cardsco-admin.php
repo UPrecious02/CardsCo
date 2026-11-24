@@ -910,20 +910,50 @@ class CardsCo_Admin {
 			'allow_duplicate'    => ! empty( $_POST['allow_duplicate'] ),
 		);
 
+		/*
+		 * Coming back through "Add anyway": the same details as before,
+		 * with the duplicate check waived this time.
+		 */
+		if ( ! empty( $_POST['cardsco_add_anyway'] ) ) {
+			$held = get_transient( 'cardsco_dup_' . get_current_user_id() );
+
+			if ( is_array( $held ) ) {
+				$data = $held;
+			}
+
+			$data['allow_duplicate'] = true;
+
+			delete_transient( 'cardsco_dup_' . get_current_user_id() );
+		}
+
 		$result = $recipient_id
 			? CardsCo_Recipient::update( $recipient_id, $data )
 			: CardsCo_Recipient::create( $data );
 
 		if ( is_wp_error( $result ) ) {
-			$this->redirect(
-				self::MENU,
-				array(
-					'company'       => $company_id,
-					'action'        => $recipient_id ? 'edit' : 'new',
-					'recipient'     => $recipient_id,
-					'cardsco_error' => implode( ' ', $result->get_error_messages() ),
-				)
+			$back = array(
+				'company'       => $company_id,
+				'action'        => $recipient_id ? 'edit' : 'new',
+				'recipient'     => $recipient_id,
+				'cardsco_error' => implode( ' ', $result->get_error_messages() ),
 			);
+
+			/*
+			 * A refusal for being somebody already here is the one a person
+			 * may legitimately want to overrule — two people really can
+			 * share an address. There is a tickbox for it on the form, but
+			 * it has to be found and ticked BEFORE the refusal happens,
+			 * which is backwards: nobody ticks it until they have been
+			 * stopped. What they typed is held for a few minutes so the
+			 * refusal can offer to go ahead with it.
+			 */
+			if ( 'cardsco_recipient_duplicate' === $result->get_error_code() ) {
+				set_transient( 'cardsco_dup_' . get_current_user_id(), $data, 5 * MINUTE_IN_SECONDS );
+
+				$back['cardsco_duplicate'] = 1;
+			}
+
+			$this->redirect( self::MENU, $back );
 		}
 
 		$saved_id = $recipient_id ? $recipient_id : (int) $result;

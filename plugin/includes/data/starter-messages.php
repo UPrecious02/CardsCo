@@ -3,8 +3,10 @@
  * The starter messages, as written by the client.
  *
  * Source: "Prompts for the occasion", supplied 17 November 2026. Thirty-four
- * messages in six groups. The wording is the client's and is not edited here
- * beyond two mechanical changes:
+ * messages in six groups, plus eight written here for leaving and retirement,
+ * which that document does not cover — those are marked in place and are for
+ * the client to replace. The client's wording is not edited here beyond two
+ * mechanical changes:
  *
  *   (Name)              becomes {first name}, which the plugin fills in from
  *                       the recipient when the card is written.
@@ -137,6 +139,40 @@ return array(
 
 	array( 'birthday', 'playful', 'Birthday — with a treat',
 		'It\'s your birthday, and we\'d love to celebrate with you! Enjoy [discount or offer] on your next purchase as a little birthday treat from us. Have a wonderful day!' ),
+
+	/* ------------------------------------------------ Leaving & retirement */
+
+	/*
+	 * NOT the client's wording. "Prompts for the occasion" has nothing for
+	 * leaving or retirement, and the occasion is on the approved list, so
+	 * these eight are written here to the same pattern so the group is not
+	 * empty on the site. They are meant to be replaced: the wording for
+	 * every other group came from the client and this group should too.
+	 */
+
+	array( 'leaving', 'warm', 'Leaving — thank you and good luck',
+		'Thank you for everything you have brought to {our company}, {first name}. You will be missed here, and we are grateful for the part you played. Wishing you every success in what comes next.' ),
+
+	array( 'leaving', 'sincere', 'Leaving — the mark you leave',
+		'Your work here has made a real difference, and it will not be forgotten. Thank you for [contribution]. We hope the next step brings you everything you are hoping for.' ),
+
+	array( 'leaving', 'thankful', 'Leaving — from the team',
+		'From all of us at {our company}, thank you. It has been a pleasure working alongside you, and we are sorry to see you go. Please keep in touch.' ),
+
+	array( 'leaving', 'warm', 'Leaving — after a long stay',
+		'[Number] years with us, and you leave with our thanks. Thank you for all you have given {our company}, {first name}. Good luck with the new role.' ),
+
+	array( 'retirement', 'warm', 'Retirement — time to enjoy it',
+		'Congratulations on your retirement, {first name}. After [number] years of hard work, it is time to enjoy it. Thank you for everything you have given {our company}.' ),
+
+	array( 'retirement', 'sincere', 'Retirement — a career to be proud of',
+		'A career to be proud of, and a retirement well earned. Thank you for the years you gave us, and for everything you taught the people around you. Enjoy every bit of it.' ),
+
+	array( 'retirement', 'thankful', 'Retirement — thank you for the years',
+		'Thank you for [number] years at {our company}. You have been part of so much of what we have built here. Wishing you a long, happy and very well-deserved retirement.' ),
+
+	array( 'retirement', 'playful', 'Retirement — no more Monday mornings',
+		'No more early starts, no more Monday mornings. Congratulations, {first name}. Enjoy the rest, and do not be a stranger.' ),
 
 	/* --------------------------------------------------- Promotions & offers */
 

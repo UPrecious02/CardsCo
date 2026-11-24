@@ -263,8 +263,17 @@ foreach ( $items as $cc_item ) {
 			<?php endif; ?>
 
 			<div class="cc-nav-actions">
+				<?php
+				/*
+				 * These are icons with no words in them, so the search had
+				 * nothing to read and "settings" found nothing at all. The
+				 * label they already carry for screen readers is the same
+				 * word somebody types, so the search reads that.
+				 */
+				?>
 				<?php if ( $atts['notifications'] ) : ?>
 					<a class="cc-nav-ibtn" href="<?php echo esc_url( $atts['notifications'] ); ?>"
+						data-cc-findable="<?php esc_attr_e( 'Notifications', 'cardsco' ); ?>"
 						aria-label="<?php esc_attr_e( 'Notifications', 'cardsco' ); ?>">
 						<?php echo call_user_func( array( $cc, 'icon' ), 'bell', 'cc-nav-glyph' ); // phpcs:ignore WordPress.Security.EscapeOutput -- inline svg built in PHP. ?>
 					</a>
@@ -275,6 +284,7 @@ foreach ( $items as $cc_item ) {
 					<a class="cc-nav-ibtn<?php echo $cc_here ? ' is-here' : ''; ?>"
 						href="<?php echo esc_url( $atts['settings'] ); ?>"
 						<?php echo $cc_here ? ' aria-current="page"' : ''; ?>
+						data-cc-findable="<?php esc_attr_e( 'Settings', 'cardsco' ); ?>"
 						aria-label="<?php esc_attr_e( 'Settings', 'cardsco' ); ?>">
 						<?php echo call_user_func( array( $cc, 'icon' ), 'gear', 'cc-nav-glyph' ); // phpcs:ignore WordPress.Security.EscapeOutput -- inline svg built in PHP. ?>
 					</a>
@@ -282,6 +292,7 @@ foreach ( $items as $cc_item ) {
 
 				<?php if ( $atts['help'] ) : ?>
 					<a class="cc-nav-ibtn" href="<?php echo esc_url( $atts['help'] ); ?>"
+						data-cc-findable="<?php esc_attr_e( 'Help', 'cardsco' ); ?>"
 						aria-label="<?php esc_attr_e( 'Help', 'cardsco' ); ?>">
 						<?php echo call_user_func( array( $cc, 'icon' ), 'help', 'cc-nav-glyph' ); // phpcs:ignore WordPress.Security.EscapeOutput -- inline svg built in PHP. ?>
 					</a>

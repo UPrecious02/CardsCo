@@ -542,6 +542,25 @@ class CardsCo_Builder {
 		 * fill in", click step 3 in the stepper, and carry on — all the way
 		 * to a review screen reading "0 people".
 		 */
+		/*
+		 * Switching the offer on puts it into the wording.
+		 *
+		 * The code only ever reaches a card through {offer code} in the
+		 * message. Turn the offer on, type a code, and unless you also
+		 * went back and wrote that field in yourself the card went out
+		 * without it — the review screen warned, but the warning read as a
+		 * note rather than "this will not work". Putting the field in the
+		 * wording at the moment it is switched on means it is there to see
+		 * and to move, rather than something to know about.
+		 */
+		if ( 5 === $step && ! empty( $data['offer_enabled'] ) ) {
+			$wording = (string) $campaign['message_body'];
+
+			if ( '' !== trim( $wording ) && ! preg_match( '/\{\s*offer[ _-]?code\s*\}/i', $wording ) ) {
+				$data['message_body'] = rtrim( $wording ) . "\n\n" . __( 'Use code {offer code}.', 'cardsco' );
+			}
+		}
+
 		$saved = CardsCo_Campaign::update( (int) $campaign['id'], $data );
 
 		if ( is_wp_error( $saved ) ) {

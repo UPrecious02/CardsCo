@@ -23,6 +23,48 @@ $cardsco_value   = static function ( $key, $fallback = '' ) use ( $recipient ) {
 
 	<?php $this->print_notices(); ?>
 
+	<?php
+	/*
+	 * Somebody already here, and a way through it.
+	 *
+	 * The tickbox below has to be found and ticked before the refusal
+	 * happens, which nobody does — you only want it once you have been
+	 * stopped. What was typed is held for a few minutes, so this offers
+	 * to go ahead with exactly that rather than asking for it again.
+	 */
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only view state.
+	$cardsco_blocked = ! empty( $_GET['cardsco_duplicate'] ) ? get_transient( 'cardsco_dup_' . get_current_user_id() ) : false;
+	?>
+
+	<?php if ( is_array( $cardsco_blocked ) ) : ?>
+		<div class="notice notice-warning" style="padding:12px 14px;margin:0 0 16px">
+			<p style="margin:0 0 10px">
+				<strong>
+					<?php
+					printf(
+						/* translators: %s: the person's name. */
+						esc_html__( '%s looks like somebody already on this list.', 'cardsco' ),
+						esc_html( trim( ( $cardsco_blocked['first_name'] ?? '' ) . ' ' . ( $cardsco_blocked['last_name'] ?? '' ) ) )
+					);
+					?>
+				</strong>
+			</p>
+			<p style="margin:0 0 12px">
+				<?php esc_html_e( 'Two people can share an address, and an email address can be passed on. If this really is somebody new, add them anyway.', 'cardsco' ); ?>
+			</p>
+
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="margin:0">
+				<?php wp_nonce_field( CardsCo_Admin::NONCE ); ?>
+				<input type="hidden" name="action" value="cardsco_save_recipient" />
+				<input type="hidden" name="company" value="<?php echo esc_attr( (int) $cardsco_company_id ); ?>" />
+				<input type="hidden" name="cardsco_add_anyway" value="1" />
+				<button type="submit" class="button button-primary">
+					<?php esc_html_e( 'Add anyway', 'cardsco' ); ?>
+				</button>
+			</form>
+		</div>
+	<?php endif; ?>
+
 	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="cardsco-form">
 		<?php wp_nonce_field( CardsCo_Admin::NONCE ); ?>
 		<input type="hidden" name="action" value="cardsco_save_recipient" />
@@ -214,7 +256,7 @@ $cardsco_value   = static function ( $key, $fallback = '' ) use ( $recipient ) {
 				<div class="full">
 					<label style="display:flex;gap:6px;align-items:center">
 						<input type="checkbox" name="allow_duplicate" value="1" />
-						<?php esc_html_e( 'Save even if someone with this name and address already exists', 'cardsco' ); ?>
+						<?php esc_html_e( 'Save even if somebody like this is already on the list', 'cardsco' ); ?>
 					</label>
 				</div>
 			<?php endif; ?>

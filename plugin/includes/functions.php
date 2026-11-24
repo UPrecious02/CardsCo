@@ -553,6 +553,30 @@ function cardsco_lcfirst( $text ) {
 }
 
 /**
+ * The same, the other way: a noun at the start of a sentence.
+ *
+ * The category nouns are written for the middle of a sentence ("a leaving or
+ * retirement card"), so a slot that begins with one produced "leaving or
+ * retirement cards are folded cards." A name already capitalised, or one that
+ * is capitalised throughout like "Christmas & Seasonal", is left alone.
+ *
+ * @param string $text Text.
+ * @return string
+ */
+function cardsco_ucfirst( $text ) {
+	$text = (string) $text;
+
+	if ( '' === $text ) {
+		return '';
+	}
+
+	$first = function_exists( 'mb_substr' ) ? mb_substr( $text, 0, 1 ) : substr( $text, 0, 1 );
+	$rest  = function_exists( 'mb_substr' ) ? mb_substr( $text, 1 ) : substr( $text, 1 );
+
+	return ( function_exists( 'mb_strtoupper' ) ? mb_strtoupper( $first ) : strtoupper( $first ) ) . $rest;
+}
+
+/**
  * A number as an English ordinal: 1st, 2nd, 25th.
  *
  * Used where a date reads as prose rather than as a date — "arrives by the

@@ -117,8 +117,17 @@ window.CardsCo.add( function () {
 		var has   = '' !== value.trim();
 		var n     = used();
 
+		/*
+		 * The card stays on screen while you write.
+		 *
+		 * The preview used to be hidden whenever the box was empty, so
+		 * the card you had just chosen appeared and then vanished the
+		 * moment you cleared the text to start editing. Only the prompt
+		 * and its starter messages come and go now; the card itself, and
+		 * whatever is written on it, stays put.
+		 */
 		if ( blank ) { blank.hidden = has; }
-		if ( pane )  { pane.hidden = ! has; }
+		if ( pane )  { pane.hidden = false; }
 
 		/* The card keeps up with the box. Built with textContent per line
 		   rather than innerHTML, so a message is never markup. */

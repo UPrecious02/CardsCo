@@ -31,7 +31,19 @@ $cc_steps = array(
 ?>
 <div class="cc cc-send">
 
-	<ol class="cc-send-steps">
+	<?php
+	/*
+	 * Divs carrying list roles rather than ol and li.
+	 *
+	 * A page builder emits rules like "#inner_content li { display:
+	 * inline-block }", which outranks any single class this component can
+	 * write, and the steps fell out of their row onto different baselines
+	 * on the live site while looking perfect everywhere else. Elements a
+	 * theme does not style cannot be taken over that way, and the roles
+	 * keep the meaning for anybody listening to the page.
+	 */
+	?>
+	<div class="cc-send-steps" role="list">
 		<?php foreach ( $cc_steps as $cc_n => $cc_label ) : ?>
 			<?php
 			$cc_state = '';
@@ -42,7 +54,7 @@ $cc_steps = array(
 				$cc_state = ' is-done';
 			}
 			?>
-			<li class="cc-send-step<?php echo esc_attr( $cc_state ); ?>">
+			<div class="cc-send-step<?php echo esc_attr( $cc_state ); ?>" role="listitem">
 				<?php if ( $cc_n < $step ) : ?>
 					<a href="<?php echo esc_url( add_query_arg( 'step', $cc_n, $here ) ); ?>">
 						<span class="cc-send-step-n"><?php echo esc_html( number_format_i18n( $cc_n ) ); ?></span>
@@ -52,9 +64,9 @@ $cc_steps = array(
 					<span class="cc-send-step-n"><?php echo esc_html( number_format_i18n( $cc_n ) ); ?></span>
 					<span><?php echo esc_html( $cc_label ); ?></span>
 				<?php endif; ?>
-			</li>
+			</div>
 		<?php endforeach; ?>
-	</ol>
+	</div>
 
 	<?php if ( $error ) : ?>
 		<p class="cc-send-error" role="alert"><?php echo esc_html( $error ); ?></p>
@@ -94,9 +106,9 @@ $cc_steps = array(
 			</p>
 
 			<?php if ( ! $cc_batch && ! empty( $draft['people'] ) ) : ?>
-				<ul class="cc-send-people">
+				<div class="cc-send-people" role="list">
 					<?php foreach ( (array) $draft['people'] as $cc_at => $cc_person ) : ?>
-						<li class="cc-send-person">
+						<div class="cc-send-person" role="listitem">
 							<span class="cc-send-person-who">
 								<strong><?php echo esc_html( $cc_person['name'] ); ?></strong>
 								<?php if ( ! empty( $cc_person['company'] ) ) : ?>
@@ -133,9 +145,9 @@ $cc_steps = array(
 								name="cardsco_send_action" value="remove_person">
 								<span><?php esc_html_e( 'Remove', 'cardsco' ); ?></span>
 							</button>
-						</li>
+						</div>
 					<?php endforeach; ?>
-				</ul>
+				</div>
 
 				<p class="cc-send-count">
 					<?php

@@ -770,21 +770,29 @@ a.cc-coll-card:focus-visible {
 
 /* --- the four steps --- */
 
-.cc-send-steps {
+/*
+ * Scoped one level deeper than the element it sits in, so an ordinary
+ * theme rule for the wrapper cannot outrank the row itself. The markup
+ * is divs with list roles for the same reason: a page builder's rule on
+ * li beat this and scattered the steps onto separate baselines.
+ */
+.cc-send .cc-send-steps {
 	display: flex;
 	flex-wrap: wrap;
+	align-items: center;
 	gap: var(--cc-space-8, 8px);
 	margin: 0 0 24px;
 	padding: 0;
 	list-style: none;
 }
 
-.cc-send-step {
+.cc-send .cc-send-step {
 	display: flex;
 	align-items: center;
 	gap: 6px;
 	color: var(--cc-quiet, #6F6D67);
 	font-size: 13px;
+	white-space: nowrap;
 }
 
 .cc-send-step a {
@@ -1076,7 +1084,7 @@ a.cc-coll-card:focus-visible {
  * them and the nudge towards an account all live on the first step.
  * ------------------------------------------------------------------ */
 
-.cc-send-people {
+.cc-send .cc-send-people {
 	list-style: none;
 	margin: 0 0 10px;
 	padding: 0;
@@ -1084,7 +1092,7 @@ a.cc-coll-card:focus-visible {
 	border-radius: 10px;
 }
 
-.cc-send-person {
+.cc-send .cc-send-person {
 	display: flex;
 	align-items: flex-start;
 	justify-content: space-between;
@@ -1093,7 +1101,7 @@ a.cc-coll-card:focus-visible {
 	border-bottom: 1px solid var(--cc-border-subtle, #E4E4DF);
 }
 
-.cc-send-person:last-child { border-bottom: 0; }
+.cc-send .cc-send-person:last-child { border-bottom: 0; }
 
 .cc-send-person-who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .cc-send-person-co,
@@ -1180,15 +1188,16 @@ a.cc-coll-card:focus-visible {
 }
 
 /*
- * Buttons for the sending flow.
+ * Buttons for the sending flow and the "not open yet" dialog.
  *
  * .cc-btn is defined in dashboard.css, which the portal loads and a public
  * page does not — so the footer arrived as a blue underlined link and a
- * grey browser button. Scoped to .cc-send so it cannot reach the portal,
- * where the real definitions live.
+ * grey browser button. Scoped to .cc-send and .cc-soon so it cannot reach
+ * the portal, where the real definitions live.
  */
 
-.cc-send .cc-btn {
+.cc-send .cc-btn,
+.cc-soon .cc-btn {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -1204,26 +1213,32 @@ a.cc-coll-card:focus-visible {
 	cursor: pointer;
 }
 
-.cc-send .cc-btn-primary {
+.cc-send .cc-btn-primary,
+.cc-soon .cc-btn-primary {
 	background: var(--cc-green-600, #0F5A43);
 	color: #FFFFFF;
 }
 
-.cc-send .cc-btn-primary:hover { background: var(--cc-green-700, #0C4836); }
+.cc-send .cc-btn-primary:hover,
+.cc-soon .cc-btn-primary:hover { background: var(--cc-green-700, #0C4836); }
 
-.cc-send .cc-btn-primary:disabled {
+.cc-send .cc-btn-primary:disabled,
+.cc-soon .cc-btn-primary:disabled {
 	background: var(--cc-line, #D1CFC9);
 	cursor: not-allowed;
 }
 
-.cc-send .cc-btn-ghost {
+.cc-send .cc-btn-ghost,
+.cc-soon .cc-btn-ghost {
 	background: transparent;
 	color: var(--cc-body, #57554F);
 }
 
-.cc-send .cc-btn-ghost:hover { color: var(--cc-ink, #14231B); }
+.cc-send .cc-btn-ghost:hover,
+.cc-soon .cc-btn-ghost:hover { color: var(--cc-ink, #14231B); }
 
-.cc-send .cc-btn:focus-visible {
+.cc-send .cc-btn:focus-visible,
+.cc-soon .cc-btn:focus-visible {
 	outline: 2px solid var(--cc-green-600, #0F5A43);
 	outline-offset: 2px;
 }
@@ -1346,4 +1361,61 @@ a.cc-coll-card:focus-visible {
 .cc-cat-use-off:hover {
 	background: var(--cc-wash);
 	color: var(--cc-quiet);
+}
+
+/* ---------------------------------------------------------------------
+ * "Not open yet"
+ *
+ * What a coming-soon occasion opens when it is pressed. Divs rather than
+ * a <dialog> so a theme's own dialog rules cannot take it over, and
+ * scoped under .cc-soon so nothing here reaches the rest of the page.
+ * ------------------------------------------------------------------ */
+
+.cc-soon {
+	position: fixed;
+	inset: 0;
+	z-index: 9999;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 20px;
+	background: rgba(20, 35, 27, 0.45);
+}
+
+.cc-soon[hidden] { display: none; }
+
+.cc-soon .cc-soon-sheet {
+	width: 100%;
+	max-width: 420px;
+	padding: 24px;
+	background: #FFFFFF;
+	border-radius: 14px;
+	box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+}
+
+.cc-soon .cc-soon-title {
+	margin: 0 0 10px;
+	font-family: var(--cc-font-display, Georgia, serif);
+	font-size: 22px;
+	line-height: 1.25;
+	color: var(--cc-ink, #14231B);
+}
+
+.cc-soon .cc-soon-blurb {
+	margin: 0 0 10px;
+	font-size: 14px;
+	line-height: 1.55;
+	color: var(--cc-quiet, #5C6660);
+}
+
+.cc-soon .cc-soon-feet {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin-top: 18px;
+}
+
+@media (max-width: 480px) {
+	.cc-soon .cc-soon-sheet { padding: 20px; }
+	.cc-soon .cc-soon-feet .cc-btn { flex: 1 1 100%; justify-content: center; }
 }

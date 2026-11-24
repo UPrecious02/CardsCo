@@ -143,6 +143,16 @@ class CardsCo_Plugin {
 			CardsCo_Message::seed();
 		}
 
+		// 0.96.0 adds leaving and retirement. Their starter messages are new
+		// rows in the same seed file, and the 0.83.0 step above has already
+		// run on every site that upgraded before today, so without a second
+		// pass the new occasions open on an empty library. seed() skips
+		// anything already there by title, so the other thirty-four are left
+		// exactly as they are, edits included.
+		if ( $stored && version_compare( $stored, '0.96.0', '<' ) && class_exists( 'CardsCo_Message' ) ) {
+			CardsCo_Message::seed();
+		}
+
 		update_option( 'cardsco_version', CARDSCO_VERSION, false );
 	}
 

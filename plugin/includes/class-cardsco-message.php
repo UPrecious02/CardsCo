@@ -549,7 +549,88 @@ class CardsCo_Message {
 	 * @param int $company_id Company ID.
 	 * @return WP_Post[]
 	 */
+	/**
+	 * The messages written for any of these occasions.
+	 *
+	 * @param int[] $type_ids   Occasion types.
+	 * @param int   $company_id Company, for its own private messages.
+	 * @return WP_Post[]
+	 */
+	public static function for_occasions( array $type_ids, $company_id = 0 ) {
+		$type_ids = array_values( array_filter( array_map( 'absint', $type_ids ) ) );
+
+		/*
+		 * No occasions in this category: none of ours apply, but a company
+		 * that wrote its own untagged messages still gets them.
+		 */
+		$clauses = array(
+			'relation' => 'AND',
+			array(
+				'key'     => self::OCCASION,
+				'compare' => 'NOT EXISTS',
+			),
+			array(
+				'key'     => CardsCo_Card::COMPANY,
+				'value'   => 0,
+				'compare' => '>',
+				'type'    => 'NUMERIC',
+			),
+		);
+
+		if ( $type_ids ) {
+			$clauses = array(
+				'relation' => 'OR',
+				array(
+					'key'     => self::OCCASION,
+					'value'   => $type_ids,
+					'compare' => 'IN',
+				),
+				$clauses,
+			);
+		}
+
+		return get_posts(
+			array(
+				'post_type'        => self::POST_TYPE,
+				'post_status'      => 'publish',
+				'posts_per_page'   => 200,
+				'orderby'          => array( 'menu_order' => 'ASC', 'title' => 'ASC' ),
+				'suppress_filters' => false,
+				'no_found_rows'    => true,
+				'meta_query'       => array( // phpcs:ignore WordPress.DB.SlowDBQuery
+					CardsCo_Card::company_clause( $company_id ),
+					$clauses,
+				),
+			)
+		);
+	}
+
 	public static function for_occasion( $type_id = 0, $company_id = 0 ) {
+		/*
+		 * One category can hold several occasions. Customer Milestones is
+		 * a welcome and a customer anniversary, and every message written
+		 * for it sits on the anniversary — so asking for the category's
+		 * first occasion alone found nothing and the screen fell back to
+		 * offering every message in the library, birthdays included.
+		 */
+		$ids = array_values( array_filter( array_map( 'absint', (array) $type_id ) ) );
+
+		/*
+		 * A list, even an empty one, is an answer: these occasions and no
+		 * others. A plain 0 is the older "no occasion in mind, show me
+		 * everything". Without that difference a category that has no
+		 * occasions at all — Promotions, as it stands — asked for nothing
+		 * and was handed the entire library.
+		 */
+		if ( is_array( $type_id ) ) {
+			return self::for_occasions( $ids, $company_id );
+		}
+
+		if ( count( $ids ) > 1 ) {
+			return self::for_occasions( $ids, $company_id );
+		}
+
+		$type_id = $ids ? (int) $ids[0] : 0;
 		$args = array(
 			'post_type'        => self::POST_TYPE,
 			'post_status'      => 'publish',
