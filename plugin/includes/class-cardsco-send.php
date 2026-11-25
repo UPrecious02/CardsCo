@@ -57,6 +57,16 @@ class CardsCo_Send {
 		add_action( 'woocommerce_thankyou', array( __CLASS__, 'after_paying' ), 5 );
 
 		/*
+		 * The confirmation's styles, loaded before the page is drawn.
+		 *
+		 * after_paying() runs while the receipt is being rendered, which is
+		 * past the point where a stylesheet can reach the head — so the
+		 * block came out as plain unstyled text under the receipt, with the
+		 * rules for it sitting in a file nothing on that page loads.
+		 */
+		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_received' ) );
+
+		/*
 		 * Putting the card on the writing list hangs off payment, not off
 		 * the thank-you page. after_paying() runs on woocommerce_thankyou,
 		 * which only fires if the buyer comes back to the site: close the
@@ -291,6 +301,14 @@ class CardsCo_Send {
 		return '';
 	}
 
+	public static function enqueue_received() {
+		if ( ! function_exists( 'is_order_received_page' ) || ! is_order_received_page() ) {
+			return;
+		}
+
+		CardsCo_Catalogue::enqueue_catalogue();
+	}
+
 	public static function after_paying( $order_id ) {
 		$order = function_exists( 'wc_get_order' ) ? wc_get_order( $order_id ) : null;
 
@@ -298,29 +316,99 @@ class CardsCo_Send {
 			return;
 		}
 
+		/*
+		 * Our lines are found by the data we attach to them, not by a
+		 * readable "To" having something in it.
+		 *
+		 * This used to collect only lines with a name on them and give up
+		 * when there were none — so an order whose recipient did not make
+		 * it onto the line showed the bare WooCommerce receipt and nothing
+		 * else: no confirmation that a card was on its way, and no offer of
+		 * an account at the one moment somebody has a reason to want one.
+		 * The buyer could not tell whether anything had worked.
+		 *
+		 * An order placed before the flow could hold several people is
+		 * exactly that order, and there are some. LINE_DATA is written to
+		 * every line this flow creates, so it answers "is this ours" on its
+		 * own, and a line with no name is shown without the sentence that
+		 * needs one rather than dropped.
+		 */
 		$sent = array();
+		$ours = false;
 
 		foreach ( $order->get_items() as $item ) {
+			$data = $item->get_meta( self::LINE_DATA );
+
+			if ( ! is_array( $data ) && '' === (string) $item->get_meta( __( 'To', 'cardsco' ) ) ) {
+				continue;
+			}
+
+			$ours = true;
+
 			$to = (string) $item->get_meta( __( 'To', 'cardsco' ) );
 
-			if ( '' !== $to ) {
-				$sent[] = array(
-					'to'      => $to,
-					'address' => (string) $item->get_meta( __( 'Address', 'cardsco' ) ),
-				);
+			if ( '' === $to && is_array( $data ) ) {
+				$to = (string) ( $data['name'] ?? '' );
 			}
+
+			$address = (string) $item->get_meta( __( 'Address', 'cardsco' ) );
+
+			if ( '' === $address && is_array( $data ) ) {
+				$address = self::address_line( $data );
+			}
+
+			$sent[] = array(
+				'to'      => $to,
+				'address' => $address,
+			);
 		}
 
-		if ( ! $sent ) {
+		if ( ! $ours ) {
 			return;
 		}
 
 		/* The card is bought and on its way; the half-written one is done with. */
 		self::forget();
 
-		$offer_account = ! is_user_logged_in() && ! email_exists( $order->get_billing_email() );
+		/*
+		 * Three different people land here, and only one of them was being
+		 * offered anything.
+		 *
+		 * Somebody with no account gets the offer of one. Somebody whose
+		 * address already has an account — which is most people who have
+		 * bought before — got nothing at all, when what they want is the
+		 * way in. And somebody already signed in needs neither.
+		 */
+		$signed_in     = is_user_logged_in();
+		$has_account   = ! $signed_in && email_exists( $order->get_billing_email() );
+		$offer_account = ! $signed_in && ! $has_account;
+		$offer_sign_in = $has_account;
+		$sign_in_url   = $offer_sign_in ? self::sign_in_url( $order ) : '';
 
 		include CARDSCO_PATH . 'includes/front/partial-sent.php';
+	}
+
+	/**
+	 * Where "Sign in" on the confirmation goes.
+	 *
+	 * Back to this page afterwards, so signing in does not cost them the
+	 * confirmation they were reading.
+	 *
+	 * @param object $order The order.
+	 * @return string
+	 */
+	protected static function sign_in_url( $order ) {
+		$login = CardsCo_Shortcodes::page_for( 'cardsco_login' );
+
+		if ( ! $login ) {
+			return '';
+		}
+
+		$back = method_exists( $order, 'get_checkout_order_received_url' )
+			? (string) $order->get_checkout_order_received_url()
+			: '';
+
+		return $back ? add_query_arg( 'redirect_to', rawurlencode( $back ), $login ) : (string) $login;
 	}
 
 	/**
@@ -343,49 +431,52 @@ class CardsCo_Send {
 	 *
 	 * @return string
 	 */
-	public static function page_url() {
-		/*
-		 * What the screen reported about itself, first — the shortcode
-		 * search below finds nothing on a page built with Oxygen or any
-		 * other builder, because the page's own content is a stub.
-		 */
-		$known = get_option( 'cardsco_page_url_cardsco_send' );
+	/**
+	 * The copy of this flow that lives inside the portal, if there is one.
+	 *
+	 * A page carrying [cardsco_send portal="1"] writes its own address down
+	 * when it renders, the same way every other portal screen does — which
+	 * is the only way to find a page on a site built with a page builder,
+	 * where the shortcode is in the builder's storage and not in the post.
+	 *
+	 * @return string A URL, or '' when no such page has been made.
+	 */
+	public static function portal_page_url() {
+		return (string) CardsCo_Shortcodes::page_for( 'cardsco_send_portal' );
+	}
 
-		if ( $known ) {
-			return (string) $known;
-		}
+	/**
+	 * Where to send this person to write one card.
+	 *
+	 * A customer goes to the portal copy when there is one, so sending a
+	 * card is something they do inside their account rather than out on the
+	 * marketing site. Everybody else goes to the public one.
+	 *
+	 * @return string
+	 */
+	public static function flow_url() {
+		if ( is_user_logged_in() && CardsCo_Access::company_id() ) {
+			$portal = self::portal_page_url();
 
-		$found = get_transient( self::PAGE );
-
-		if ( false !== $found ) {
-			return (string) $found;
-		}
-
-		$pages = get_posts(
-			array(
-				'post_type'        => 'page',
-				'post_status'      => 'publish',
-				'numberposts'      => 20,
-				's'                => '[cardsco_send',
-				'fields'           => 'ids',
-				'suppress_filters' => false,
-			)
-		);
-
-		$url = '';
-
-		foreach ( $pages as $page_id ) {
-			$content = get_post_field( 'post_content', $page_id );
-
-			if ( has_shortcode( (string) $content, 'cardsco_send' ) ) {
-				$url = (string) get_permalink( $page_id );
-				break;
+			if ( '' !== $portal ) {
+				return $portal;
 			}
 		}
 
-		set_transient( self::PAGE, $url, DAY_IN_SECONDS );
+		return self::page_url();
+	}
 
-		return $url;
+	public static function page_url() {
+		/*
+		 * One implementation, not two.
+		 *
+		 * This had its own copy of the search for a page carrying the
+		 * shortcode, and when the flow gained a second page — the copy
+		 * inside the portal — only the other copy learned to tell them
+		 * apart. This one went on handing the portal page to guests, who
+		 * cannot open it.
+		 */
+		return (string) CardsCo_Shortcodes::page_for( 'cardsco_send' );
 	}
 
 	/**
@@ -403,7 +494,7 @@ class CardsCo_Send {
 	 * @return string
 	 */
 	public static function use_url( $card_id, $fallback = '' ) {
-		$page = self::page_url();
+		$page = self::flow_url();
 
 		if ( '' === $page ) {
 			return (string) $fallback;
@@ -420,7 +511,14 @@ class CardsCo_Send {
 	 */
 	public static function forget_page( $post_id = 0 ) {
 		unset( $post_id );
+
+		/*
+		 * The page lookup lives in CardsCo_Shortcodes now, so this clears
+		 * what that one caches. The old transient is dropped as well, for
+		 * installs upgrading with one still in the table.
+		 */
 		delete_transient( self::PAGE );
+		CardsCo_Shortcodes::forget_pages();
 	}
 
 	/**
@@ -482,6 +580,20 @@ class CardsCo_Send {
 	 *
 	 * @return int
 	 */
+	/**
+	 * The longest message a pen will write on one of these cards.
+	 *
+	 * The same setting the portal's writer uses. A guest message had no
+	 * limit at all: the box took as much as somebody cared to paste, the
+	 * order went through, and the length was not anybody's problem until a
+	 * card was in front of a writer with no room left on it.
+	 *
+	 * @return int Characters, or 0 if the setting is off.
+	 */
+	public static function max_chars() {
+		return (int) CardsCo_Settings::get( 'message_max_chars' );
+	}
+
 	public static function cap() {
 		$cap = (int) CardsCo_Settings::get( 'guest_max_people' );
 
@@ -597,6 +709,84 @@ class CardsCo_Send {
 	 * @param int   $want  The step asked for.
 	 * @return int
 	 */
+	/**
+	 * Is the card already settled?
+	 *
+	 * Everybody who reaches this flow from the site comes through the
+	 * collections and the catalogue and presses "Use this card", so the card
+	 * is decided before the first screen. Asking again is a screen they open
+	 * with their own card already selected and press Continue on.
+	 *
+	 * The card has to still be on sale. One withdrawn between the click and
+	 * the order would otherwise be skipped past silently and taken to
+	 * payment.
+	 *
+	 * @param array $draft Draft.
+	 * @return bool
+	 */
+	public static function card_chosen( array $draft ) {
+		$card_id = absint( $draft['card_id'] ?? 0 );
+
+		return $card_id > 0 && CardsCo_Catalogue::is_sellable( $card_id );
+	}
+
+	/**
+	 * The steps this visitor is actually shown, in order.
+	 *
+	 * The numbers themselves do not move: 3 is the card wherever it appears,
+	 * so what a posted form means, what step_done() answers and what is
+	 * saved are all unchanged. Only which of them are drawn, and what comes
+	 * after what, depend on the draft.
+	 *
+	 * Step 3 is still reachable on purpose — "Change card" on the last step
+	 * goes straight to it — so this says which steps are walked through, not
+	 * which may be opened.
+	 *
+	 * @param array $draft Draft.
+	 * @return int[]
+	 */
+	public static function visible_steps( array $draft ) {
+		if ( self::card_chosen( $draft ) ) {
+			return array( 1, 2, 4 );
+		}
+
+		return range( 1, self::STEPS );
+	}
+
+	/**
+	 * The step Continue goes to, or the one Back comes from.
+	 *
+	 * @param array $draft Draft.
+	 * @param int   $step  The step now on screen.
+	 * @param int   $by    1 for the next one, -1 for the one before.
+	 * @return int The step, or the one given when there is none that way.
+	 */
+	public static function step_along( array $draft, $step, $by ) {
+		$steps = self::visible_steps( $draft );
+		$step  = (int) $step;
+		$at    = array_search( $step, $steps, true );
+
+		/*
+		 * A step that is not in the walk — the card step opened from the
+		 * last one — carries on from where it sits in the full order, so
+		 * Continue from it lands on the next step there is rather than
+		 * nowhere.
+		 */
+		if ( false === $at ) {
+			foreach ( ( $by < 0 ? array_reverse( $steps ) : $steps ) as $one ) {
+				if ( $by < 0 ? $one < $step : $one > $step ) {
+					return $one;
+				}
+			}
+
+			return $step;
+		}
+
+		$want = (int) $at + ( $by < 0 ? -1 : 1 );
+
+		return isset( $steps[ $want ] ) ? (int) $steps[ $want ] : $step;
+	}
+
 	public static function step_on_screen( array $draft, $want ) {
 		$want = max( 1, min( self::STEPS, (int) $want ) );
 
@@ -635,7 +825,19 @@ class CardsCo_Send {
 				return 'batch' === (string) $draft['mode'] || count( $cards ) <= self::cap();
 
 			case 2:
-				return '' !== trim( $draft['message'] );
+				$cc_said = trim( (string) $draft['message'] );
+				$cc_max  = self::max_chars();
+
+				/* The signature is written under the message, on the same
+				   card, so it counts towards the room there is. */
+				$cc_sign = trim( (string) ( $draft['signature'] ?? '' ) );
+				$cc_len  = mb_strlen( $cc_sign ? $cc_said . "\n" . $cc_sign : $cc_said );
+
+				if ( $cc_max > 0 && $cc_len > $cc_max ) {
+					return false;
+				}
+
+				return '' !== $cc_said;
 
 			case 3:
 				return (int) $draft['card_id'] > 0;
@@ -717,12 +919,24 @@ class CardsCo_Send {
 	 * @return string
 	 */
 	public static function address_line( array $draft ) {
+		/*
+		 * Each part asked for rather than assumed. This is handed a draft
+		 * from the session, which always has every field, and also the data
+		 * kept on an order line, which was written by whichever version of
+		 * this flow took that order — an old one has fewer fields, and
+		 * reading a key that is not there turns a thank-you page into a
+		 * row of PHP warnings.
+		 */
+		$part = static function ( $key ) use ( $draft ) {
+			return trim( (string) ( $draft[ $key ] ?? '' ) );
+		};
+
 		$bits = array_filter(
 			array(
-				trim( $draft['line1'] ),
-				trim( $draft['line2'] ),
-				trim( $draft['town'] ),
-				strtoupper( trim( $draft['postcode'] ) ),
+				$part( 'line1' ),
+				$part( 'line2' ),
+				$part( 'town' ),
+				strtoupper( $part( 'postcode' ) ),
 			)
 		);
 
@@ -889,11 +1103,33 @@ class CardsCo_Send {
 	 * @param int $how_many At most this many.
 	 * @return array
 	 */
-	public static function starters( $how_many = 6 ) {
+	public static function starters( $how_many = 6, $card_id = 0 ) {
 		$out  = array();
 		$seen = array();
 
-		foreach ( CardsCo_Message::for_occasion( 0, 0 ) as $post ) {
+		/*
+		 * Narrowed to the card, where there is one.
+		 *
+		 * The card is chosen at step 3 and the message is written at step 2,
+		 * so most of the time there is nothing to narrow by and the row is a
+		 * general mix. But somebody who came from the catalogue arrives with
+		 * a card already chosen, and a Christmas design above six chips that
+		 * start "Happy birthday" is the row working against them.
+		 *
+		 * By the card's collection rather than its own ticks, so a design in
+		 * Leaving & Retirement offers both occasions of the pair.
+		 *
+		 * All or nothing: a narrowed row topped up from the general pool is
+		 * the same mismatch with the relevant ones at the front. Where the
+		 * card's occasions have nothing a visitor can use, the general mix
+		 * is the better row.
+		 */
+		$only = self::starter_occasions( (int) $card_id );
+		$pool = $only
+			? CardsCo_Message::for_occasions( $only, 0 )
+			: CardsCo_Message::for_occasion( 0, 0 );
+
+		foreach ( $pool as $post ) {
 			$body = trim( CardsCo_Message::text( $post->ID ) );
 
 			/*
@@ -918,7 +1154,41 @@ class CardsCo_Send {
 			}
 		}
 
+		/* The card's own occasions had nothing usable; offer the rest. */
+		if ( ! $out && $only ) {
+			return self::starters( $how_many, 0 );
+		}
+
 		return $out;
+	}
+
+	/**
+	 * The occasions a card's starter messages should come from, or an empty
+	 * list for a visitor who has not chosen a card yet.
+	 *
+	 * @param int $card_id Card post ID.
+	 * @return int[] Occasion type IDs.
+	 */
+	protected static function starter_occasions( $card_id ) {
+		$card_id = absint( $card_id );
+
+		if ( ! $card_id ) {
+			return array();
+		}
+
+		$category = CardsCo_Card::category( $card_id );
+
+		if ( $category ) {
+			$ids = wp_list_pluck( CardsCo_Category::types( $category ), 'id' );
+			$ids = array_values( array_filter( array_map( 'absint', (array) $ids ) ) );
+
+			if ( $ids ) {
+				return $ids;
+			}
+		}
+
+		/* No collection on it: whatever is ticked on the card itself. */
+		return array_values( array_filter( CardsCo_Card::occasions( $card_id ) ) );
 	}
 
 	/**
@@ -1016,7 +1286,7 @@ class CardsCo_Send {
 			);
 		}
 
-		$next  = min( self::STEPS, $step + 1 );
+		$next  = self::step_along( $draft, $step, 1 );
 		$draft = self::save( array( 'reached' => max( (int) $draft['reached'], $next ) ) );
 
 		self::go( array( 'step' => $next ) );
@@ -1049,6 +1319,35 @@ class CardsCo_Send {
 			self::go( array( 'step' => 1, 'cardsco_full' => 1 ) );
 		}
 
+		/*
+		 * The same person twice is two cards to one letterbox, paid for.
+		 *
+		 * Worth a guard on its own, and worth more than that here: the
+		 * fields carried browser autocomplete tokens meant for the visitor's
+		 * own address, so a form emptied after each person was filled back
+		 * in by the browser, and somebody adding a third person could post
+		 * the second one again without noticing. The tokens are gone, and
+		 * this is the net under them.
+		 *
+		 * Refused, not merged: two people really can share an address, so
+		 * the name has to match too, and then it is said rather than
+		 * decided for them.
+		 */
+		foreach ( $people as $cc_already ) {
+			if ( self::same_person( $cc_already, $person ) ) {
+				self::go(
+					array(
+						'step'          => 1,
+						'cardsco_error' => sprintf(
+							/* translators: %s: the person's name. */
+							__( '%s is already on the list at that address. Change the name or the address, or carry on.', 'cardsco' ),
+							trim( (string) $person['name'] )
+						),
+					)
+				);
+			}
+		}
+
 		$people[] = $person;
 
 		/*
@@ -1068,7 +1367,49 @@ class CardsCo_Send {
 			)
 		);
 
-		self::go( array( 'step' => 1 ) );
+		/*
+		 * Back to step 1 at a slightly different address.
+		 *
+		 * A browser restores what was typed into a form when it loads the
+		 * same URL again, which is what a redirect back to the same page is.
+		 * That is separate from autofill and no autocomplete attribute
+		 * governs it — the URL does. So the count rides along, every add
+		 * lands somewhere the browser has not seen, and the form comes up
+		 * as empty as the server sent it.
+		 *
+		 * It reads as "3 people so far" in the address bar, which is true
+		 * and harmless, and $here strips it back out of the form's action.
+		 */
+		self::go(
+			array(
+				'step'      => 1,
+				'cc_people' => count( $people ),
+			)
+		);
+	}
+
+	/**
+	 * Whether two entries are the same person at the same address.
+	 *
+	 * Case and spacing are ignored, because "ADA NWOSU" and "Ada  Nwosu"
+	 * are one person as far as a postman is concerned.
+	 *
+	 * @param array $a One entry.
+	 * @param array $b Another.
+	 * @return bool
+	 */
+	protected static function same_person( array $a, array $b ) {
+		$tidy = static function ( $value ) {
+			return strtolower( preg_replace( '/\s+/', ' ', trim( (string) $value ) ) );
+		};
+
+		foreach ( array( 'name', 'line1', 'town', 'postcode' ) as $field ) {
+			if ( $tidy( $a[ $field ] ?? '' ) !== $tidy( $b[ $field ] ?? '' ) ) {
+				return false;
+			}
+		}
+
+		return true;
 	}
 
 	/**
@@ -1281,6 +1622,21 @@ class CardsCo_Send {
 				return __( 'Add at least one person, with a name, a street, a town and a postcode.', 'cardsco' );
 
 			case 2:
+				$cc_max = self::max_chars();
+				$cc_now = self::draft();
+				$cc_msg = trim( (string) ( $cc_now['message'] ?? '' ) );
+				$cc_sig = trim( (string) ( $cc_now['signature'] ?? '' ) );
+				$cc_n   = mb_strlen( $cc_sig ? $cc_msg . "\n" . $cc_sig : $cc_msg );
+
+				if ( '' !== $cc_msg && $cc_max > 0 && $cc_n > $cc_max ) {
+					return sprintf(
+						/* translators: 1: how many characters were written, 2: how many fit. */
+						__( 'That is %1$d characters and %2$d fit on the card. Shorten it a little.', 'cardsco' ),
+						$cc_n,
+						$cc_max
+					);
+				}
+
 				return __( 'Write something before carrying on.', 'cardsco' );
 
 			case 3:
@@ -1452,7 +1808,7 @@ class CardsCo_Send {
 	 * @return void
 	 */
 	public static function go( array $args ) {
-		$base = remove_query_arg( array( 'step', 'cardsco_error', 'done' ) );
+		$base = remove_query_arg( array( 'step', 'cardsco_error', 'done', 'cc_people', 'cardsco_took', 'cardsco_full' ) );
 
 		wp_safe_redirect( $args ? add_query_arg( $args, $base ) : $base );
 		exit;

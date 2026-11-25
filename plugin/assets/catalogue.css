@@ -933,6 +933,47 @@ a.cc-coll-card:focus-visible {
 
 .cc-send-count.is-over { color: #8A3524; }
 
+/* The limit sits beside the running count, not under it: two stacked grey
+   lines under the box read as one wrapped sentence. */
+/* The card on the order summary: art, name and the way back to another. */
+.cc-send-sum-card {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 10px;
+}
+
+.cc-send-sum-art {
+	width: 44px;
+	height: 44px;
+	object-fit: cover;
+	border-radius: 6px;
+	flex: 0 0 auto;
+}
+
+.cc-send-sum-card-name { font-weight: 500; }
+
+/* Its own, not .cc-link: that one lives in dashboard.css, which no public
+   page loads, so borrowing it leaves an unstyled link on the order step. */
+.cc-send-sum-change {
+	font-size: 13px;
+	font-weight: 500;
+	color: var(--cc-illus-ink, #2F4F3E);
+	text-decoration: none;
+}
+
+.cc-send-sum-change:hover { text-decoration: underline; }
+
+.cc-send-limit {
+	display: block;
+	margin-top: 2px;
+	/* Clear of the next field's label: without it the limit and "Sign it"
+	   sit on top of each other and read as one block. */
+	margin-bottom: 14px;
+	color: var(--cc-quiet, #6F6D67);
+	font-size: 12px;
+}
+
 /* --- starters --- */
 
 .cc-send-starters { margin-bottom: 18px; }
@@ -1112,7 +1153,26 @@ a.cc-coll-card:focus-visible {
 	overflow-wrap: anywhere;
 }
 
-.cc-send-person-off { flex: 0 0 auto; }
+/*
+ * Remove is a quiet thing to offer, not a thing to press. As a filled grey
+ * button it carried more weight on the screen than "Add this person", which
+ * is the action the step is actually for.
+ */
+.cc-send-person-off {
+	flex: 0 0 auto;
+	height: auto;
+	padding: 4px 2px;
+	border: 0;
+	background: transparent;
+	color: var(--cc-quiet, #6F6D67);
+	font-size: 13px;
+	text-decoration: underline;
+	text-underline-offset: 3px;
+	cursor: pointer;
+}
+
+.cc-send-person-off:hover,
+.cc-send-person-off:focus { color: #8A3524; }
 
 .cc-send-count {
 	margin: 0 0 18px;
@@ -1120,27 +1180,118 @@ a.cc-coll-card:focus-visible {
 	color: var(--cc-text-secondary, #5C6660);
 }
 
-/* The ways of adding somebody, side by side until there is no room. */
+/*
+ * Adding the person in front of you: the thing to do on this step, so it sits
+ * on its own under the fields it belongs to. It used to share a row with a
+ * bare file input and a second button, with nothing saying which went with
+ * which.
+ */
 .cc-send-adds {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
-	gap: 10px;
-	margin-top: 14px;
+	gap: 12px;
+	margin-top: 18px;
 }
 
-.cc-send-upload {
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-	flex: 1 1 200px;
-	min-width: 0;
+/*
+ * Stronger than the Upload button beside the file, because this is the thing
+ * the step is for. Its own rule rather than a dashboard class: that stylesheet
+ * is loaded on this page too, and a name borrowed from it is a name that can
+ * change underneath this one.
+ */
+.cc-send-adds .cc-btn {
+	background: #FFFFFF;
+	border-color: var(--cc-ink, #14231B);
+	color: var(--cc-ink, #14231B);
+	font-weight: 500;
+}
+
+.cc-send-adds .cc-btn:hover {
+	border-color: var(--cc-green-600, #0F5A43);
+	color: var(--cc-green-700, #0C4836);
+}
+
+.cc-send-adds-note {
+	color: var(--cc-quiet, #6F6D67);
 	font-size: 13px;
-	color: var(--cc-text-secondary, #5C6660);
 }
 
-.cc-send-upload-label { font-weight: 500; color: var(--cc-text-primary, #16231C); }
-.cc-send-upload input[type="file"] { max-width: 100%; font-size: 13px; }
+/* Uploading a list instead: an alternative, so it is set below a rule. */
+.cc-send-upload {
+	margin-top: 22px;
+	padding-top: 20px;
+	border-top: 1px solid var(--cc-line-soft, #EBEAE6);
+}
+
+.cc-send-upload-head {
+	margin: 0 0 2px;
+	color: var(--cc-ink, #14231B);
+	font-size: 15px;
+	font-weight: 500;
+}
+
+.cc-send-upload-sub {
+	margin: 0 0 12px;
+	color: var(--cc-quiet, #6F6D67);
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.cc-send-upload-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 12px;
+}
+
+/*
+ * The file control, which a browser draws as a grey box with a button in it
+ * that matches nothing else on the page. Given the same border, height and
+ * radius as the fields above it, and its own button restyled to read as the
+ * quiet one it is.
+ */
+.cc-send-file {
+	flex: 1 1 260px;
+	min-width: 0;
+	padding: 9px 12px;
+	border: 1px solid var(--cc-line, #D1CFC9);
+	border-radius: 8px;
+	background: #FFFFFF;
+	font-family: inherit;
+	font-size: 14px;
+	color: var(--cc-body, #57554F);
+	cursor: pointer;
+}
+
+.cc-send-file::file-selector-button {
+	margin-right: 12px;
+	padding: 6px 12px;
+	border: 1px solid var(--cc-line, #D1CFC9);
+	border-radius: 6px;
+	background: var(--cc-paper, #F7F6F3);
+	font-family: inherit;
+	font-size: 13px;
+	color: var(--cc-ink, #14231B);
+	cursor: pointer;
+}
+
+.cc-send-file::file-selector-button:hover {
+	background: var(--cc-line-soft, #EBEAE6);
+}
+
+.cc-send-file:focus {
+	border-color: var(--cc-green-600, #0F5A43);
+	outline: 2px solid rgba(15, 90, 67, 0.18);
+}
+
+@media (max-width: 560px) {
+	.cc-send-adds .cc-btn,
+	.cc-send-upload-row .cc-btn { width: 100%; justify-content: center; }
+
+	.cc-send-adds-note { order: 2; }
+	.cc-send-file { flex: 1 1 100%; }
+}
 
 /* The account offer, once the list is as long as a guest order can be. */
 .cc-send-more {
@@ -1163,7 +1314,16 @@ a.cc-coll-card:focus-visible {
 
 .cc-send-more-or { margin: 10px 0 0; }
 
-.cc-send-swap { margin: 16px 0 0; }
+/*
+ * The other way of ordering entirely, so it is set apart from the upload
+ * block above it — pushed against it, the two read as one group and the
+ * link looked like part of uploading a file.
+ */
+.cc-send-swap {
+	margin: 20px 0 0;
+	padding-top: 18px;
+	border-top: 1px solid var(--cc-line-soft, #EBEAE6);
+}
 
 .cc-link-btn {
 	padding: 0;
@@ -1197,6 +1357,7 @@ a.cc-coll-card:focus-visible {
  */
 
 .cc-send .cc-btn,
+.cc-sent .cc-btn,
 .cc-soon .cc-btn {
 	display: inline-flex;
 	align-items: center;
@@ -1214,15 +1375,33 @@ a.cc-coll-card:focus-visible {
 }
 
 .cc-send .cc-btn-primary,
+.cc-sent .cc-btn-primary,
 .cc-soon .cc-btn-primary {
 	background: var(--cc-green-600, #0F5A43);
 	color: #FFFFFF;
 }
 
 .cc-send .cc-btn-primary:hover,
+.cc-sent .cc-btn-primary:hover,
 .cc-soon .cc-btn-primary:hover { background: var(--cc-green-700, #0C4836); }
 
+/* The quiet button, which only dashboard.css defined — so on a public page
+   it came out as a plain grey browser button. */
+.cc-send .cc-btn-ghost,
+.cc-sent .cc-btn-ghost {
+	background: transparent;
+	border-color: var(--cc-line, #D1CFC9);
+	color: var(--cc-body, #57554F);
+}
+
+.cc-send .cc-btn-ghost:hover,
+.cc-sent .cc-btn-ghost:hover {
+	border-color: var(--cc-ink, #14231B);
+	color: var(--cc-ink, #14231B);
+}
+
 .cc-send .cc-btn-primary:disabled,
+.cc-sent .cc-btn-primary:disabled,
 .cc-soon .cc-btn-primary:disabled {
 	background: var(--cc-line, #D1CFC9);
 	cursor: not-allowed;
@@ -1275,8 +1454,22 @@ a.cc-coll-card:focus-visible {
 	font-weight: 400;
 }
 
-.cc-sent-line { margin: 0 0 6px; color: var(--cc-body, #57554F); font-size: 15px; }
-.cc-sent-note { margin: 12px 0 0; color: var(--cc-quiet, #6F6D67); font-size: 13px; }
+.cc-sent-line {
+	margin: 0 0 8px;
+	color: var(--cc-body, #57554F);
+	font-size: clamp(15px, 1.6vw, 16px);
+	line-height: 1.55;
+}
+
+.cc-sent-line:last-of-type { margin-bottom: 0; }
+
+/* The quiet line under them, set apart so the two do not read as one. */
+.cc-sent-note {
+	margin: 14px 0 0;
+	color: var(--cc-quiet, #6F6D67);
+	font-size: 13px;
+	line-height: 1.5;
+}
 
 .cc-sent-account {
 	margin-top: 24px;
@@ -1294,8 +1487,21 @@ a.cc-coll-card:focus-visible {
 
 .cc-sent-account p { margin: 0 0 16px; color: var(--cc-body, #57554F); font-size: 14px; }
 
-.cc-sent-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
-.cc-sent-form .cc-field { flex: 1 1 240px; margin: 0; }
+/*
+ * Stacked, not side by side.
+ *
+ * The field and the button sat in a row aligned to their bottom edges, and
+ * the field carries help text under the input — so the button lined up with
+ * the help text rather than the input, and on a narrow panel the two
+ * overlapped. Stacking is also what the sign-in branch does, so the two
+ * halves of this block now read the same.
+ */
+.cc-sent-form { display: block; }
+
+.cc-sent-form .cc-field {
+	margin: 0 0 14px;
+	max-width: 320px;
+}
 
 .cc-sent-form label {
 	display: block;
@@ -1316,6 +1522,50 @@ a.cc-coll-card:focus-visible {
 .cc-sent-form input[type="password"]:focus {
 	border-color: var(--cc-green-600, #0F5A43);
 	outline: 2px solid rgba(15, 90, 67, 0.18);
+}
+
+/* The one action in the sign-in block; it carries its own spacing because
+   the password form beside it has none to share. */
+.cc-sent-act { margin: 0; }
+
+/*
+ * "Back to CardsCo" is the way out, not the thing to do here, and as a
+ * button it competed with the account offer above it. A quiet link, set
+ * apart from the block by a rule, so the order of importance reads:
+ * what happened, what to do about it, and then the way out.
+ */
+.cc-sent-go {
+	margin: 22px 0 0;
+	padding-top: 18px;
+	border-top: 1px solid var(--cc-line-soft, #EBEAE6);
+}
+
+.cc-sent-back {
+	color: var(--cc-quiet, #6F6D67);
+	font-size: 14px;
+	text-decoration: none;
+	border-bottom: 1px solid rgba(111, 109, 103, 0.35);
+	padding-bottom: 1px;
+}
+
+.cc-sent-back:hover,
+.cc-sent-back:focus {
+	color: var(--cc-ink, #14231B);
+	border-bottom-color: var(--cc-ink, #14231B);
+}
+
+/*
+ * On the order-received page this sits between WooCommerce's own receipt and
+ * its order table, both of which bring their own margins — so it is given
+ * room of its own rather than being squeezed against them.
+ */
+.woocommerce-order .cc-sent,
+.woocommerce .cc-sent { margin: 32px auto 36px; }
+
+@media (max-width: 600px) {
+	.cc-sent-form { gap: 10px; }
+	.cc-sent-form .cc-field { flex: 1 1 100%; }
+	.cc-sent-form .cc-btn { width: 100%; justify-content: center; }
 }
 
 .cc-sent-form .cc-field-help {

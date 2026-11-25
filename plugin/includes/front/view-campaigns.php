@@ -88,9 +88,11 @@ $cc = 'CardsCo_Shortcodes';
 						<?php echo call_user_func( array( $cc, 'icon' ), 'plus', 'cc-btn-icon' ); // phpcs:ignore WordPress.Security.EscapeOutput -- inline svg built in PHP. ?>
 						<span><?php esc_html_e( 'New campaign', 'cardsco' ); ?></span>
 					</a>
-					<a class="cc-btn cc-btn-secondary" href="<?php echo esc_url( $links['single'] ); ?>">
-						<span><?php esc_html_e( 'Send a single card', 'cardsco' ); ?></span>
-					</a>
+					<?php if ( ! empty( $links['single'] ) ) : ?>
+						<a class="cc-btn cc-btn-secondary" href="<?php echo esc_url( $links['single'] ); ?>">
+							<span><?php esc_html_e( 'Send a single card', 'cardsco' ); ?></span>
+						</a>
+					<?php endif; ?>
 				</div>
 			<?php else : ?>
 				<p class="cc-empty-title"><?php esc_html_e( 'Nothing here yet', 'cardsco' ); ?></p>

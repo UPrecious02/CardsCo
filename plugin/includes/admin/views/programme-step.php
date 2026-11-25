@@ -464,7 +464,7 @@ $cardsco_step_url = static function ( $n ) use ( $cardsco_pid ) {
 			<?php
 			/* ========================== 6 · TIMING ============================ */
 			elseif ( 6 === $step ) :
-				$cardsco_next_period = CardsCo_Programme::next_period( $programme );
+				$cardsco_next_period = CardsCo_Programme::next_box_period( $programme );
 				$cardsco_next_count  = CardsCo_Programme::count_in_period( $programme, $cardsco_next_period );
 				$cardsco_next_arrive = CardsCo_Programme::box_arrive_date( $programme, $cardsco_next_period );
 				?>

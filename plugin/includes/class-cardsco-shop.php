@@ -47,6 +47,7 @@ class CardsCo_Shop {
 		 */
 		add_action( 'wp_loaded', array( __CLASS__, 'catch_add_to_cart' ), 15 );
 		add_action( 'template_redirect', array( __CLASS__, 'catch_product_page' ) );
+		add_action( 'template_redirect', array( __CLASS__, 'catch_shop_page' ), 4 );
 		add_filter( 'woocommerce_add_to_cart_validation', array( __CLASS__, 'only_ours' ), 10, 2 );
 	}
 
@@ -114,6 +115,53 @@ class CardsCo_Shop {
 	 *
 	 * @return void
 	 */
+	/**
+	 * The shop's own listing page goes to the collections.
+	 *
+	 * WooCommerce's shop archive lists the card products as products, with
+	 * an Add to basket on each — and a bare card in a basket cannot be
+	 * posted, because nobody has said who it is for. only_ours() already
+	 * refuses that basket, so the page was a row of buttons that fail.
+	 *
+	 * The collections are the front door to the same cards and the start of
+	 * the journey that works. It is also where WooCommerce's own "Browse
+	 * store" button on an empty basket points, so that dead end goes the
+	 * same way.
+	 *
+	 * Only the listing: a single product keeps its own redirect below, which
+	 * carries the card into the flow, and the basket, checkout and account
+	 * pages are left alone.
+	 *
+	 * @return void
+	 */
+	public static function catch_shop_page() {
+		if ( is_admin() || wp_doing_ajax() || ! self::woo_active() ) {
+			return;
+		}
+
+		if ( ! function_exists( 'is_shop' ) || ! is_shop() ) {
+			return;
+		}
+
+		/* Searching the shop is still searching; it is not the listing. */
+		if ( is_search() ) {
+			return;
+		}
+
+		$to = CardsCo_Shortcodes::page_for( 'cardsco_collections' );
+
+		if ( ! $to ) {
+			$to = CardsCo_Shortcodes::page_for( 'cardsco_catalogue' );
+		}
+
+		if ( ! $to ) {
+			return;
+		}
+
+		wp_safe_redirect( $to, 302 );
+		exit;
+	}
+
 	public static function catch_product_page() {
 		if ( is_admin() || ! self::woo_active() || ! function_exists( 'is_product' ) || ! is_product() ) {
 			return;

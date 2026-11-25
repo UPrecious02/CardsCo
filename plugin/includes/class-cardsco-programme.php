@@ -878,7 +878,9 @@ class CardsCo_Programme {
 		$people = self::people_summary( $programme );
 		$price  = (float) ( $programme['unit_price'] ?? CardsCo_Settings::get( 'price_default', null, (int) $programme['company_id'] ) );
 
-		$next_period = self::next_period( $programme );
+		/* The box they will actually be charged for next, not the one that
+		   shipped three weeks ago. */
+		$next_period = self::next_box_period( $programme );
 		$next_count  = self::count_in_period( $programme, $next_period );
 
 		return array(
@@ -907,6 +909,53 @@ class CardsCo_Programme {
 		$basis = max( $from, $start );
 
 		return gmdate( 'Y-m', strtotime( $basis ) );
+	}
+
+	/**
+	 * The next period whose box has not already gone out.
+	 *
+	 * next_period() answers a different question — which month the scheduler
+	 * should start building from — and that has to stay the current month,
+	 * because this month's cards are still being written even once the box
+	 * has shipped. Narrowing it would skip a month of boxes.
+	 *
+	 * The screens want the other answer. A box for November arrives on the
+	 * 25th of October, so from the 26th of October onwards "Next box posts
+	 * Sun 25 Oct" is a date in the past, on every occasion, every month.
+	 * This walks forward to the first box still to come.
+	 *
+	 * Display only. Nothing queues or charges from it.
+	 *
+	 * @param array  $programme Programme row.
+	 * @param string $today Y-m-d, for testing.
+	 * @return string YYYY-MM.
+	 */
+	public static function next_box_period( array $programme, $today = '' ) {
+		$today  = $today ? $today : cardsco_now( 'date' );
+		$period = self::next_period( $programme, $today );
+
+		/*
+		 * Twelve at most. A box date that can never be in the future would
+		 * otherwise spin here, and a year is further ahead than any screen
+		 * showing this has a reason to look.
+		 */
+		for ( $i = 0; $i < 12; $i++ ) {
+			$arrives = self::box_arrive_date( $programme, $period );
+
+			if ( ! $arrives || $arrives >= $today ) {
+				return $period;
+			}
+
+			$stamp = strtotime( $period . '-01 +1 month' );
+
+			if ( ! $stamp ) {
+				return $period;
+			}
+
+			$period = gmdate( 'Y-m', $stamp );
+		}
+
+		return $period;
 	}
 
 	/**

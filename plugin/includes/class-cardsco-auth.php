@@ -89,7 +89,6 @@ class CardsCo_Auth {
 
 		add_action( 'wp_enqueue_scripts', array( $this, 'assets' ) );
 		add_action( 'template_redirect', array( $this, 'handle' ) );
-		add_action( 'template_redirect', array( __CLASS__, 'home_to_dashboard' ), 2 );
 	}
 
 	/**
@@ -165,78 +164,6 @@ class CardsCo_Auth {
 	 * The handler
 	 * ------------------------------------------------------------------ */
 
-	/**
-	 * Send somebody already signed in to their own dashboard.
-	 *
-	 * Closing the tab does not sign anybody out, so the next visit to the
-	 * front page would otherwise land them on the marketing home page as
-	 * though they had never signed up.
-	 *
-	 * Only the front page, and only for somebody who belongs to a company:
-	 * an administrator is left alone, because the home page is a page they
-	 * have every reason to be looking at.
-	 *
-	 * @return void
-	 */
-	public static function home_to_dashboard() {
-		$to = self::home_lands_on();
-
-		if ( '' === $to ) {
-			return;
-		}
-
-		wp_safe_redirect( $to );
-		exit;
-	}
-
-	/**
-	 * Where this visit to the front page should end up.
-	 *
-	 * Separate from the redirect itself because the redirect ends in exit,
-	 * and a decision that can only be made by leaving cannot be tested at
-	 * all. This answers the question; the caller acts on it.
-	 *
-	 * @return string A URL, or '' to stay where they are.
-	 */
-	public static function home_lands_on() {
-		if ( is_admin() || wp_doing_ajax() || is_feed() || ! is_front_page() ) {
-			return '';
-		}
-
-		if ( 'GET' !== ( $_SERVER['REQUEST_METHOD'] ?? 'GET' ) ) {
-			return '';
-		}
-
-		/* A way to look at the home page on purpose. */
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- reading a view preference.
-		if ( isset( $_GET['home'] ) ) {
-			return '';
-		}
-
-		if ( ! is_user_logged_in() || current_user_can( 'manage_options' ) ) {
-			return '';
-		}
-
-		if ( ! CardsCo_Access::company_id() ) {
-			return '';
-		}
-
-		$to = CardsCo_Shortcodes::page_for( 'cardsco_dashboard' );
-
-		if ( ! $to ) {
-			return '';
-		}
-
-		/*
-		 * If the dashboard is itself the front page there is nowhere to go,
-		 * and sending them there would be a loop with no way out of it.
-		 */
-		if ( untrailingslashit( $to ) === untrailingslashit( home_url( '/' ) ) ) {
-			return '';
-		}
-
-		return (string) $to;
-	}
 
 	/**
 	 * Deal with whichever form was posted.

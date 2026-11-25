@@ -80,7 +80,7 @@ class CardsCo_Shortcodes {
 
 		$post = get_post();
 
-		if ( ! $post || ! cardsco_page_uses_shortcode( $post, self::tags() ) ) {
+		if ( ! $post || ! cardsco_page_uses_shortcode( $post, self::uncacheable_tags() ) ) {
 			return;
 		}
 
@@ -152,6 +152,32 @@ class CardsCo_Shortcodes {
 	 */
 	public static function tags() {
 		return array( 'cardsco_dashboard', 'cardsco_occasions', 'cardsco_campaigns', 'cardsco_setup', 'cardsco_nav', 'cardsco_settings' );
+	}
+
+	/**
+	 * Pages a cache must never hold a copy of.
+	 *
+	 * The portal screens, and the guest sending flow — which is not a
+	 * portal screen and was not on this list.
+	 *
+	 * It is the worst page on the site to cache. Four steps live at one
+	 * address with the whole order in the session, so a stored copy of any
+	 * one of them is shown to the next person to reach that step. What it
+	 * looked like from the outside: changing the card on the last step and
+	 * pressing Continue brought the order back still showing the old card.
+	 * The card had saved every time. The same bug, in the same words, is
+	 * written up above this for the campaign review screen — and the fix
+	 * then covered only the screens that already had it.
+	 *
+	 * @return string[]
+	 */
+	public static function uncacheable_tags() {
+		/*
+		 * Both copies of the sending flow. The portal one carries the same
+		 * four steps and the same session, so a stored copy of it is the
+		 * same bug — one person's order handed to the next.
+		 */
+		return array_merge( self::tags(), array( 'cardsco_send' ) );
 	}
 
 	/**
@@ -290,7 +316,21 @@ class CardsCo_Shortcodes {
 				$base
 			),
 			'new_campaign'   => add_query_arg( 'new', '1', $atts['campaigns'] ),
-			'new_card'       => $atts['cards'] ? $atts['cards'] : add_query_arg( 'new', '1', $atts['campaigns'] ),
+			/*
+			 * "Send a Card · One card, written and posted for you" sat
+			 * above a button that opened the campaign builder — one design
+			 * to many people, seven steps of audience and scheduling. The
+			 * promo promised a single card and delivered a campaign, and
+			 * it was the only single-card route on the dashboard.
+			 *
+			 * The collections first, because the journey is to pick the
+			 * design and then write it: arriving at the flow with a card
+			 * already chosen is three steps instead of four, and the
+			 * starter messages come out of that card's own occasion.
+			 * Falling back to the flow itself, and only then to where this
+			 * used to go.
+			 */
+			'new_card'       => self::single_card_url( $atts ),
 		);
 
 		ob_start();
@@ -957,6 +997,43 @@ class CardsCo_Shortcodes {
 	}
 
 	/**
+	 * Where "Send a Card" on the dashboard should go.
+	 *
+	 * @param array $atts The screen's attributes, which may name the pages.
+	 * @return string
+	 */
+	protected static function single_card_url( array $atts ) {
+		if ( ! empty( $atts['cards'] ) ) {
+			return (string) $atts['cards'];
+		}
+
+		/*
+		 * A customer with a portal copy of the flow goes straight to it:
+		 * from inside their account, the collections are a trip out to the
+		 * marketing site, which is the thing this link is for avoiding.
+		 * Without one, the journey through the collections is still the
+		 * better one, because the card is picked before the message.
+		 */
+		$portal = CardsCo_Send::portal_page_url();
+
+		if ( '' !== $portal ) {
+			return $portal;
+		}
+
+		foreach ( array( 'cardsco_collections', 'cardsco_catalogue', 'cardsco_send' ) as $tag ) {
+			$url = self::page_for( $tag );
+
+			if ( $url ) {
+				return (string) $url;
+			}
+		}
+
+		/* Nothing published to send them to; the builder is better than a
+		   button that goes nowhere. */
+		return add_query_arg( 'new', '1', (string) ( $atts['campaigns'] ?? '' ) );
+	}
+
+	/**
 	 * The occasions list.
 	 *
 	 * @param array $atts Shortcode attributes.
@@ -1158,7 +1235,13 @@ class CardsCo_Shortcodes {
 			 * to post a single card through seven steps of audience and
 			 * scheduling.
 			 */
-			'single' => $portal( $atts['single'], CardsCo_Send::page_url() ? CardsCo_Send::page_url() : add_query_arg( 'new', '1', $here ) ),
+			/*
+			 * The same route as the dashboard's "Send a Card", so the two
+			 * doors into one card lead to the same place. It used to go
+			 * straight to the flow with no card, which is the four-step
+			 * walk and a general row of starter messages.
+			 */
+			'single' => $portal( $atts['single'], self::single_card_url( array( 'campaigns' => $here ) ) ),
 			'one'    => $portal( $atts['one'], $here ),
 			'past'   => add_query_arg( 'tab', 'past', $here ),
 		);
@@ -1209,14 +1292,6 @@ class CardsCo_Shortcodes {
 			$known = '';
 		}
 
-		/*
-		 * A remembered address is only worth having while the page behind
-		 * it is still there. Deleting that page left this pointing at it
-		 * for good, and every link built from it — a renewal email, the
-		 * offer of an account — went to a page that was gone.
-		 */
-
-
 		if ( $known ) {
 			return (string) $known;
 		}
@@ -1242,10 +1317,30 @@ class CardsCo_Shortcodes {
 		$url = '';
 
 		foreach ( $pages as $page_id ) {
-			if ( has_shortcode( (string) get_post_field( 'post_content', $page_id ), $tag ) ) {
-				$url = (string) get_permalink( $page_id );
-				break;
+			$content = (string) get_post_field( 'post_content', $page_id );
+
+			if ( ! has_shortcode( $content, $tag ) ) {
+				continue;
 			}
+
+			/*
+			 * The sending flow has two pages and one shortcode name: the
+			 * public one, and a copy inside the portal marked with
+			 * portal="1". Asking for the public one has to skip the portal
+			 * copy, or a customer's page is handed to guests — which is a
+			 * portal page they cannot open.
+			 *
+			 * The portal copy is never found this way. It is asked for
+			 * under its own name and answered from the address it writes
+			 * down when it renders, which is the only thing that works on
+			 * a site built with a page builder anyway.
+			 */
+			if ( 'cardsco_send' === $tag && preg_match( '/\[cardsco_send[^\]]*\bportal=/', $content ) ) {
+				continue;
+			}
+
+			$url = (string) get_permalink( $page_id );
+			break;
 		}
 
 		set_transient( $key, $url, DAY_IN_SECONDS );
@@ -1326,6 +1421,7 @@ class CardsCo_Shortcodes {
 					'cardsco_catalogue',
 					'cardsco_collections',
 					'cardsco_send',
+					'cardsco_send_portal',
 					'cardsco_login',
 					'cardsco_signup',
 					'cardsco_reset',
@@ -1669,7 +1765,20 @@ class CardsCo_Shortcodes {
 	 */
 	public function send( $atts ) {
 		self::enqueue();
-		self::remember_page( 'cardsco_send' );
+
+		/*
+		 * Two pages can carry this flow: the public one a guest reaches from
+		 * the catalogue, and a copy inside the portal so a customer sending
+		 * one card is not thrown out onto the marketing site to do it.
+		 *
+		 * They are the same four steps and the same code. The attribute is
+		 * only how the two are told apart, so each can be remembered under
+		 * its own name and the right one offered to the right person.
+		 */
+		$cc_atts   = shortcode_atts( array( 'cards' => '', 'portal' => '' ), $atts, 'cardsco_send' );
+		$cc_portal = '' !== (string) $cc_atts['portal'] && 'false' !== (string) $cc_atts['portal'] && '0' !== (string) $cc_atts['portal'];
+
+		self::remember_page( $cc_portal ? 'cardsco_send_portal' : 'cardsco_send' );
 
 		/*
 		 * The flow's own styles live in catalogue.css, beside the card
@@ -1681,7 +1790,28 @@ class CardsCo_Shortcodes {
 
 		wp_enqueue_script( 'cardsco-writer', CARDSCO_URL . 'assets/writer.js', array( 'cardsco-boot' ), CARDSCO_VERSION, true );
 
-		$atts = shortcode_atts( array( 'cards' => '' ), $atts, 'cardsco_send' );
+		$atts = $cc_atts;
+
+		/*
+		 * A visitor who is not signed in has no business on a portal page,
+		 * and the rest of the portal would turn them away. Sent to the
+		 * public copy rather than shown a flow they cannot finish inside an
+		 * account they do not have.
+		 */
+		if ( $cc_portal && ! is_user_logged_in() ) {
+			$cc_public = self::page_for( 'cardsco_send' );
+
+			if ( $cc_public ) {
+				return sprintf(
+					'<div class="cc cc-send"><p class="cc-send-off">%s</p></div>',
+					sprintf(
+						'<a href="%s">%s</a>',
+						esc_url( $cc_public ),
+						esc_html__( 'Send a card', 'cardsco' )
+					)
+				);
+			}
+		}
 
 		if ( ! CardsCo_Send::available() ) {
 			return '<div class="cc cc-send"><p class="cc-send-off">'
@@ -1706,7 +1836,7 @@ class CardsCo_Shortcodes {
 
 		$draft = CardsCo_Send::draft();
 		$step  = CardsCo_Send::step_on_screen( $draft, $want );
-		$here  = remove_query_arg( array( 'step', 'cardsco_error', 'card' ) );
+		$here  = remove_query_arg( array( 'step', 'cardsco_error', 'card', 'cc_people' ) );
 
 		/* The browsable catalogue, narrowed to a collection if one is named. */
 		$cards = CardsCo_Catalogue::page(

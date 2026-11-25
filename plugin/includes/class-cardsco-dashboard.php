@@ -2055,16 +2055,9 @@ class CardsCo_Dashboard {
 		$day  = (int) ( $programme['box_arrive_day'] ?? 25 );
 		$day  = $day >= 1 && $day <= 28 ? $day : 25;
 
-		$now  = (int) current_time( 'timestamp' );
-		$next = strtotime( '+1 month', strtotime( gmdate( 'Y-m-01', $now ) ) );
+		$now = (int) current_time( 'timestamp' );
 
-		// The box covering next month has to land before next month starts.
-		$arrives = strtotime( gmdate( 'Y-m-', strtotime( '-1 month', $next ) ) . $day );
-
-		if ( $arrives < $now ) {
-			$next    = strtotime( '+1 month', $next );
-			$arrives = strtotime( gmdate( 'Y-m-', strtotime( '-1 month', $next ) ) . $day );
-		}
+		list( $next, $arrives ) = self::box_month( $day, $now );
 
 		$in_box = self::dates_in_month( (int) $programme['id'], (int) gmdate( 'n', $next ) );
 
@@ -2231,6 +2224,47 @@ class CardsCo_Dashboard {
 	 * @param int $from_ts      Count from this moment.
 	 * @return array{ts:int,count:int}|null Null when nothing is due at all.
 	 */
+	/**
+	 * The month the next box covers, and the day it goes out.
+	 *
+	 * Pulled out of the timing screen so the turn of the month can be
+	 * checked on its own. The screen reads the clock; this reads whatever
+	 * it is handed.
+	 *
+	 * @param int $day The day of the month a box arrives, 1 to 28.
+	 * @param int $now Timestamp to work from.
+	 * @return array{0: int, 1: int} The month's first day, and the arrival day.
+	 */
+	public static function box_month( $day, $now ) {
+		$day  = (int) $day;
+		$day  = $day >= 1 && $day <= 28 ? $day : 25;
+		$now  = (int) $now;
+		$next = strtotime( '+1 month', strtotime( gmdate( 'Y-m-01', $now ) ) );
+
+		// The box covering next month has to land before next month starts.
+		$arrives = strtotime( gmdate( 'Y-m-', strtotime( '-1 month', $next ) ) . $day );
+
+		/*
+		 * Compared as days, not as moments. $arrives is midnight on the day
+		 * the box goes and $now carries the time of day with it — so from
+		 * one minute past midnight on the 25th, the box going out that very
+		 * day counted as already gone. Step 6 then told the person their
+		 * first box was a month later than it is, and the review step
+		 * charged them for that month's cards instead. Wrong for the whole
+		 * of every arrival day, and right again the next morning, which is
+		 * why nobody caught it.
+		 *
+		 * The day it goes is still the next box, which is the same answer
+		 * Programme::next_box_period() gives the screens that show the date.
+		 */
+		if ( (int) gmdate( 'Ymd', $arrives ) < (int) gmdate( 'Ymd', $now ) ) {
+			$next    = strtotime( '+1 month', $next );
+			$arrives = strtotime( gmdate( 'Y-m-', strtotime( '-1 month', $next ) ) . $day );
+		}
+
+		return array( (int) $next, (int) $arrives );
+	}
+
 	protected static function next_due_month( $programme_id, $from_ts ) {
 		global $wpdb;
 
@@ -2946,7 +2980,7 @@ class CardsCo_Dashboard {
 		 * means the dates are not settled yet and the view leaves the line
 		 * out rather than printing half of it.
 		 */
-		$period = CardsCo_Programme::next_period( $programme );
+		$period = CardsCo_Programme::next_box_period( $programme );
 		$posts  = $period ? CardsCo_Programme::box_arrive_date( $programme, $period ) : '';
 
 		return array(

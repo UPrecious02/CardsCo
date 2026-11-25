@@ -43,7 +43,18 @@ window.CardsCo.add = window.CardsCo.add || function ( fn ) {
 window.CardsCo.add( function () {
 	'use strict';
 
-	var form = document.getElementById( 'ccWriter' );
+	/*
+	 * Two screens write a card: the portal's writer and the guest send
+	 * flow's message step. They are built from different views and so have
+	 * different ids, and this bound to the portal's alone — so on the guest
+	 * flow the starter chips did nothing when pressed and the counter beside
+	 * the box stayed empty, with no error anywhere to say why.
+	 *
+	 * Everything below the text box is asked for with querySelector and
+	 * guarded, so a screen that has no preview card, no merge-tag chips and
+	 * no Clear button runs the part it does have.
+	 */
+	var form = document.getElementById( 'ccWriter' ) || document.getElementById( 'ccSendForm' );
 
 	if ( ! form ) {
 		return;

@@ -20,7 +20,20 @@
 
 defined( 'ABSPATH' ) || exit;
 
-$cc_first = CardsCo_Send::first_name( $sent[0]['to'] );
+/*
+ * How many of these we can actually name. An order from before the flow
+ * could hold several people has the message on the line and the recipient
+ * nowhere, so the lines below are written for what is known rather than
+ * assuming every card has a name and an address behind it.
+ */
+$cc_named = array_values(
+	array_filter(
+		$sent,
+		static function ( $cc_row ) {
+			return '' !== trim( (string) $cc_row['to'] ) && '' !== trim( (string) $cc_row['address'] );
+		}
+	)
+);
 ?>
 <section class="cc cc-sent">
 	<h2 class="cc-sent-title">
@@ -33,7 +46,7 @@ $cc_first = CardsCo_Send::first_name( $sent[0]['to'] );
 		?>
 	</h2>
 
-	<?php foreach ( $sent as $cc_one ) : ?>
+	<?php foreach ( $cc_named as $cc_one ) : ?>
 		<p class="cc-sent-line">
 			<?php
 			printf(
@@ -46,7 +59,69 @@ $cc_first = CardsCo_Send::first_name( $sent[0]['to'] );
 		</p>
 	<?php endforeach; ?>
 
+	<?php
+	if ( ! $cc_named ) :
+		/*
+		 * Nothing here is claimed that is not known. An order whose address
+		 * did not make it onto the line is told what we do have — the card
+		 * and the message — and not that we have somewhere to post it.
+		 */
+		$cc_has_address = false;
+
+		foreach ( $sent as $cc_row ) {
+			if ( '' !== trim( (string) $cc_row['address'] ) ) {
+				$cc_has_address = true;
+				break;
+			}
+		}
+		?>
+		<p class="cc-sent-line">
+			<?php
+			if ( $cc_has_address ) {
+				echo esc_html(
+					count( $sent ) > 1
+						? sprintf(
+							/* translators: %d: how many cards. */
+							_n( 'We have your %d card and the address it is going to.', 'We have your %d cards and the address they are going to.', count( $sent ), 'cardsco' ),
+							count( $sent )
+						)
+						: __( 'We have your card and the address it is going to.', 'cardsco' )
+				);
+			} else {
+				echo esc_html(
+					count( $sent ) > 1
+						? __( 'We have your cards and your message. We will be in touch about where they are going.', 'cardsco' )
+						: __( 'We have your card and your message. We will be in touch about where it is going.', 'cardsco' )
+				);
+			}
+			?>
+		</p>
+	<?php endif; ?>
+
 	<p class="cc-sent-note"><?php esc_html_e( 'We’ll email you when it’s posted.', 'cardsco' ); ?></p>
+
+	<?php if ( ! empty( $offer_sign_in ) ) : ?>
+		<div class="cc-sent-account">
+			<h3 class="cc-sent-account-head"><?php esc_html_e( 'Track it from your account', 'cardsco' ); ?></h3>
+			<p>
+				<?php
+				printf(
+					/* translators: %s: their email address. */
+					esc_html__( 'You already have a CardsCo account for %s. Sign in to see when this card is written and posted, and to send another in a couple of clicks.', 'cardsco' ),
+					esc_html( $order->get_billing_email() )
+				);
+				?>
+			</p>
+
+			<?php if ( ! empty( $sign_in_url ) ) : ?>
+				<p class="cc-sent-act">
+					<a class="cc-btn cc-btn-primary" href="<?php echo esc_url( $sign_in_url ); ?>">
+						<span><?php esc_html_e( 'Sign in', 'cardsco' ); ?></span>
+					</a>
+				</p>
+			<?php endif; ?>
+		</div>
+	<?php endif; ?>
 
 	<?php if ( $offer_account ) : ?>
 		<div class="cc-sent-account">
@@ -81,16 +156,37 @@ $cc_first = CardsCo_Send::first_name( $sent[0]['to'] );
 					<span class="cc-field-help"><?php esc_html_e( 'At least 8 characters.', 'cardsco' ); ?></span>
 				</p>
 
-				<button type="submit" class="cc-btn cc-btn-primary cc-btn-r8">
+				<button type="submit" class="cc-btn cc-btn-primary">
 					<span><?php esc_html_e( 'Create my account', 'cardsco' ); ?></span>
 				</button>
 			</form>
 		</div>
 	<?php endif; ?>
 
+	<?php
+	/*
+	 * Somebody signed in goes back to their own dashboard, not to the
+	 * marketing home page. They have an account; "Back to CardsCo" sends
+	 * them to the front of a site they are already inside.
+	 */
+	$cc_back_to   = '';
+	$cc_back_says = __( 'Back to CardsCo', 'cardsco' );
+
+	if ( is_user_logged_in() ) {
+		$cc_back_to = CardsCo_Shortcodes::page_for( 'cardsco_dashboard' );
+
+		if ( '' !== $cc_back_to ) {
+			$cc_back_says = __( 'Back to your dashboard', 'cardsco' );
+		}
+	}
+
+	if ( '' === $cc_back_to ) {
+		$cc_back_to = home_url( '/' );
+	}
+	?>
 	<p class="cc-sent-go">
-		<a class="cc-btn cc-btn-quiet" href="<?php echo esc_url( home_url( '/' ) ); ?>">
-			<?php esc_html_e( 'Back to CardsCo', 'cardsco' ); ?>
+		<a class="cc-sent-back" href="<?php echo esc_url( $cc_back_to ); ?>">
+			<?php echo esc_html( $cc_back_says ); ?>
 		</a>
 	</p>
 </section>
