@@ -6,9 +6,13 @@
  * 16 gutter, then a 952-wide panel at y=312 holding three full-width 910
  * inputs on a 74 pitch and a row of three 295-wide ones.
  *
- * Note on what is not here: the frame draws no postcode field. The model has
- * somewhere to put one, so adding it is a one-line change — but it is not in
- * the design, so it is not invented here.
+ * Both panels on this screen — the company's one address and each person's
+ * own — draw the same fieldset, partial-address.php. They were written out
+ * separately and drifted: the company was asked for three street lines, a
+ * town, a county, a postcode and a country, while each person below it got
+ * a two-row textarea and a postcode. The CEO's note was that an individual
+ * shipping address should be as detailed as the company one, and the way to
+ * keep it that way is for there to be one fieldset rather than two.
  *
  * @package CardsCo
  *
@@ -18,12 +22,6 @@
  */
 
 defined( 'ABSPATH' ) || exit;
-
-$cc_labels = array(
-	__( 'Address line 1', 'cardsco' ),
-	__( 'Address line 2', 'cardsco' ),
-	__( 'Address line 3', 'cardsco' ),
-);
 ?>
 <form method="post" id="ccWizForm" class="cc-wz-form" action="<?php echo esc_url( $links['here'] ); ?>">
 	<?php wp_nonce_field( 'cardsco_setup', '_cardsco_nonce' ); ?>
@@ -56,44 +54,18 @@ $cc_labels = array(
 			</span>
 		</header>
 
-		<?php foreach ( $cc_labels as $cc_i => $cc_label ) : ?>
-			<p class="cc-field">
-				<label for="cc-ship-<?php echo esc_attr( $cc_i ); ?>"><?php echo esc_html( $cc_label ); ?></label>
-				<input type="text"
-					id="cc-ship-<?php echo esc_attr( $cc_i ); ?>"
-					name="ship_line[]"
-					value="<?php echo esc_attr( $shipping['lines'][ $cc_i ] ); ?>"
-					<?php echo 2 === $cc_i ? 'placeholder="' . esc_attr__( 'Area or estate', 'cardsco' ) . '"' : ''; ?> />
-			</p>
-		<?php endforeach; ?>
-
-		<div class="cc-ship-row">
-			<p class="cc-field">
-				<label for="cc-ship-postcode"><?php esc_html_e( 'Postcode', 'cardsco' ); ?></label>
-				<input type="text" id="cc-ship-postcode" name="ship_postcode" value="<?php echo esc_attr( $shipping['postcode'] ); ?>" />
-			</p>
-			<p class="cc-field">
-				<label for="cc-ship-town"><?php esc_html_e( 'Town/city', 'cardsco' ); ?></label>
-				<input type="text" id="cc-ship-town" name="ship_line[]" value="<?php echo esc_attr( $shipping['lines'][3] ); ?>" />
-			</p>
-			<p class="cc-field">
-				<label for="cc-ship-county"><?php esc_html_e( 'County', 'cardsco' ); ?></label>
-				<input type="text" id="cc-ship-county" name="ship_line[]" value="<?php echo esc_attr( $shipping['lines'][4] ); ?>" />
-			</p>
-			<p class="cc-field">
-				<label for="cc-ship-country"><?php esc_html_e( 'Country', 'cardsco' ); ?></label>
-				<span class="cc-select">
-					<select id="cc-ship-country" name="ship_country">
-						<?php foreach ( CardsCo_Validator::countries() as $cc_code => $cc_name ) : ?>
-							<option value="<?php echo esc_attr( $cc_code ); ?>" <?php selected( $shipping['country'], $cc_code ); ?>>
-								<?php echo esc_html( $cc_name ); ?>
-							</option>
-						<?php endforeach; ?>
-					</select>
-					<?php echo call_user_func( array( 'CardsCo_Shortcodes', 'icon' ), 'chevron-down', 'cc-select-glyph' ); // phpcs:ignore WordPress.Security.EscapeOutput -- inline svg built in PHP. ?>
-				</span>
-			</p>
-		</div>
+		<?php
+		$address = array(
+			'id'       => 'cc-ship',
+			'name'     => 'ship_line',
+			'pc_name'  => 'ship_postcode',
+			'cy_name'  => 'ship_country',
+			'lines'    => $shipping['lines'],
+			'postcode' => $shipping['postcode'],
+			'country'  => $shipping['country'],
+		);
+		require CARDSCO_PATH . 'includes/front/partial-address.php';
+		?>
 	</section>
 
 	<?php
@@ -139,6 +111,20 @@ $cc_labels = array(
 			</span>
 		</header>
 
+		<?php
+		/*
+		 * Twenty-five or more posted to individual addresses is neither of
+		 * the two products — the volume of a bulk order with the postage
+		 * of a single one — so it is arranged with CardsCo rather than
+		 * priced here. Said at the moment they choose it, not discovered
+		 * at the till after they have typed in thirty-four addresses.
+		 */
+		if ( CardsCo_Programme::needs_referral( $programme ) ) :
+			$referral = CardsCo_Programme::referral( $programme );
+			require CARDSCO_PATH . 'includes/front/partial-referral.php';
+		endif;
+		?>
+
 		<?php if ( $shipping['people'] ) : ?>
 			<ul class="cc-each-list">
 				<?php foreach ( $shipping['people'] as $cc_one ) : ?>
@@ -152,19 +138,25 @@ $cc_labels = array(
 						</p>
 
 						<div class="cc-each-fields">
-							<p class="cc-field">
-								<label for="cc-each-a-<?php echo esc_attr( $cc_one['id'] ); ?>"><?php esc_html_e( 'Address', 'cardsco' ); ?></label>
-								<textarea id="cc-each-a-<?php echo esc_attr( $cc_one['id'] ); ?>"
-									name="each_address[<?php echo esc_attr( $cc_one['id'] ); ?>]"
-									rows="2"
-									placeholder="<?php esc_attr_e( 'House and street, then town', 'cardsco' ); ?>"><?php echo esc_textarea( $cc_one['address'] ); ?></textarea>
-							</p>
-							<p class="cc-field cc-each-pc">
-								<label for="cc-each-p-<?php echo esc_attr( $cc_one['id'] ); ?>"><?php esc_html_e( 'Postcode', 'cardsco' ); ?></label>
-								<input type="text" id="cc-each-p-<?php echo esc_attr( $cc_one['id'] ); ?>"
-									name="each_postcode[<?php echo esc_attr( $cc_one['id'] ); ?>]"
-									value="<?php echo esc_attr( $cc_one['postcode'] ); ?>" />
-							</p>
+							<?php
+							/*
+							 * The same fieldset the company panel above
+							 * uses. This was a two-row textarea and a
+							 * postcode while the company was asked for
+							 * seven fields on the same screen.
+							 */
+							$address = array(
+								'id'       => 'cc-each-' . (int) $cc_one['id'],
+								'name'     => 'each_line[' . (int) $cc_one['id'] . ']',
+								'pc_name'  => 'each_postcode[' . (int) $cc_one['id'] . ']',
+								'cy_name'  => 'each_country[' . (int) $cc_one['id'] . ']',
+								'lines'    => $cc_one['lines'],
+								'postcode' => $cc_one['postcode'],
+								'country'  => $cc_one['country'],
+								'compact'  => true,
+							);
+							require CARDSCO_PATH . 'includes/front/partial-address.php';
+							?>
 						</div>
 					</li>
 				<?php endforeach; ?>

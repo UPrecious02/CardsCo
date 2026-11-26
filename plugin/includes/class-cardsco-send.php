@@ -904,12 +904,18 @@ class CardsCo_Send {
 		 * is what the order costs. Using the first for both priced thirty
 		 * cards at one card's money — a 30-card order came to GBP 1.99.
 		 */
+		/*
+		 * price_for() is what one card costs at that quantity; price_total()
+		 * is what the order costs. Using the first for both priced thirty
+		 * cards at one card's money — a 30-card order came to GBP 1.99.
+		 */
 		return array(
 			'cards' => $cards,
 			'each'  => (float) CardsCo_Card::price_for( $id, $cards ),
 			'total' => (float) CardsCo_Card::price_total( $id, $cards ),
 			'bulk'  => (bool) CardsCo_Card::is_bulk( $cards ),
 		);
+
 	}
 
 	/**

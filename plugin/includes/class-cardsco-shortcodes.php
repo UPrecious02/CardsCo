@@ -210,6 +210,13 @@ class CardsCo_Shortcodes {
 		 */
 		wp_enqueue_script( 'cardsco-boot', CARDSCO_URL . 'assets/boot.js', array(), CARDSCO_VERSION, true );
 		wp_enqueue_script( 'cardsco-wizard', CARDSCO_URL . 'assets/wizard.js', array( 'cardsco-boot' ), CARDSCO_VERSION, true );
+
+		/*
+		 * Every screen, because a date field turns up on several of them
+		 * and the one that does not get this script is the one somebody
+		 * ends up typing a date into by hand.
+		 */
+		wp_enqueue_script( 'cardsco-dates', CARDSCO_URL . 'assets/dates.js', array( 'cardsco-boot' ), CARDSCO_VERSION, true );
 	}
 
 	/* ---------------------------------------------------------------------
@@ -2410,6 +2417,7 @@ class CardsCo_Shortcodes {
 			'search'    => '<path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/>',
 			'collapse'  => '<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>',
 			'bell'      => '<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
+			'mail'      => '<path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"/><rect x="2" y="4" width="20" height="16" rx="2"/>',
 			'gear'      => '<path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/>',
 			'help'      => '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
 			'dots'      => '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>',

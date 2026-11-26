@@ -82,7 +82,26 @@ class CardsCo_Checkout {
 	 * @return int
 	 */
 	public static function quantity( array $programme ) {
-		return count( CardsCo_Programme::recipient_ids( (int) $programme['id'] ) );
+		/*
+		 * The cards that will actually be written, not the people on the
+		 * list.
+		 *
+		 * This counted every recipient. The review step the customer reads
+		 * before paying counts only those holding a date for the occasion,
+		 * through Programme::estimate() — because somebody with no birthday
+		 * on file is never written a birthday card.
+		 *
+		 * So the screen said three cards at £10.80 and the till took five
+		 * at £18.00. The customer is shown one number and charged another,
+		 * and the two cards they paid for do not exist and never go out.
+		 *
+		 * people_summary() answers 'ready' as the whole list for a category
+		 * with no occasion type of its own, so a campaign-driven order is
+		 * counted exactly as it was.
+		 */
+		$summary = CardsCo_Programme::people_summary( $programme );
+
+		return (int) $summary['ready'];
 	}
 
 	/**
@@ -106,6 +125,24 @@ class CardsCo_Checkout {
 
 		if ( $quantity < 1 ) {
 			return new WP_Error( 'cardsco_no_people', __( 'There is nobody on this occasion yet.', 'cardsco' ) );
+		}
+
+		/*
+		 * Twenty-five or more posted to individual addresses is priced case
+		 * by case and is not for sale here — see needs_referral(). The
+		 * screens say so already, so reaching this is a stale tab, a
+		 * bookmarked URL, or somebody who changed the shipping mode in
+		 * another window. It stops at the door either way: a basket that
+		 * can be paid for is a price we are committed to.
+		 */
+		if ( CardsCo_Programme::needs_referral( $programme, $quantity ) ) {
+			$referral = CardsCo_Programme::referral( $programme, $quantity );
+
+			return new WP_Error(
+				'cardsco_referral',
+				$referral['body'],
+				array( 'referral' => $referral )
+			);
 		}
 
 		$product_id = CardsCo_Catalogue::product_for_card( $card_id );
@@ -572,7 +609,23 @@ class CardsCo_Checkout {
 				continue;
 			}
 
-			$line['data']->set_price( CardsCo_Card::price_for( $card_id, (int) $line['quantity'] ) );
+			/*
+			 * Quantity decides the rate — postage is inside the price, so
+			 * where the cards go does not change it. The company id comes
+			 * from the occasion so a company on its own price list gets
+			 * its own rate.
+			 */
+			$programme = isset( $line[ self::PROGRAMME ] )
+				? CardsCo_Programme::get( (int) $line[ self::PROGRAMME ] )
+				: null;
+
+			$line['data']->set_price(
+				CardsCo_Card::price_for(
+					$card_id,
+					(int) $line['quantity'],
+					$programme ? (int) $programme['company_id'] : 0
+				)
+			);
 		}
 	}
 

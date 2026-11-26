@@ -765,7 +765,6 @@ class CardsCo_Card {
 		}
 
 		$standard = (float) self::price( $post_id, $company_id );
-		$from     = (int) CardsCo_Settings::get( 'bulk_from', null, $company_id );
 		$bulk     = (float) CardsCo_Settings::get( 'price_bulk', null, $company_id );
 
 		/*
@@ -773,7 +772,7 @@ class CardsCo_Card {
 		 * the settings, and charging more for ordering more would be worse
 		 * than ignoring it.
 		 */
-		if ( $from < 1 || $quantity < $from || $bulk >= $standard ) {
+		if ( ! self::is_bulk( $quantity, $company_id ) || $bulk >= $standard ) {
 			return $money( $standard * $quantity );
 		}
 
@@ -802,6 +801,20 @@ class CardsCo_Card {
 
 	/**
 	 * Whether this many cards gets the bulk rate.
+	 *
+	 * The quantity decides it, and only the quantity. Postage is inside
+	 * the price, so where the cards go makes no difference to what they
+	 * cost: thirty-four cards are thirty-four cards whether they arrive
+	 * in one box at the office or in thirty-four envelopes at thirty-four
+	 * houses, and either way that is 34 x GBP 1.99.
+	 *
+	 * This was briefly changed to require the whole order to be going to
+	 * one address, on the strength of a line in the brief that defined a
+	 * bulk order as "25 or more cards sent to one address". The same brief
+	 * also says "Single card orders (under 25 cards)", which is the rule
+	 * that holds: single and bulk are names for the size of the order, not
+	 * for where it is posted. Leaving this note because the first reading
+	 * is an easy one to arrive at twice.
 	 *
 	 * True at the limit as well as past it: with the limit at twenty-five,
 	 * an order of exactly twenty-five is a bulk order. It used to be true

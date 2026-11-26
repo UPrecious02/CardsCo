@@ -3931,8 +3931,29 @@
 	line-height: var(--cc-caption-line);
 }
 .cc-ship-panel .cc-field input[type="text"] { height: 40px; }
+
+/* --------------------------------------------------------------------------
+   The address fieldset, drawn once and included by both step-5 panels.
+   .cc-ship-row is kept as an alias because other screens still use it.
+   -------------------------------------------------------------------------- */
+
+.cc-addr-row,
 .cc-ship-row { display: grid; grid-template-columns: 0.7fr 1fr 1fr 1.1fr; gap: 12px; }
+.cc-addr-row .cc-field,
 .cc-ship-row .cc-field { margin-bottom: 0; }
+
+.cc-addr .cc-field input[type="text"] { height: 40px; width: 100%; }
+
+/* Compact: the same fields down a long list of people, tighter and with
+   the three street lines side by side so one person is not a whole screen. */
+.cc-addr.is-compact { display: flex; flex-direction: column; gap: 10px; }
+.cc-addr.is-compact > .cc-field { margin: 0; }
+.cc-addr.is-compact .cc-addr-row { gap: 10px; }
+
+@media (min-width: 901px) {
+	.cc-addr.is-compact { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+	.cc-addr.is-compact > .cc-addr-row { grid-column: 1 / -1; }
+}
 
 .cc-select { position: relative; display: block; }
 
@@ -3970,6 +3991,7 @@
 
 @media (max-width: 900px) {
 	.cc-ship-modes { grid-template-columns: minmax(0, 1fr); }
+	.cc-addr-row,
 	.cc-ship-row { grid-template-columns: minmax(0, 1fr); gap: 16px; }
 }
 
@@ -6779,6 +6801,35 @@
 /* The chooser is the button people look for, so it reads as one. */
 .cc-up-choose { cursor: pointer; }
 
+/*
+ * And it stays inside the column it is in.
+ *
+ * The file input lives inside this label so there is no id to collide
+ * with. WordPress's .screen-reader-text hides it, but a file input still
+ * reports an intrinsic width of its own — around 250px, for the "Choose
+ * file" chrome the browser would have drawn — and as a flex item the
+ * label grew to hold it. On a 390px phone the button came out 450px wide
+ * and the whole step scrolled sideways. The label is clipped to its
+ * column, and the input is taken out of the flow so it cannot stretch it.
+ */
+.cc-up-choose {
+	max-width: 100%;
+	overflow: hidden;
+}
+
+.cc-up-choose > input[type="file"] {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	border: 0;
+	clip: rect(0 0 0 0);
+	clip-path: inset(50%);
+	overflow: hidden;
+	white-space: nowrap;
+}
+
 /* The upload row is a name beside two buttons, which only fits while
    there is room for all three. In a narrow column — a phone, or the
    by-hand screen's panel — it used to squeeze the file name to nothing
@@ -6909,33 +6960,15 @@
 	font-size: var(--cc-caption-size);
 }
 
-.cc-each-fields {
-	display: grid;
-	grid-template-columns: minmax(0, 1fr) 180px;
-	gap: 12px;
-}
-
+/* Each person's address is now the shared .cc-addr fieldset, same as the
+   company panel above it, so this only has to give it the width. */
+.cc-each-fields { display: block; }
 .cc-each-fields .cc-field { margin: 0; }
-.cc-each-fields textarea { width: 100%; resize: vertical; }
 
 .cc-each-up { margin-top: 20px; }
 .cc-each-up-head { margin: 0 0 4px; font-weight: var(--cc-weight-medium); }
 .cc-each-up-sub { margin: 0 0 12px; color: var(--cc-text-secondary); font-size: var(--cc-caption-size); }
 
-@media (max-width: 640px) {
-	.cc-each-fields { grid-template-columns: minmax(0, 1fr); }
-}
-
-/* The postcode under each person's address on step 5. Narrow, because a
-   postcode is short and a full-width box invites a second address line. */
-.cc-each-pc {
-	max-width: 12rem;
-	margin-top: 10px;
-}
-
-@media (max-width: 560px) {
-	.cc-each-pc { max-width: none; }
-}
 
 /* "Runs" on an occasion that happens once for each person: a statement
    rather than a choice, so it sits where the dropdown would. */
@@ -7170,4 +7203,103 @@
 	.cc-renew { flex-direction: column; padding: var(--cc-space-5); }
 	.cc-renew-money { text-align: left; min-width: 0; width: 100%; }
 	.cc-renew-money .cc-btn { width: 100%; justify-content: center; }
+}
+
+/* --------------------------------------------------------------------------
+   Twenty-five or more cards posted to individual addresses.
+
+   Neither of the two products, so it is arranged with CardsCo rather than
+   priced on screen. This panel replaces the payment box on the review step
+   and sits above the list of people on the shipping step, so it is styled
+   to read as a notice rather than as an error — nothing has gone wrong,
+   there is simply a conversation to have.
+   -------------------------------------------------------------------------- */
+
+.cc-referral {
+	display: flex;
+	gap: 14px;
+	align-items: flex-start;
+	margin: 0 0 20px;
+	padding: 16px 18px;
+	border: 1px solid var(--cc-border-info, #CBD9E6);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-bg-info-subtle, #F1F6FA);
+}
+
+.cc-referral-mark {
+	flex: 0 0 auto;
+	display: grid;
+	place-items: center;
+	width: 36px;
+	height: 36px;
+	border-radius: 50%;
+	background: var(--cc-bg-surface, #FFF);
+}
+
+.cc-referral-glyph {
+	width: 18px;
+	height: 18px;
+	stroke: var(--cc-text-muted, #5B6B7A);
+	fill: none;
+	stroke-width: 1.8;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.cc-referral-say { min-width: 0; }
+
+.cc-referral-title {
+	margin: 0 0 4px;
+	font-size: var(--cc-body-size, 15px);
+	font-weight: 600;
+	color: var(--cc-text-strong, #15202B);
+}
+
+.cc-referral-body {
+	margin: 0 0 12px;
+	font-size: var(--cc-body-s-size, 14px);
+	line-height: 1.5;
+	color: var(--cc-text-muted, #5B6B7A);
+}
+
+.cc-referral-do {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 10px 14px;
+	align-items: center;
+	margin: 0;
+}
+
+/* The address in plain sight as well as behind the button: a mailto does
+   nothing on a machine with no mail client, and a dead button with no
+   address beside it is a dead end. */
+.cc-referral-addr {
+	font-size: var(--cc-body-s-size, 14px);
+	color: var(--cc-text-muted, #5B6B7A);
+}
+
+/* Without this it falls back to the browser's blue underline, which is
+   the one thing on the panel that does not look like the product. */
+.cc-referral-addr a {
+	color: var(--cc-text-strong, #15202B);
+	font-weight: 500;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.cc-referral-addr a:hover { color: var(--cc-brand, #14532D); }
+
+/* On the review step it stands in for the whole payment panel, so it fills
+   the column rather than sitting in a box inside a box. */
+.cc-rev-pay.is-referral {
+	padding: 0;
+	border: 0;
+	background: none;
+}
+
+.cc-rev-pay.is-referral .cc-referral { margin: 0; }
+
+@media (max-width: 560px) {
+	.cc-referral { flex-direction: column; gap: 10px; }
+	.cc-referral-do .cc-btn { width: 100%; justify-content: center; }
 }

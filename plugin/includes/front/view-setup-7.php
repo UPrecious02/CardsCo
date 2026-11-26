@@ -53,6 +53,20 @@ defined( 'ABSPATH' ) || exit;
 		<?php endforeach; ?>
 	</section>
 
+	<?php
+	/*
+	 * Twenty-five or more posted to individual addresses is not priced
+	 * here — see CardsCo_Programme::needs_referral(). The whole payment
+	 * panel is replaced rather than sat alongside a total, because a
+	 * figure on this screen is a figure the customer will hold us to.
+	 */
+	if ( CardsCo_Programme::needs_referral( $programme ) ) :
+		$referral = CardsCo_Programme::referral( $programme );
+		?>
+		<aside class="cc-rev-pay is-referral">
+			<?php require CARDSCO_PATH . 'includes/front/partial-referral.php'; ?>
+		</aside>
+	<?php else : ?>
 	<aside class="cc-rev-pay">
 		<p class="cc-rev-pay-head"><?php esc_html_e( 'What you’ll pay', 'cardsco' ); ?></p>
 
@@ -77,4 +91,5 @@ defined( 'ABSPATH' ) || exit;
 			<span><?php echo esc_html( $review['note'] ); ?></span>
 		</p>
 	</aside>
+	<?php endif; ?>
 </div>

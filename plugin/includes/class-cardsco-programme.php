@@ -869,6 +869,179 @@ class CardsCo_Programme {
 	 * ------------------------------------------------------------------ */
 
 	/**
+	 * Whether this occasion's cards all go to one address.
+	 *
+	 * Where the cards go does NOT decide the price — postage is inside
+	 * the price, so thirty-four cards cost the same whether they arrive
+	 * in a box at the office or in thirty-four envelopes. This is here
+	 * for the screens that need to know where things are being sent, not
+	 * for working out what to charge.
+	 *
+	 * @param array $programme Programme row.
+	 * @return bool
+	 */
+	public static function one_address( array $programme ) {
+		return 'company' === ( $programme['shipping_mode'] ?? 'company' );
+	}
+
+	/**
+	 * Whether this occasion is a combination we do not sell.
+	 *
+	 * There are two products. Bulk is twenty-five cards or more sent to
+	 * ONE address, which the customer hands out, at the lower rate.
+	 * Single is a card each, posted to each named person, at the higher
+	 * one. Twenty-five or more posted to individual addresses is neither:
+	 * it is the volume of a bulk order with the postage of a single one,
+	 * and the price list has no line for it.
+	 *
+	 * So it is not priced and not sold here. The customer is pointed at
+	 * CardsCo to agree terms, rather than being quietly charged one rate
+	 * or the other and finding out afterwards.
+	 *
+	 * Note what this leaves: every combination that CAN be bought is
+	 * priced on quantity alone, because the only case where the
+	 * destination would have changed the rate is this one, and this one
+	 * does not reach a till.
+	 *
+	 * @param array $programme Programme row.
+	 * @param int   $quantity  How many cards, or null to count them.
+	 * @return bool
+	 */
+	public static function needs_referral( array $programme, $quantity = null ) {
+		if ( self::one_address( $programme ) ) {
+			return false;
+		}
+
+		if ( null === $quantity ) {
+			$quantity = (int) self::people_summary( $programme )['ready'];
+		}
+
+		return CardsCo_Card::is_bulk( (int) $quantity, (int) $programme['company_id'] );
+	}
+
+	/**
+	 * What to say when an occasion has to be arranged with us directly.
+	 *
+	 * The wording and the address in one place, because it appears on the
+	 * shipping step, on the review step and at the till, and three
+	 * versions of it would drift.
+	 *
+	 * @param array $programme Programme row.
+	 * @param int   $quantity  How many cards, or null to count them.
+	 * @return array{title:string,body:string,action:string,email:string,mailto:string}
+	 */
+	public static function referral( array $programme, $quantity = null ) {
+		if ( null === $quantity ) {
+			$quantity = (int) self::people_summary( $programme )['ready'];
+		}
+
+		$email    = (string) CardsCo_Settings::get( 'support_email', null, (int) $programme['company_id'] );
+		$company  = CardsCo_Company::get( (int) $programme['company_id'] );
+		$category = CardsCo_Category::get( (string) $programme['category'] );
+
+		$subject = sprintf(
+			/* translators: 1: how many cards, 2: the company's name. */
+			__( '%1$d cards to individual addresses — %2$s', 'cardsco' ),
+			(int) $quantity,
+			$company ? $company['name'] : __( 'our company', 'cardsco' )
+		);
+
+		$body = sprintf(
+			/* translators: 1: how many cards, 2: the occasion. */
+			__( "We would like to order %1\$d cards for %2\$s, posted to each person's own address.\n\nPlease could you let us know the price and how to go ahead.", 'cardsco' ),
+			(int) $quantity,
+			$category ? strtolower( $category['label'] ) : __( 'our occasion', 'cardsco' )
+		);
+
+		return array(
+			'title'  => __( 'This one we arrange with you directly', 'cardsco' ),
+			'body'   => sprintf(
+				/* translators: %d: how many cards. */
+				__( 'Orders of %d or more going to individual addresses are priced case by case, so there is nothing to pay here yet. Send us the details and we will come back to you with a price.', 'cardsco' ),
+				(int) CardsCo_Settings::get( 'bulk_from', null, (int) $programme['company_id'] )
+			),
+			'action' => __( 'Email us about this order', 'cardsco' ),
+			'email'  => $email,
+			'mailto' => 'mailto:' . rawurlencode( $email ) . '?subject=' . rawurlencode( $subject ) . '&body=' . rawurlencode( $body ),
+		);
+	}
+
+	/**
+	 * Whether this occasion counts as a bulk order.
+	 *
+	 * Twenty-five cards or more, whatever their destination. This is what
+	 * the rate hangs on, and what decides how many designs the customer
+	 * may pick.
+	 *
+	 * @param array $programme Programme row.
+	 * @param int   $quantity  How many cards, or null to count them.
+	 * @return bool
+	 */
+	public static function is_bulk_order( array $programme, $quantity = null ) {
+		if ( null === $quantity ) {
+			$quantity = (int) self::people_summary( $programme )['ready'];
+		}
+
+		return CardsCo_Card::is_bulk( (int) $quantity, (int) $programme['company_id'] );
+	}
+
+	/**
+	 * What one card on this programme costs, at this quantity.
+	 *
+	 * The single place the rate comes from, because there were three and
+	 * they disagreed. The review screen read programmes.unit_price — the
+	 * list price copied onto the row the day the programme was created,
+	 * which knows nothing about the card that was chosen afterwards and
+	 * nothing about the bulk rate. The till has always read
+	 * CardsCo_Card::price_total(), which knows about both. The renewal read
+	 * a third thing that knew about the card but not about bulk.
+	 *
+	 * Thirty-four staff and a plain card: the review screen said £3.60 a
+	 * card and £122.40 for the year, the customer was charged £1.99 and
+	 * £67.66, and the renewal a year later billed £122.40. The till wins,
+	 * because the till is the one that takes the money.
+	 *
+	 * The quantity matters because the bulk rate depends on it, and the
+	 * quantity that counts is the whole order — the year — not whatever
+	 * happens to fall in one box. Three people in next month's box are
+	 * still three cards of a bulk order and are priced as such.
+	 *
+	 * @param array $programme Programme row.
+	 * @param int   $quantity  How many cards the order is for.
+	 * @return float The price of one card.
+	 */
+	public static function rate( array $programme, $quantity ) {
+		$company_id = (int) $programme['company_id'];
+		$quantity   = max( 1, (int) $quantity );
+		$card_id    = (int) ( $programme['card_id'] ?? 0 );
+
+		if ( ! $card_id && ! empty( $programme['category'] ) ) {
+			foreach ( (array) CardsCo_Category::cards( $programme['category'], $company_id ) as $card ) {
+				$card_id = (int) $card->ID;
+				break;
+			}
+		}
+
+		if ( $card_id ) {
+			return (float) CardsCo_Card::price_for( $card_id, $quantity, $company_id );
+		}
+
+		/*
+		 * No card to price yet. The review screen still has to put a figure
+		 * up, so it falls back to the list — but to the list as it stands
+		 * now, not as it stood when the row was made, because that is what
+		 * they will be charged.
+		 */
+		$list = CardsCo_Settings::get( 'price_default', null, $company_id );
+
+		if ( null === $list || '' === $list ) {
+			$list = $programme['unit_price'] ?? 0;
+		}
+
+		return (float) $list;
+	}
+
+	/**
 	 * The figures the review step shows.
 	 *
 	 * @param array $programme Programme row.
@@ -876,7 +1049,7 @@ class CardsCo_Programme {
 	 */
 	public static function estimate( array $programme ) {
 		$people = self::people_summary( $programme );
-		$price  = (float) ( $programme['unit_price'] ?? CardsCo_Settings::get( 'price_default', null, (int) $programme['company_id'] ) );
+		$price  = self::rate( $programme, (int) $people['ready'] );
 
 		/* The box they will actually be charged for next, not the one that
 		   shipped three weeks ago. */

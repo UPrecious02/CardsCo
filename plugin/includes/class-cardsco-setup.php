@@ -1159,30 +1159,69 @@ class CardsCo_Setup {
 	 */
 	protected static function save_each_address( array $programme ) {
 		// phpcs:disable WordPress.Security.NonceVerification.Missing -- verified in handle().
+		/*
+		 * The parts, as the shared address fieldset posts them. It used to
+		 * be one textarea per person under `each_address`; the older name
+		 * is still read so a form left open across the upgrade, or a draft
+		 * posted by a cached page, does not quietly lose what was typed.
+		 */
+		$lines     = (array) ( $_POST['each_line'] ?? array() );
 		$addresses = (array) ( $_POST['each_address'] ?? array() );
 		$postcodes = (array) ( $_POST['each_postcode'] ?? array() );
+		$countries = (array) ( $_POST['each_country'] ?? array() );
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
-		if ( ! $addresses && ! $postcodes ) {
+		if ( ! $lines && ! $addresses && ! $postcodes && ! $countries ) {
 			return;
 		}
 
 		$mine = array_flip( CardsCo_Programme::recipient_ids( (int) $programme['id'] ) );
+		$ids  = array_keys( $lines + $addresses + $postcodes + $countries );
 
-		foreach ( array_keys( $addresses + $postcodes ) as $rid ) {
+		foreach ( $ids as $rid ) {
 			$rid = absint( $rid );
 
 			if ( ! $rid || ! isset( $mine[ $rid ] ) ) {
 				continue;
 			}
 
-			CardsCo_Recipient::update(
-				$rid,
-				array(
-					'address'  => sanitize_textarea_field( wp_unslash( (string) ( $addresses[ $rid ] ?? '' ) ) ),
-					'postcode' => sanitize_text_field( wp_unslash( (string) ( $postcodes[ $rid ] ?? '' ) ) ),
-				)
+			/*
+			 * The parts win where they were posted, because that is the
+			 * form the person was actually looking at.
+			 */
+			if ( isset( $lines[ $rid ] ) ) {
+				$parts = array_map(
+					static function ( $one ) {
+						return sanitize_text_field( wp_unslash( (string) $one ) );
+					},
+					(array) $lines[ $rid ]
+				);
+
+				$address = CardsCo_Dashboard::address_block( $parts );
+			} else {
+				$address = sanitize_textarea_field( wp_unslash( (string) ( $addresses[ $rid ] ?? '' ) ) );
+			}
+
+			$data = array(
+				'address'  => $address,
+				'postcode' => sanitize_text_field( wp_unslash( (string) ( $postcodes[ $rid ] ?? '' ) ) ),
 			);
+
+			/*
+			 * Only when it was asked for. An absent country must not
+			 * overwrite a stored one with an empty string, which is how a
+			 * person imported as 'IE' would have become 'GB' the first
+			 * time somebody pressed Continue on step 5.
+			 */
+			if ( isset( $countries[ $rid ] ) ) {
+				$country = strtoupper( sanitize_text_field( wp_unslash( (string) $countries[ $rid ] ) ) );
+
+				if ( '' !== $country ) {
+					$data['country'] = substr( $country, 0, 2 );
+				}
+			}
+
+			CardsCo_Recipient::update( $rid, $data );
 		}
 	}
 

@@ -332,11 +332,50 @@ class CardsCo_Renewal {
 	 * @return array{people:int,each:float,total:float,currency:string}
 	 */
 	public static function quote( array $programme ) {
-		$people = count( CardsCo_Programme::recipient_ids( (int) $programme['id'] ) );
-		$each   = (float) CardsCo_Dashboard::card_price( $programme, (int) $programme['company_id'] );
+		/*
+		 * The people who will actually get a card, not everybody on the list.
+		 *
+		 * This counted every recipient on the programme. The first charge,
+		 * in Programme::estimate(), counts only those holding a date for
+		 * this occasion — because a person with no birthday on file is
+		 * never written a birthday card.
+		 *
+		 * So a company with forty staff of whom six never gave a date paid
+		 * for thirty-four in the first year and forty in the second, for
+		 * the same thirty-four cards. The two have to be the same count or
+		 * the renewal is not the same thing being bought again.
+		 */
+		$summary = CardsCo_Programme::people_summary( $programme );
+		$people  = (int) $summary['ready'];
+
+		/*
+		 * The same rate the till would charge today, from the same place —
+		 * see CardsCo_Programme::rate(). This read CardsCo_Dashboard's
+		 * card_price(), which knew about a card's own price but not about
+		 * the bulk rate, so a renewal for thirty-four staff quoted £3.60 a
+		 * card against the £1.99 they had actually paid.
+		 */
+		$each = CardsCo_Programme::rate( $programme, $people );
+
+		/*
+		 * What they paid last time, so the email can say when it has gone
+		 * up. His instruction: renewals are charged at the current price,
+		 * and the email states the increase. programmes.unit_price is the
+		 * rate locked on the row at setup and never written again, which
+		 * makes it exactly the record of what they signed up at.
+		 */
+		$was     = (float) ( $programme['unit_price'] ?? 0 );
+		$changed = $was > 0 && abs( $was - $each ) >= 0.005;
 
 		return array(
 			'people'   => $people,
+			/* The rate they signed up at, and whether today's differs. */
+			'was'           => $was,
+			'price_changed' => $changed,
+			/* What the list holds, for an email that has to explain the
+			   difference between the two numbers. */
+			'on_list'  => (int) $summary['total'],
+			'undated'  => (int) $summary['missing_date'],
 			'each'     => $each,
 			'total'    => $each * $people,
 			'currency' => (string) CardsCo_Settings::get( 'currency', null, (int) $programme['company_id'] ),
@@ -411,12 +450,7 @@ class CardsCo_Renewal {
 
 		$category = CardsCo_Category::get( (string) $programme['category'] );
 		$label    = $category ? $category['label'] : __( 'your occasion', 'cardsco' );
-		$quote    = self::quote( $programme );
 		$due      = date_i18n( 'j F Y', strtotime( (string) $programme['renews_on'] ) );
-		$money    = CardsCo_Shortcodes::money(
-			number_format( $quote['total'], 2, '.', '' ),
-			$quote['currency']
-		);
 
 		$subject = $number >= $of
 			? sprintf(
@@ -432,6 +466,29 @@ class CardsCo_Renewal {
 				$due
 			);
 
+		return (bool) wp_mail( $to, $subject, self::reminder_body( $programme ) );
+	}
+
+	/**
+	 * The body of a renewal reminder.
+	 *
+	 * Split out of remind() so the wording can be asserted against without
+	 * sending anything, because what this email says about money is the
+	 * part that has to be right.
+	 *
+	 * @param array $programme Programme row.
+	 * @return string
+	 */
+	public static function reminder_body( array $programme ) {
+		$category = CardsCo_Category::get( (string) $programme['category'] );
+		$label    = $category ? $category['label'] : __( 'your occasion', 'cardsco' );
+		$quote    = self::quote( $programme );
+		$due      = date_i18n( 'j F Y', strtotime( (string) $programme['renews_on'] ) );
+		$money    = CardsCo_Shortcodes::money(
+			number_format( $quote['total'], 2, '.', '' ),
+			$quote['currency']
+		);
+
 		$body  = sprintf(
 			/* translators: 1: the occasion, 2: the date. */
 			__( 'Your %1$s cards are paid for up to %2$s.', 'cardsco' ),
@@ -439,16 +496,81 @@ class CardsCo_Renewal {
 			$due
 		) . "\n\n";
 
+		/*
+		 * What they are paying for, itemised.
+		 *
+		 * "The coming year covers 34 people, which comes to £122.40" leaves
+		 * somebody with forty staff wondering which thirty-four, and
+		 * whether the other six have been lost. The bill says the price of
+		 * one card, how many cards, and — where the two numbers differ —
+		 * why they differ and what to do about it.
+		 */
+		$each_money = wp_strip_all_tags(
+			CardsCo_Shortcodes::money( number_format( $quote['each'], 2, '.', '' ), $quote['currency'] )
+		);
+
+		$body .= __( 'What you are paying for:', 'cardsco' ) . "\n";
+
 		$body .= sprintf(
-			/* translators: 1: how many people, 2: the total. */
-			__( 'The coming year covers %1$s, which comes to %2$s. The list is charged as it stands on the day you renew, so anyone you add before then is included.', 'cardsco' ),
+			/* translators: 1: how many cards, 2: the price of one, 3: the total. */
+			__( '%1$s at %2$s each — %3$s', 'cardsco' ),
 			sprintf(
-				/* translators: %s: how many people. */
-				_n( '%s person', '%s people', $quote['people'], 'cardsco' ),
+				/* translators: %s: how many cards. */
+				_n( '%s card', '%s cards', $quote['people'], 'cardsco' ),
 				number_format_i18n( $quote['people'] )
 			),
+			$each_money,
 			wp_strip_all_tags( $money )
 		) . "\n\n";
+
+		/*
+		 * When it is not what they paid last year, say so and say what it
+		 * was. His instruction was that renewals are charged at the
+		 * current price and the email states any increase — an email that
+		 * quietly bills a different rate is the one that gets queried.
+		 *
+		 * A fall is announced too. Nobody has ever complained about being
+		 * told a price went down, and the alternative is code that decides
+		 * which direction is worth mentioning.
+		 */
+		if ( ! empty( $quote['price_changed'] ) ) {
+			$was_money = wp_strip_all_tags(
+				CardsCo_Shortcodes::money( number_format( $quote['was'], 2, '.', '' ), $quote['currency'] )
+			);
+
+			$body .= ( $quote['each'] > $quote['was'] )
+				? sprintf(
+					/* translators: 1: the old price of one card, 2: the new one. */
+					__( 'The price of a card has gone up since you signed up, from %1$s to %2$s. The figure above is the new price. Renewals are charged at the price on the day you renew.', 'cardsco' ),
+					$was_money,
+					$each_money
+				) . "\n\n"
+				: sprintf(
+					/* translators: 1: the old price of one card, 2: the new one. */
+					__( 'The price of a card has come down since you signed up, from %1$s to %2$s. The figure above is the new price.', 'cardsco' ),
+					$was_money,
+					$each_money
+				) . "\n\n";
+		}
+
+		if ( $quote['undated'] > 0 ) {
+			$body .= sprintf(
+				/* translators: 1: how many people in total, 2: how many have no date. */
+				__( 'You have %1$s on this list. %2$s have no date on file yet, so no card is written for them and they are not charged for. Add their dates before you renew and they will be included.', 'cardsco' ),
+				sprintf(
+					/* translators: %s: how many people. */
+					_n( '%s person', '%s people', $quote['on_list'], 'cardsco' ),
+					number_format_i18n( $quote['on_list'] )
+				),
+				sprintf(
+					/* translators: %s: how many people. */
+					_n( '%s of them', '%s of them', $quote['undated'], 'cardsco' ),
+					number_format_i18n( $quote['undated'] )
+				)
+			) . "\n\n";
+		}
+
+		$body .= __( 'The list is charged as it stands on the day you renew, so anyone you add before then is included.', 'cardsco' ) . "\n\n";
 
 		$body .= __( 'Renew here:', 'cardsco' ) . "\n" . self::pay_link( $programme ) . "\n\n";
 
@@ -458,7 +580,7 @@ class CardsCo_Renewal {
 			$due
 		) . "\n";
 
-		return (bool) wp_mail( $to, $subject, $body );
+		return $body;
 	}
 
 	/**

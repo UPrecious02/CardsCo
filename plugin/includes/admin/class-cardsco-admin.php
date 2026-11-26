@@ -250,6 +250,13 @@ class CardsCo_Admin {
 		wp_register_style( 'cardsco-admin', false, array(), CARDSCO_VERSION );
 		wp_enqueue_style( 'cardsco-admin' );
 		wp_add_inline_style( 'cardsco-admin', $css );
+
+		/*
+		 * A click on a date field opens the calendar here too. These
+		 * screens carry a send date, an expiry and a start date, and the
+		 * admin had the same dd/mm/yyyy mask the portal did.
+		 */
+		wp_enqueue_script( 'cardsco-dates', CARDSCO_URL . 'assets/dates.js', array(), CARDSCO_VERSION, true );
 	}
 
 	/* ---------------------------------------------------------------------

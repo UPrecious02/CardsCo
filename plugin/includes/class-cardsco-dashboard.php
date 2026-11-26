@@ -1218,7 +1218,12 @@ class CardsCo_Dashboard {
 			$values[ $n ] = self::setup_value( $programme, $n, $category );
 		}
 
-		$price = self::card_price( $programme, $company_id );
+		/*
+		 * The rate the till will charge, not the single-card list price. See
+		 * CardsCo_Programme::rate() — there were three rates and the customer
+		 * could see all three.
+		 */
+		$price = CardsCo_Programme::rate( $programme, (int) CardsCo_Programme::people_summary( $programme )['ready'] );
 
 		$money = CardsCo_Shortcodes::money( number_format( $price, 2, '.', '' ), (string) CardsCo_Settings::get( 'currency', null, $company_id ) );
 
@@ -1487,12 +1492,18 @@ class CardsCo_Dashboard {
 	}
 
 	/**
-	 * What a card costs on this programme.
+	 * What ONE card costs on this programme, bought on its own.
 	 *
-	 * Before a card is chosen there is still a price to show — the first one
-	 * in the occasion's own range — because "from £3.60" is more use than a
-	 * blank. The rail and the review screen both ask here, so they cannot
-	 * drift apart and quote two different numbers on the same page.
+	 * Not the rate to bill with. This takes no quantity, so it cannot know
+	 * about the bulk rate, and that is how the renewal came to quote £3.60
+	 * a card against the £1.99 the customer had actually been charged. For
+	 * anything with money in it — a review screen, a till, a renewal, a
+	 * box total — use CardsCo_Programme::rate(), which takes the quantity
+	 * and is what the till itself reads.
+	 *
+	 * What is left for this to answer is the "from £3.60" on a rail, where
+	 * there is no quantity yet and a single-card price is the honest thing
+	 * to show.
 	 *
 	 * @param array $programme  Programme row.
 	 * @param int   $company_id Company.
@@ -1531,7 +1542,9 @@ class CardsCo_Dashboard {
 
 		$company_id = CardsCo_Access::company_id();
 		$timing     = self::setup_timing( $programme );
-		$price      = self::card_price( $programme, $company_id );
+		/* The rate the order is charged at, not the single-card price:
+		   a box of three out of a bulk order is three bulk cards. */
+		$price      = CardsCo_Programme::rate( $programme, (int) CardsCo_Programme::people_summary( $programme )['ready'] );
 		$box        = (int) $timing['in_box'];
 
 		$money = CardsCo_Shortcodes::money(
@@ -1675,7 +1688,8 @@ class CardsCo_Dashboard {
 		$card       = ! empty( $programme['card_id'] ) ? CardsCo_Card::summary( (int) $programme['card_id'] ) : null;
 		$cat        = $programme['category'] ? CardsCo_Category::get( $programme['category'] ) : null;
 
-		$price = self::card_price( $programme, $company_id );
+		/* Same rate the till charges — see CardsCo_Programme::rate(). */
+		$price = CardsCo_Programme::rate( $programme, (int) CardsCo_Programme::people_summary( $programme )['ready'] );
 		$money = static function ( $amount ) use ( $company_id ) {
 			return CardsCo_Shortcodes::money(
 				number_format( (float) $amount, 2, '.', '' ),
@@ -1826,18 +1840,31 @@ class CardsCo_Dashboard {
 		 * were quoted one card at GBP 3.60 and would have been charged
 		 * GBP 10.80 on the next screen.
 		 */
-		$paying = count( CardsCo_Programme::recipient_ids( (int) $programme['id'] ) );
-		$undated = max( 0, $paying - $have );
+		/*
+		 * The cards that will be written, not the people on the list.
+		 *
+		 * This charged for everybody, on the reasoning that an undated
+		 * person's card is prepaid and written the moment a date is added.
+		 * The client's rule is the other one: nobody pays for a birthday
+		 * that was never given. So a company with forty staff of whom six
+		 * never gave a date pays for thirty-four cards — here, at the till,
+		 * and again at renewal, which are now the same count in all three
+		 * places. They disagreed before: this panel and the renewal said
+		 * one number and the till took another.
+		 */
+		$summary = CardsCo_Programme::people_summary( $programme );
+		$paying  = (int) $summary['ready'];
+		$undated = (int) $summary['missing_date'];
 
 		return array(
 			'rows'  => $rows,
 			'lines' => array(
 				array( 'label' => __( 'Price per card', 'cardsco' ), 'value' => $money( $price ) ),
 				array(
-					'label' => __( 'People on this occasion', 'cardsco' ),
+					'label' => __( 'Cards to write', 'cardsco' ),
 					'value' => sprintf(
-						/* translators: %s: how many people. */
-						_n( '%s person', '%s people', $paying, 'cardsco' ),
+						/* translators: %s: how many cards. */
+						_n( '%s card', '%s cards', $paying, 'cardsco' ),
 						number_format_i18n( $paying )
 					),
 				),
@@ -1857,14 +1884,14 @@ class CardsCo_Dashboard {
 			'note'  => $undated
 				? sprintf(
 					/* translators: 1: one card each, 2: how many have no date yet. */
-					__( 'One card for each person on your list, charged once — not month by month. %s has no date yet; their card is written as soon as you add one.', 'cardsco' ),
+					__( 'One card for each person with a date, charged once — not month by month. %s has no date yet, so there is no card to write and nothing to pay for them. Add a date and their card is written.', 'cardsco' ),
 					sprintf(
 						/* translators: %s: how many people. */
 						_n( '%s person', '%s people', $undated, 'cardsco' ),
 						number_format_i18n( $undated )
 					)
 				)
-				: __( 'One card for each person on your list, charged once — not month by month.', 'cardsco' ),
+				: __( 'One card for each person with a date, charged once — not month by month.', 'cardsco' ),
 		);
 	}
 
@@ -2397,8 +2424,7 @@ class CardsCo_Dashboard {
 			$from_company = true;
 		}
 
-		$lines = preg_split( '/\R/', $block );
-		$lines = array_slice( array_pad( (array) $lines, 5, '' ), 0, 5 );
+		$lines = self::address_lines( $block );
 
 		return array(
 			'mode'    => $mode,
@@ -2438,6 +2464,75 @@ class CardsCo_Dashboard {
 	}
 
 	/**
+	 * How many parts an address is asked for in.
+	 *
+	 * Three street lines, a town and a county. The company panel on step 5
+	 * has always used this shape; it is a constant now because the
+	 * per-person panel uses it too and the two reading different numbers
+	 * is exactly how they came to offer different fields.
+	 */
+	const ADDRESS_PARTS = 5;
+
+	/**
+	 * An address block split into the parts a form asks for.
+	 *
+	 * The model stores an address as one block of text, because that is
+	 * what goes on an envelope. The forms ask for it in parts, so the
+	 * split and the join both live here rather than in each view.
+	 *
+	 * @param string $block The stored address.
+	 * @return string[] Exactly ADDRESS_PARTS strings.
+	 */
+	public static function address_lines( $block ) {
+		$lines = preg_split( '/\R/', (string) $block );
+		$lines = array_slice( array_pad( (array) $lines, self::ADDRESS_PARTS, '' ), 0, self::ADDRESS_PARTS );
+
+		return array_map( 'strval', $lines );
+	}
+
+	/**
+	 * The parts of an address joined back into a block.
+	 *
+	 * Empty parts are dropped rather than left as blank lines, so somebody
+	 * who skips "address line 3" does not get a gap in the middle of their
+	 * envelope.
+	 *
+	 * @param array $lines The parts, in ADDRESS_PARTS order.
+	 * @return string
+	 */
+	public static function address_block( array $lines ) {
+		$keep = array();
+
+		foreach ( array_slice( array_values( $lines ), 0, self::ADDRESS_PARTS ) as $one ) {
+			$one = trim( (string) $one );
+
+			if ( '' !== $one ) {
+				$keep[] = $one;
+			}
+		}
+
+		return implode( "\n", $keep );
+	}
+
+	/**
+	 * The labels the address parts are asked for under.
+	 *
+	 * One list, used by both panels on step 5 and by anything else that
+	 * asks for an address, so the wording cannot drift between them.
+	 *
+	 * @return string[]
+	 */
+	public static function address_labels() {
+		return array(
+			__( 'Address line 1', 'cardsco' ),
+			__( 'Address line 2', 'cardsco' ),
+			__( 'Address line 3', 'cardsco' ),
+			__( 'Town/city', 'cardsco' ),
+			__( 'County', 'cardsco' ),
+		);
+	}
+
+	/**
 	 * Each person on the occasion and the address their card would go to.
 	 *
 	 * Prefilled from what the list already holds — an upload that carried
@@ -2464,6 +2559,16 @@ class CardsCo_Dashboard {
 				'name'     => trim( $row['first_name'] . ' ' . $row['last_name'] ),
 				'initials' => self::initials( $row['first_name'], $row['last_name'] ),
 				'address'  => $address,
+				/*
+				 * The same five slots the company panel uses, so the person
+				 * panel can draw the same fields. It asked for the whole
+				 * address in one two-row textarea while the company panel
+				 * on the same screen asked for three lines, a town and a
+				 * county — the CEO's note was that an individual address
+				 * should be as detailed as the company one.
+				 */
+				'lines'    => self::address_lines( $address ),
+				'country'  => trim( (string) $row['country'] ) ? trim( (string) $row['country'] ) : 'GB',
 				'postcode' => trim( (string) $row['postcode'] ),
 				/*
 				 * Complete is the model's own word for "enough to post".
