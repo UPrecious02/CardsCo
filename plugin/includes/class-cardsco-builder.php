@@ -122,12 +122,35 @@ class CardsCo_Builder {
 
 		switch ( (int) $step ) {
 			case 1:
-				return $only(
+				$first = $only(
 					array(
 						'name'             => sanitize_text_field( $get( 'name' ) ),
 						'occasion_type_id' => absint( $get( 'occasion_type_id' ) ),
 					)
 				);
+
+				/*
+				 * Single cards or a bulk order, asked at the start. Only
+				 * taken when the screen sent it, and the address only with
+				 * a bulk order: single cards go to each person's own.
+				 */
+				$kind = sanitize_key( $get( 'order_type' ) );
+
+				if ( 'single' === $kind ) {
+					$first['shipping_mode'] = 'individual';
+				} elseif ( 'bulk' === $kind ) {
+					$first['shipping_mode'] = 'company';
+
+					if ( isset( $post['ship_line'] ) ) {
+						$lines = array_slice( array_pad( (array) $get( 'ship_line', array() ), 5, '' ), 0, 5 );
+
+						$first['ship_address']  = implode( "\n", array_map( 'sanitize_text_field', array_map( 'strval', $lines ) ) );
+						$first['ship_postcode'] = sanitize_text_field( $get( 'ship_postcode' ) );
+						$first['ship_country']  = sanitize_text_field( $get( 'ship_country', 'GB' ) );
+					}
+				}
+
+				return $first;
 
 			case 2:
 				/*
@@ -153,10 +176,49 @@ class CardsCo_Builder {
 				);
 
 			case 3:
-				return $only( array( 'card_id' => absint( $get( 'card_id' ) ) ) );
+				/*
+				 * Two pickers post here. The one-design picker sends a
+				 * card_id; the bulk one sends a marker, the ticked cards and
+				 * a number for each. Whole positive numbers only: anything
+				 * else is treated as not said.
+				 */
+				if ( isset( $post['cc_designs'] ) ) {
+					$numbers = (array) $get( 'qty', array() );
+					$designs = array();
+
+					foreach ( (array) $get( 'card_ids', array() ) as $card_id ) {
+						$card_id = absint( $card_id );
+						$typed   = isset( $numbers[ $card_id ] ) ? trim( (string) $numbers[ $card_id ] ) : '';
+
+						if ( $card_id ) {
+							$designs[] = array(
+								'card' => $card_id,
+								'qty'  => ( '' !== $typed && ctype_digit( $typed ) && (int) $typed > 0 ) ? (int) $typed : 0,
+							);
+						}
+					}
+
+					return array( 'designs' => $designs );
+				}
+
+				/*
+				 * Sent as the whole list of designs, one long. Choosing a
+				 * single card is choosing it instead of whatever was there,
+				 * including a bulk order's mix on a campaign that has since
+				 * become single cards.
+				 */
+				if ( ! isset( $post['card_id'] ) ) {
+					return array();
+				}
+
+				return array(
+					'designs' => absint( $get( 'card_id' ) )
+						? array( array( 'card' => absint( $get( 'card_id' ) ), 'qty' => 0 ) )
+						: array(),
+				);
 
 			case 4:
-				return $only(
+				$fourth = $only(
 					array(
 						'message_template_id' => absint( $get( 'message_template_id' ) ),
 						// Unsanitised on purpose: the model's merge-field
@@ -164,6 +226,22 @@ class CardsCo_Builder {
 						'message_body'        => (string) $get( 'message_body' ),
 					)
 				);
+
+				/*
+				 * A bulk order can carry several. The first is the box that
+				 * was always there; the others arrive as a list, and empty
+				 * boxes in it are simply messages nobody wrote.
+				 */
+				if ( isset( $post['cc_messages'] ) && isset( $post['message_body'] ) ) {
+					$fourth['messages'] = array_merge(
+						array( (string) $get( 'message_body' ) ),
+						array_map( 'strval', (array) $get( 'more_messages', array() ) )
+					);
+
+					unset( $fourth['message_body'] );
+				}
+
+				return $fourth;
 
 			case 5:
 				/*
@@ -554,10 +632,23 @@ class CardsCo_Builder {
 		 * and to move, rather than something to know about.
 		 */
 		if ( 5 === $step && ! empty( $data['offer_enabled'] ) ) {
-			$wording = (string) $campaign['message_body'];
+			/*
+			 * Every message, not only the first: with three messages on a
+			 * bulk order, two thirds of the cards would otherwise go out
+			 * without the code.
+			 */
+			$wordings = CardsCo_Campaign::messages( $campaign );
+			$changed  = false;
 
-			if ( '' !== trim( $wording ) && ! preg_match( '/\{\s*offer[ _-]?code\s*\}/i', $wording ) ) {
-				$data['message_body'] = rtrim( $wording ) . "\n\n" . __( 'Use code {offer code}.', 'cardsco' );
+			foreach ( $wordings as $index => $wording ) {
+				if ( '' !== trim( $wording ) && ! preg_match( '/\{\s*offer[ _-]?code\s*\}/i', $wording ) ) {
+					$wordings[ $index ] = rtrim( $wording ) . "\n\n" . __( 'Use code {offer code}.', 'cardsco' );
+					$changed            = true;
+				}
+			}
+
+			if ( $changed && '' !== trim( (string) $campaign['message_body'] ) ) {
+				$data['messages'] = $wordings;
 			}
 		}
 
@@ -644,6 +735,18 @@ class CardsCo_Builder {
 	 * @return string An empty string when there is nothing to say.
 	 */
 	protected static function objection( $step, array $campaign ) {
+		if ( 1 === (int) $step ) {
+			return ( CardsCo_Campaign::one_address( $campaign ) && ! CardsCo_Campaign::address_ready( $campaign ) )
+				? __( 'Add the address the cards should be delivered to: at least the first line, the town and the postcode.', 'cardsco' )
+				: '';
+		}
+
+		if ( 3 === (int) $step || 4 === (int) $step ) {
+			$wrong = CardsCo_Campaign::mix_problems( $campaign, 3 === (int) $step ? 'designs' : 'messages' );
+
+			return $wrong ? (string) reset( $wrong ) : '';
+		}
+
 		if ( 6 !== (int) $step ) {
 			return '';
 		}
@@ -694,6 +797,10 @@ class CardsCo_Builder {
 			$back['cardsco_error'] = $message;
 			self::go( $back );
 		};
+
+		/* Counted now, so what is charged is what is on the list now. */
+		$counted  = CardsCo_Campaign::recount( (int) $campaign['id'] );
+		$campaign = $counted ? $counted : $campaign;
 
 		$ready = CardsCo_Campaign::can_schedule( $campaign );
 

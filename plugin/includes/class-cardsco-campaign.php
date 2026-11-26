@@ -272,6 +272,85 @@ class CardsCo_Campaign {
 			}
 		}
 
+		/*
+		 * Where the cards go: to each person, or all to one address.
+		 */
+		if ( array_key_exists( 'shipping_mode', $data ) ) {
+			$fields['shipping_mode'] = 'company' === $data['shipping_mode'] ? 'company' : 'individual';
+			$format[]                = '%s';
+		}
+
+		if ( array_key_exists( 'ship_address', $data ) ) {
+			$fields['ship_address'] = sanitize_textarea_field( (string) $data['ship_address'] );
+			$format[]               = '%s';
+		}
+
+		if ( array_key_exists( 'ship_postcode', $data ) ) {
+			$fields['ship_postcode'] = strtoupper( sanitize_text_field( (string) $data['ship_postcode'] ) );
+			$format[]                = '%s';
+		}
+
+		if ( array_key_exists( 'ship_country', $data ) ) {
+			$country                = strtoupper( substr( sanitize_text_field( (string) $data['ship_country'] ), 0, 2 ) );
+			$fields['ship_country'] = $country ? $country : 'GB';
+			$format[]               = '%s';
+		}
+
+		/*
+		 * Several designs. card_id is always the first of them, so every
+		 * place that reads one card still reads the right one; the list is
+		 * only kept when there is more than one, or a number was given.
+		 * A bare card_id — the one-design picker — replaces the lot.
+		 */
+		if ( array_key_exists( 'designs', $data ) ) {
+			$designs = CardsCo_Mix::clean_designs( $data['designs'] );
+
+			$fields['card_id'] = $designs ? (int) $designs[0]['card'] : 0;
+			$fields['designs'] = count( $designs ) > 1 ? wp_json_encode( $designs ) : null;
+
+		} elseif ( array_key_exists( 'card_id', $data ) ) {
+			/*
+			 * A different card replaces the mix. The same card saved again
+			 * — the admin screen re-saving a step on a customer's bulk
+			 * order — is not somebody throwing the other designs away.
+			 */
+			$kept = self::designs( $campaign );
+
+			if ( ! $kept || (int) $kept[0]['card'] !== absint( $data['card_id'] ) ) {
+				$fields['designs'] = null;
+			}
+		}
+
+		/*
+		 * Several messages. message_body is always the first. A bare
+		 * message_body — the offer step adding its code, an admin screen —
+		 * replaces the first and leaves the rest alone.
+		 */
+		if ( array_key_exists( 'messages', $data ) ) {
+			$wordings = array();
+
+			foreach ( (array) $data['messages'] as $one ) {
+				$one = trim( sanitize_textarea_field( (string) $one ) );
+
+				if ( '' !== $one && ! in_array( $one, $wordings, true ) ) {
+					$wordings[] = $one;
+				}
+			}
+
+			$fields['message_body'] = $wordings ? $wordings[0] : '';
+			$fields['messages']     = count( $wordings ) > 1 ? wp_json_encode( $wordings ) : null;
+
+		} elseif ( array_key_exists( 'message_body', $data ) ) {
+			$kept = self::messages( $campaign );
+
+			if ( count( $kept ) > 1 ) {
+				$kept[0] = $fields['message_body'];
+				$kept    = array_values( array_unique( array_filter( array_map( 'trim', $kept ), 'strlen' ) ) );
+
+				$fields['messages'] = count( $kept ) > 1 ? wp_json_encode( $kept ) : null;
+			}
+		}
+
 		if ( array_key_exists( 'offer_enabled', $data ) ) {
 			$fields['offer_enabled'] = empty( $data['offer_enabled'] ) ? 0 : 1;
 			$format[]                = '%d';
@@ -306,7 +385,21 @@ class CardsCo_Campaign {
 		}
 
 		$fields['updated_at'] = cardsco_now();
-		$format[]             = '%s';
+
+		/*
+		 * The formats are worked out here, from the fields as they finally
+		 * stand, not collected alongside them. A list of formats built up
+		 * in step with the fields is right only while every field is added
+		 * exactly once and in order; a field set twice — card_id, by the
+		 * card step and again by the designs — puts every format after it
+		 * against the wrong column.
+		 */
+		$whole  = array( 'occasion_type_id', 'card_id', 'message_template_id', 'builder_step', 'offer_enabled' );
+		$format = array();
+
+		foreach ( array_keys( $fields ) as $key ) {
+			$format[] = in_array( $key, $whole, true ) ? '%d' : '%s';
+		}
 
 		$wpdb->update( cardsco_table( 'campaigns' ), $fields, array( 'id' => absint( $campaign_id ) ), $format, array( '%d' ) );
 
@@ -374,6 +467,34 @@ class CardsCo_Campaign {
 		// Anybody deliberately taken out stays out, however they got in.
 		$ids = array_values( array_diff( $ids, $exclude ) );
 
+		/*
+		 * And only people who are still there to be sent a card.
+		 *
+		 * Somebody ticked by hand stayed on the list after they were
+		 * archived or deleted. No card was ever written for them — the send
+		 * skips anyone who is not active — but they were counted, and the
+		 * count is what is charged for. The company check is here for the
+		 * same reason it is on segments: a campaign reaches its own
+		 * company's people and nobody else's.
+		 */
+		if ( $ids ) {
+			global $wpdb;
+
+			$marks = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+			$live  = array_map(
+				'intval',
+				(array) $wpdb->get_col(
+					$wpdb->prepare(
+						'SELECT id FROM ' . cardsco_table( 'recipients' ) . " WHERE company_id = %d AND status = 'active' AND id IN ($marks)", // phpcs:ignore WordPress.DB.PreparedSQL, WordPress.DB.PreparedSQLPlaceholders
+						array_merge( array( (int) $campaign['company_id'] ), $ids )
+					)
+				)
+			);
+
+			/* In the order they were chosen, which is the order they are written in. */
+			$ids = array_values( array_intersect( $ids, $live ) );
+		}
+
 		return array(
 			'ids'      => $ids,
 			'excluded' => array_values( $exclude ),
@@ -396,8 +517,12 @@ class CardsCo_Campaign {
 		}
 
 		$audience = self::audience( $campaign );
-		$price    = self::unit_price( $campaign );
 		$count    = count( $audience['ids'] );
+
+		/* Priced at the size it has just been counted at, not the size on the row. */
+		$price = 'draft' === (string) $campaign['status']
+			? self::rate( $campaign, $count )
+			: self::unit_price( $campaign );
 
 		$wpdb->update(
 			cardsco_table( 'campaigns' ),
@@ -405,7 +530,12 @@ class CardsCo_Campaign {
 				'recipient_count' => $count,
 				'excluded_count'  => count( $audience['excluded'] ),
 				'unit_price'      => number_format( $price, 2, '.', '' ),
-				'total_amount'    => number_format( $count * $price, 2, '.', '' ),
+				'total_amount'    => number_format(
+					'draft' === (string) $campaign['status'] ? self::order_total( $campaign, $count ) : $count * $price,
+					2,
+					'.',
+					''
+				),
 				'updated_at'      => cardsco_now(),
 			),
 			array( 'id' => absint( $campaign_id ) ),
@@ -423,15 +553,315 @@ class CardsCo_Campaign {
 	 * @return float
 	 */
 	public static function unit_price( array $campaign ) {
-		if ( null !== $campaign['unit_price'] && '' !== $campaign['unit_price'] && (float) $campaign['unit_price'] > 0 ) {
+		/*
+		 * Once a campaign has left draft it has been paid for, and what
+		 * was stored then is what was paid. While it is a draft the stored
+		 * figure is only the last answer, and it used to be handed back as
+		 * if it were the current one: change the card, or add the people
+		 * who take the order past the bulk mark, and the review went on
+		 * showing the first price while the till charged the real one.
+		 */
+		if ( 'draft' !== (string) ( $campaign['status'] ?? 'draft' )
+			&& null !== $campaign['unit_price'] && '' !== $campaign['unit_price'] && (float) $campaign['unit_price'] > 0 ) {
 			return (float) $campaign['unit_price'];
 		}
 
+		return self::rate( $campaign );
+	}
+
+	/**
+	 * What one card costs on this campaign, at the size it is now.
+	 *
+	 * The one place that answers it: the review, the stored total and the
+	 * till all come here, so they cannot disagree. Quantity decides the
+	 * rate, exactly as it does for an occasion.
+	 *
+	 * @param array    $campaign Campaign row.
+	 * @param int|null $quantity How many cards, or null for the campaign's own count.
+	 * @return float
+	 */
+	public static function rate( array $campaign, $quantity = null ) {
+		if ( null === $quantity ) {
+			$quantity = (int) $campaign['recipient_count'];
+		}
+
 		if ( $campaign['card_id'] ) {
-			return (float) CardsCo_Card::price( (int) $campaign['card_id'], (int) $campaign['company_id'] );
+			return (float) CardsCo_Card::price_for( (int) $campaign['card_id'], max( 1, (int) $quantity ), (int) $campaign['company_id'] );
 		}
 
 		return (float) CardsCo_Settings::get( 'price_default', null, (int) $campaign['company_id'] );
+	}
+
+	/**
+	 * Whether this campaign has to be arranged with us directly.
+	 *
+	 * A campaign's cards are posted to each person. Twenty-five or more of
+	 * those is the order that is not sold here: the volume of a bulk order
+	 * with the postage of single cards.
+	 *
+	 * @param array    $campaign Campaign row.
+	 * @param int|null $quantity How many cards, or null for the campaign's own count.
+	 * @return bool
+	 */
+	public static function needs_referral( array $campaign, $quantity = null ) {
+		if ( null === $quantity ) {
+			$quantity = (int) $campaign['recipient_count'];
+		}
+
+		return ! self::one_address( $campaign ) && CardsCo_Card::is_bulk( (int) $quantity, (int) $campaign['company_id'] );
+	}
+
+	/**
+	 * Whether every card on this campaign goes to one address.
+	 *
+	 * @param array $campaign Campaign row.
+	 * @return bool
+	 */
+	public static function one_address( array $campaign ) {
+		return 'company' === (string) ( $campaign['shipping_mode'] ?? 'individual' );
+	}
+
+	/**
+	 * Whether that one address is somewhere a parcel can be sent.
+	 *
+	 * @param array $campaign Campaign row.
+	 * @return bool
+	 */
+	public static function address_ready( array $campaign ) {
+		return 'complete' === cardsco_address_status( (string) ( $campaign['ship_address'] ?? '' ), (string) ( $campaign['ship_postcode'] ?? '' ) );
+	}
+
+	/**
+	 * The designs on this campaign, in the order chosen.
+	 *
+	 * @param array $campaign Campaign row.
+	 * @return array<int, array{card:int, qty:int}>
+	 */
+	public static function designs( array $campaign ) {
+		$designs = CardsCo_Mix::clean_designs( $campaign['designs'] ?? '' );
+
+		if ( $designs ) {
+			return $designs;
+		}
+
+		return (int) $campaign['card_id'] > 0
+			? array( array( 'card' => (int) $campaign['card_id'], 'qty' => 0 ) )
+			: array();
+	}
+
+	/**
+	 * The messages on this campaign, in the order written.
+	 *
+	 * @param array $campaign Campaign row.
+	 * @return string[]
+	 */
+	public static function messages( array $campaign ) {
+		$raw  = $campaign['messages'] ?? '';
+		$list = is_string( $raw ) ? json_decode( $raw, true ) : $raw;
+		$out  = array();
+
+		foreach ( is_array( $list ) ? $list : array() as $one ) {
+			$one = trim( (string) $one );
+
+			if ( '' !== $one && ! in_array( $one, $out, true ) ) {
+				$out[] = $one;
+			}
+		}
+
+		if ( $out ) {
+			return $out;
+		}
+
+		$first = trim( (string) $campaign['message_body'] );
+
+		if ( '' === $first && (int) $campaign['message_template_id'] > 0 ) {
+			$post = get_post( (int) $campaign['message_template_id'] );
+
+			if ( $post && 'publish' === $post->post_status ) {
+				$first = trim( (string) CardsCo_Message::text( $post->ID ) );
+			}
+		}
+
+		return '' === $first ? array() : array( $first );
+	}
+
+	/**
+	 * How many designs this campaign may carry.
+	 *
+	 * The same rule as an occasion, from the same place: one for single
+	 * cards, five for a bulk order, ten for a large one.
+	 *
+	 * @param array    $campaign Campaign row.
+	 * @param int|null $quantity How many cards, or null for the campaign's own count.
+	 * @return int
+	 */
+	public static function design_limit( array $campaign, $quantity = null ) {
+		$quantity = null === $quantity ? (int) $campaign['recipient_count'] : (int) $quantity;
+
+		return CardsCo_Mix::design_limit( $quantity, self::one_address( $campaign ), (int) $campaign['company_id'] );
+	}
+
+	/**
+	 * How many messages this campaign may carry.
+	 *
+	 * @param array    $campaign Campaign row.
+	 * @param int|null $quantity How many cards, or null for the campaign's own count.
+	 * @return int
+	 */
+	public static function message_limit( array $campaign, $quantity = null ) {
+		$quantity = null === $quantity ? (int) $campaign['recipient_count'] : (int) $quantity;
+
+		return CardsCo_Mix::message_limit( $quantity, self::one_address( $campaign ), '', (int) $campaign['company_id'] );
+	}
+
+	/**
+	 * What is wrong with the designs or the messages, in words.
+	 *
+	 * @param array  $campaign Campaign row.
+	 * @param string $what     'all', 'designs' or 'messages'.
+	 * @return string[] Nothing when all is well.
+	 */
+	public static function mix_problems( array $campaign, $what = 'all' ) {
+		$problems = array();
+		$quantity = (int) $campaign['recipient_count'];
+
+		if ( 'messages' !== $what ) {
+			$designs = self::designs( $campaign );
+			$limit   = self::design_limit( $campaign );
+
+			if ( count( $designs ) > $limit ) {
+				$problems[] = 1 === $limit
+					? __( 'This order takes one design. Several designs are for bulk orders: 25 cards or more, sent to one address.', 'cardsco' )
+					: sprintf(
+						/* translators: 1: how many designs are allowed, 2: how many were chosen. */
+						__( 'An order this size takes up to %1$d designs, and %2$d are chosen. Take some off.', 'cardsco' ),
+						$limit,
+						count( $designs )
+					);
+			} elseif ( count( $designs ) > 1 ) {
+				$said = array_filter( wp_list_pluck( $designs, 'qty' ) );
+
+				if ( $said && count( $said ) !== count( $designs ) ) {
+					$problems[] = __( 'Give a number for every design, or leave them all empty and we split the cards evenly.', 'cardsco' );
+				} elseif ( $said && array_sum( $said ) !== $quantity ) {
+					$problems[] = sprintf(
+						/* translators: 1: the numbers typed, added up, 2: how many cards the order is for. */
+						__( 'The numbers add up to %1$d and the order is for %2$d cards. Make them match, or clear them and we split the cards evenly.', 'cardsco' ),
+						array_sum( $said ),
+						$quantity
+					);
+				}
+			}
+		}
+
+		if ( 'designs' !== $what ) {
+			$messages = self::messages( $campaign );
+			$limit    = self::message_limit( $campaign );
+
+			if ( count( $messages ) > $limit ) {
+				$problems[] = 1 === $limit
+					? __( 'This order takes one message. Several messages are for bulk orders: 25 cards or more, sent to one address.', 'cardsco' )
+					: sprintf(
+						/* translators: 1: how many messages are allowed, 2: how many were written. */
+						__( 'An order this size takes up to %1$d messages, and there are %2$d. Take some off.', 'cardsco' ),
+						$limit,
+						count( $messages )
+					);
+			}
+		}
+
+		return $problems;
+	}
+
+	/**
+	 * The order, a line for each design.
+	 *
+	 * Every line is priced at the size of the whole order: thirty cards
+	 * across three designs are thirty cards.
+	 *
+	 * @param array    $campaign Campaign row.
+	 * @param int|null $quantity How many cards, or null for the campaign's own count.
+	 * @return array<int, array{card:int, qty:int, each:float, total:float}>
+	 */
+	public static function order_lines( array $campaign, $quantity = null ) {
+		$quantity = null === $quantity ? (int) $campaign['recipient_count'] : (int) $quantity;
+		$lines    = array();
+
+		if ( $quantity < 1 ) {
+			return $lines;
+		}
+
+		foreach ( CardsCo_Mix::split( self::designs( $campaign ), $quantity ) as $card_id => $count ) {
+			if ( $count < 1 ) {
+				continue;
+			}
+
+			$each    = (float) CardsCo_Card::price_for( (int) $card_id, $quantity, (int) $campaign['company_id'] );
+			$lines[] = array(
+				'card'  => (int) $card_id,
+				'qty'   => (int) $count,
+				'each'  => $each,
+				'total' => round( $each * $count, 2 ),
+			);
+		}
+
+		return $lines;
+	}
+
+	/**
+	 * What the whole campaign costs.
+	 *
+	 * @param array    $campaign Campaign row.
+	 * @param int|null $quantity How many cards, or null for the campaign's own count.
+	 * @return float
+	 */
+	public static function order_total( array $campaign, $quantity = null ) {
+		$quantity = null === $quantity ? (int) $campaign['recipient_count'] : (int) $quantity;
+		$lines    = self::order_lines( $campaign, $quantity );
+
+		if ( ! $lines ) {
+			return round( self::rate( $campaign, $quantity ) * max( 0, $quantity ), 2 );
+		}
+
+		return round( array_sum( wp_list_pluck( $lines, 'total' ) ), 2 );
+	}
+
+	/**
+	 * What to say when it does. The same panel an occasion shows.
+	 *
+	 * @param array $campaign Campaign row.
+	 * @return array{title:string,body:string,action:string,email:string,mailto:string}
+	 */
+	public static function referral( array $campaign ) {
+		$quantity = (int) $campaign['recipient_count'];
+		$email    = (string) CardsCo_Settings::get( 'support_email', null, (int) $campaign['company_id'] );
+		$company  = CardsCo_Company::get( (int) $campaign['company_id'] );
+
+		$subject = sprintf(
+			/* translators: 1: how many cards, 2: the company's name. */
+			__( '%1$d cards to individual addresses — %2$s', 'cardsco' ),
+			$quantity,
+			$company ? $company['name'] : __( 'our company', 'cardsco' )
+		);
+
+		$body = sprintf(
+			/* translators: 1: how many cards, 2: the campaign's name. */
+			__( "We would like to send %1\$d cards for our campaign \"%2\$s\", posted to each person's own address.\n\nPlease could you let us know the price and how to go ahead.", 'cardsco' ),
+			$quantity,
+			(string) $campaign['name']
+		);
+
+		return array(
+			'title'  => __( 'This one we arrange with you directly', 'cardsco' ),
+			'body'   => sprintf(
+				/* translators: %d: how many cards. */
+				__( 'Orders of %d or more going to individual addresses are priced case by case, so there is nothing to pay here yet. Send us the details and we will come back to you with a price.', 'cardsco' ),
+				(int) CardsCo_Settings::get( 'bulk_from', null, (int) $campaign['company_id'] )
+			),
+			'action' => __( 'Email us about this order', 'cardsco' ),
+			'email'  => $email,
+			'mailto' => 'mailto:' . rawurlencode( $email ) . '?subject=' . rawurlencode( $subject ) . '&body=' . rawurlencode( $body ),
+		);
 	}
 
 	/**
@@ -487,19 +917,32 @@ class CardsCo_Campaign {
 	public static function step_complete( array $campaign, $step ) {
 		switch ( (int) $step ) {
 			case 1:
-				return (int) $campaign['occasion_type_id'] > 0;
+				/* A bulk order has to have somewhere to be delivered to. */
+				return (int) $campaign['occasion_type_id'] > 0
+					&& ( ! self::one_address( $campaign ) || self::address_ready( $campaign ) );
 
 			case 2:
 				return (int) $campaign['recipient_count'] > 0;
 
 			case 3:
-				$card = $campaign['card_id'] ? get_post( (int) $campaign['card_id'] ) : null;
+				$designs = self::designs( $campaign );
 
-				return $card && 'publish' === $card->post_status;
+				if ( ! $designs ) {
+					return false;
+				}
+
+				foreach ( $designs as $design ) {
+					$card = get_post( (int) $design['card'] );
+
+					if ( ! $card || CardsCo_Card::POST_TYPE !== $card->post_type || 'publish' !== $card->post_status ) {
+						return false;
+					}
+				}
+
+				return ! self::mix_problems( $campaign, 'designs' );
 
 			case 4:
-				return '' !== trim( (string) $campaign['message_body'] )
-					|| (int) $campaign['message_template_id'] > 0;
+				return (bool) self::messages( $campaign ) && ! self::mix_problems( $campaign, 'messages' );
 
 			case 5:
 				// The offer step is a choice, not a requirement. Switching the
@@ -556,10 +999,21 @@ class CardsCo_Campaign {
 		}
 
 		// Wording that still has gaps would reach a card with a blank in it.
-		$check = self::preview( $campaign );
+		// Every message is checked, not only the first.
+		$wordings = self::messages( $campaign );
 
-		if ( is_array( $check ) && ! empty( $check['problem'] ) ) {
-			$errors->add( 'cardsco_campaign_message', $check['problem'] );
+		foreach ( $wordings ? array_keys( $wordings ) : array( 0 ) as $index ) {
+			$check = self::preview( $campaign, null, $index + 1 );
+
+			if ( is_array( $check ) && ! empty( $check['problem'] ) ) {
+				$errors->add(
+					'cardsco_campaign_message',
+					count( $wordings ) > 1
+						/* translators: 1: which message, 2: what is wrong with it. */
+						? sprintf( __( 'Message %1$d: %2$s', 'cardsco' ), $index + 1, $check['problem'] )
+						: $check['problem']
+				);
+			}
 		}
 
 		return $errors->has_errors() ? $errors : true;
@@ -669,16 +1123,9 @@ class CardsCo_Campaign {
 	 * @param array|null $recipient Somebody to render it against, or null for a sample.
 	 * @return array{text:string, problem:string}
 	 */
-	public static function preview( array $campaign, $recipient = null ) {
-		$template = trim( (string) $campaign['message_body'] );
-
-		if ( '' === $template && $campaign['message_template_id'] ) {
-			$message = get_post( (int) $campaign['message_template_id'] );
-
-			if ( $message && 'publish' === $message->post_status ) {
-				$template = CardsCo_Message::text( $message->ID );
-			}
-		}
+	public static function preview( array $campaign, $recipient = null, $message_no = 1 ) {
+		$wordings = self::messages( $campaign );
+		$template = (string) ( $wordings[ max( 1, (int) $message_no ) - 1 ] ?? ( $wordings[0] ?? '' ) );
 
 		if ( '' === trim( $template ) ) {
 			return array(
@@ -863,6 +1310,40 @@ class CardsCo_Campaign {
 		$label    = $type ? $type['label'] : $campaign['name'];
 		$already  = self::queued_recipient_ids( $campaign_id );
 
+		/*
+		 * Who gets which design, and which message.
+		 *
+		 * Dealt over the whole list, in an order that looks shuffled and is
+		 * the same every time for the same campaign — so sending it twice,
+		 * or sending the rest after a card was held, gives nobody a
+		 * different card from the one they were dealt. The designs and the
+		 * messages are shuffled separately, which is what makes the pairing
+		 * of one with the other arbitrary. With one of each this hands
+		 * everybody the same, as it always did.
+		 */
+		$bulk     = self::one_address( $campaign );
+		$total    = count( $audience['ids'] );
+		$designs  = self::designs( $campaign );
+		$wordings = self::messages( $campaign );
+		$card_for = array();
+		$wording_for = array();
+
+		if ( count( $designs ) > 1 ) {
+			$card_for = CardsCo_Mix::deal_designs(
+				CardsCo_Mix::shuffled( $audience['ids'], 'campaign-design:' . (int) $campaign_id ),
+				CardsCo_Mix::split( $designs, $total )
+			);
+		}
+
+		if ( count( $wordings ) > 1 ) {
+			$wording_for = CardsCo_Mix::deal_messages(
+				CardsCo_Mix::shuffled( $audience['ids'], 'campaign-message:' . (int) $campaign_id ),
+				count( $wordings )
+			);
+		}
+
+		$cards = array( (int) $card->ID => $card );
+
 		foreach ( $audience['ids'] as $recipient_id ) {
 			if ( isset( $already[ $recipient_id ] ) ) {
 				$result['already']++;
@@ -877,12 +1358,30 @@ class CardsCo_Campaign {
 				continue;
 			}
 
-			$rendered = self::preview( $campaign, $recipient );
+			$rendered = self::preview( $campaign, $recipient, (int) ( $wording_for[ $recipient_id ] ?? 1 ) );
+
+			/* Their design, or the campaign's first if theirs has since been withdrawn. */
+			$theirs = (int) ( $card_for[ $recipient_id ] ?? $card->ID );
+
+			if ( ! isset( $cards[ $theirs ] ) ) {
+				$found            = get_post( $theirs );
+				$cards[ $theirs ] = ( $found && 'publish' === $found->post_status ) ? $found : $card;
+			}
+
+			$their_card = $cards[ $theirs ];
+
+			/*
+			 * A bulk order goes to the one address on the campaign. The
+			 * person's own address is not asked for and not used.
+			 */
+			$to = $bulk
+				? array( (string) $campaign['ship_address'], (string) $campaign['ship_postcode'], (string) $campaign['ship_country'] )
+				: array( (string) $recipient['address'], (string) $recipient['postcode'], (string) $recipient['country'] );
 
 			$status = 'queued';
 			$reason = '';
 
-			if ( 'complete' !== cardsco_address_status( $recipient['address'], $recipient['postcode'] ) ) {
+			if ( 'complete' !== cardsco_address_status( $to[0], $to[1] ) ) {
 				$status = 'on_hold';
 				$reason = 'no_address';
 			} elseif ( $rendered['problem'] ) {
@@ -908,11 +1407,11 @@ class CardsCo_Campaign {
 					'recipient_id'      => $recipient_id,
 					'recipient_name'    => trim( $recipient['first_name'] . ' ' . $recipient['last_name'] ),
 					'recipient_company' => (string) $recipient['recipient_company'],
-					'address_snapshot'  => (string) $recipient['address'],
-					'postcode'          => (string) $recipient['postcode'],
-					'country'           => $recipient['country'] ? $recipient['country'] : 'GB',
-					'card_id'           => (int) $card->ID,
-					'card_title'        => $card->post_title,
+					'address_snapshot'  => $to[0],
+					'postcode'          => $to[1],
+					'country'           => $to[2] ? $to[2] : 'GB',
+					'card_id'           => (int) $their_card->ID,
+					'card_title'        => $their_card->post_title,
 					'occasion_label'    => $label,
 					'message_final'     => $rendered['text'],
 					'offer_code'        => empty( $campaign['offer_enabled'] ) ? '' : (string) $campaign['offer_code'],

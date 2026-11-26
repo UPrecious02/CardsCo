@@ -745,11 +745,14 @@ class CardsCo_Shortcodes {
 		 */
 		if ( ! $programme ) {
 			$programme = array(
-				'id'         => 0,
-				'company_id' => $company_id,
-				'category'   => '',
-				'setup_step' => 1,
-				'card_id'    => 0,
+				'id'            => 0,
+				'company_id'    => $company_id,
+				'category'      => '',
+				'setup_step'    => 1,
+				'card_id'       => 0,
+				/* One address until somebody says otherwise — the same
+				   default a real row is made with. */
+				'shipping_mode' => 'company',
 			);
 		}
 
@@ -815,7 +818,7 @@ class CardsCo_Shortcodes {
 			// where Cancel goes, and what "Add another" builds on.
 			'here_step' => add_query_arg(
 				array( CardsCo_Setup::ARG => (int) $programme['id'], 'step' => $step ),
-				remove_query_arg( array( 'cc_add', 'cc_added', 'cc_joined', 'cc_person', 'cardsco_error' ), $here )
+				remove_query_arg( array( 'cc_add', 'cc_added', 'cc_joined', 'cc_person', 'cc_slot', 'cc_msg', 'cardsco_error' ), $here )
 			),
 			'exit'     => $atts['exit'] ? $atts['exit'] : home_url( '/occasions/' ),
 			/*
@@ -826,7 +829,7 @@ class CardsCo_Shortcodes {
 			 */
 			'people'   => $atts['people'] ? $atts['people'] : add_query_arg(
 				array( CardsCo_Setup::ARG => (int) $programme['id'], 'step' => 2, 'cc_add' => 1 ),
-				remove_query_arg( array( 'cc_add', 'cc_added', 'cc_joined', 'cc_person', 'cardsco_error' ), $here )
+				remove_query_arg( array( 'cc_add', 'cc_added', 'cc_joined', 'cc_person', 'cc_slot', 'cc_msg', 'cardsco_error' ), $here )
 			),
 			/*
 			 * The upload is a form on step 2 itself, so this points at that
@@ -841,7 +844,7 @@ class CardsCo_Shortcodes {
 			 */
 			'import'   => $atts['import'] ? $atts['import'] : add_query_arg(
 				array( CardsCo_Setup::ARG => (int) $programme['id'], 'step' => 2 ),
-				remove_query_arg( array( 'cc_add', 'cc_added', 'cc_joined', 'cc_person', 'cardsco_error' ), $here )
+				remove_query_arg( array( 'cc_add', 'cc_added', 'cc_joined', 'cc_person', 'cc_slot', 'cc_msg', 'cardsco_error' ), $here )
 			),
 			'template' => $atts['template']
 				? $atts['template']
@@ -853,7 +856,7 @@ class CardsCo_Shortcodes {
 			 */
 			'writer'   => $atts['writer'] ? $atts['writer'] : add_query_arg(
 				array( CardsCo_Setup::ARG => (int) $programme['id'], 'step' => 4, 'cc_write' => 1 ),
-				remove_query_arg( array( 'cc_add', 'cc_added', 'cc_person', 'cc_write', 'cardsco_error' ), $here )
+				remove_query_arg( array( 'cc_add', 'cc_added', 'cc_person', 'cc_write', 'cc_slot', 'cc_msg', 'cardsco_error' ), $here )
 			),
 		);
 
@@ -863,6 +866,7 @@ class CardsCo_Shortcodes {
 			case 1:
 				$choices = CardsCo_Dashboard::setup_choices( $programme );
 				$note    = CardsCo_Dashboard::setup_note( $programme );
+				$order   = CardsCo_Dashboard::setup_order( $programme );
 				break;
 
 			case 3:
@@ -875,15 +879,27 @@ class CardsCo_Shortcodes {
 				break;
 
 			case 4:
+				/*
+				 * Which of the occasion's messages: the one the writer is
+				 * open on, or the one step 4 is previewing. The first,
+				 * unless the address says otherwise.
+				 */
+				// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only view state.
+				$asked_slot = isset( $_GET['cc_slot'] ) ? absint( $_GET['cc_slot'] ) : 1;
+				$asked_msg  = isset( $_GET['cc_msg'] ) ? absint( $_GET['cc_msg'] ) : 1;
+				// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
 				if ( $on_writer ) {
-					$writer = CardsCo_Dashboard::setup_writer( $programme );
+					$writer = CardsCo_Dashboard::setup_writer( $programme, $asked_slot );
 
 					// The writer is the full width of the screen in the
 					// frames; the rail would halve the card preview.
 					$rail['hide_rail']     = true;
 					$rail['hide_continue'] = true;
 					$rail['heading']       = __( 'Write the card', 'cardsco' );
-					$rail['blurb']         = __( 'The same message goes on every card, with each person’s name written in.', 'cardsco' );
+					$rail['blurb']         = $writer['several']
+						? __( 'One of the messages for this occasion. Each card carries one of them, with that person’s name written in.', 'cardsco' )
+						: __( 'The same message goes on every card, with each person’s name written in.', 'cardsco' );
 					$rail['footer']        = sprintf(
 						/* translators: %s: how many characters the card holds. */
 						__( 'Up to %s characters', 'cardsco' ),
@@ -892,7 +908,7 @@ class CardsCo_Shortcodes {
 					break;
 				}
 
-				$message = CardsCo_Dashboard::setup_message( $programme );
+				$message = CardsCo_Dashboard::setup_message( $programme, $asked_msg );
 				break;
 
 			case 5:
@@ -1543,6 +1559,18 @@ class CardsCo_Shortcodes {
 
 		$starters_are_general = $messages && ! $narrow;
 		$fields   = CardsCo_Merge::fields_for( true );
+
+		/*
+		 * The count and the total on the row are only as fresh as the last
+		 * time somebody saved a step. A segment can have grown since, and
+		 * the review is where the figure has to be the one the till uses.
+		 */
+		if ( 7 === (int) $step && 'draft' === (string) $campaign['status'] ) {
+			$cc_counted = CardsCo_Campaign::recount( (int) $campaign['id'] );
+			$campaign   = $cc_counted ? $cc_counted : $campaign;
+		}
+
+		$referral = CardsCo_Campaign::needs_referral( $campaign ) ? CardsCo_Campaign::referral( $campaign ) : null;
 		$audience = CardsCo_Campaign::audience( $campaign );
 		$picked   = CardsCo_Campaign::clean_audience( $campaign['audience'] );
 		$found    = CardsCo_Recipient::query( array( 'company_id' => $company_id, 'limit' => 200 ) );
@@ -1621,6 +1649,29 @@ class CardsCo_Shortcodes {
 			? date_i18n( get_option( 'date_format' ), strtotime( $campaign['send_date'] ) )
 			: $dash;
 
+		/*
+		 * Each design with how many of it there will be — the split the
+		 * till charges for, from the same function.
+		 */
+		$design_names = array();
+		$total        = count( $audience['ids'] );
+		$designs      = CardsCo_Campaign::designs( $campaign );
+
+		if ( count( $designs ) > 1 && $total > 0 ) {
+			foreach ( CardsCo_Mix::split( $designs, $total ) as $card_id => $count ) {
+				$design_names[] = sprintf(
+					/* translators: 1: how many cards, 2: the design's name. */
+					__( '%1$d × %2$s', 'cardsco' ),
+					(int) $count,
+					get_the_title( (int) $card_id )
+				);
+			}
+		}
+
+		$bulk     = CardsCo_Campaign::one_address( $campaign );
+		$wordings = CardsCo_Campaign::messages( $campaign );
+		$where    = trim( preg_replace( '/\s*\R\s*/', ', ', CardsCo_Dashboard::address_block( CardsCo_Dashboard::address_lines( (string) ( $campaign['ship_address'] ?? '' ) ) ) ) . ' ' . (string) ( $campaign['ship_postcode'] ?? '' ) );
+
 		$rows = array(
 			array(
 				'label' => __( 'Name', 'cardsco' ),
@@ -1642,8 +1693,8 @@ class CardsCo_Shortcodes {
 				'step'  => 2,
 			),
 			array(
-				'label' => __( 'Card', 'cardsco' ),
-				'value' => $name_of( $cards, $campaign['card_id'] ) ?: $dash,
+				'label' => count( $design_names ) > 1 ? __( 'Cards', 'cardsco' ) : __( 'Card', 'cardsco' ),
+				'value' => $design_names ? implode( ', ', $design_names ) : ( $name_of( $cards, $campaign['card_id'] ) ?: $dash ),
 				'step'  => 3,
 			),
 			array(
@@ -1652,6 +1703,42 @@ class CardsCo_Shortcodes {
 				'step'  => 6,
 			),
 		);
+
+		/* Where they go, straight after who they are for. */
+		array_splice(
+			$rows,
+			3,
+			0,
+			array(
+				array(
+					'label' => __( 'Delivery', 'cardsco' ),
+					'value' => $bulk
+						/* translators: %s: an address on one line. */
+						? sprintf( __( 'All together, to %s', 'cardsco' ), '' !== $where ? $where : $dash )
+						: __( 'Posted to each person at their own address', 'cardsco' ),
+					'step'  => 1,
+				),
+			)
+		);
+
+		if ( count( $wordings ) > 1 ) {
+			array_splice(
+				$rows,
+				5,
+				0,
+				array(
+					array(
+						'label' => __( 'Messages', 'cardsco' ),
+						'value' => sprintf(
+							/* translators: %d: how many messages. */
+							__( '%d messages, shared out in turn and matched to the designs at random', 'cardsco' ),
+							count( $wordings )
+						),
+						'step'  => 4,
+					),
+				)
+			);
+		}
 
 		if ( ! empty( $campaign['offer_enabled'] ) ) {
 			$rows[] = array(

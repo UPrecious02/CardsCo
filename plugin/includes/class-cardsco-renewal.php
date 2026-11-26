@@ -358,26 +358,39 @@ class CardsCo_Renewal {
 		$each = CardsCo_Programme::rate( $programme, $people );
 
 		/*
-		 * What they paid last time, so the email can say when it has gone
-		 * up. His instruction: renewals are charged at the current price,
-		 * and the email states the increase. programmes.unit_price is the
-		 * rate locked on the row at setup and never written again, which
-		 * makes it exactly the record of what they signed up at.
+		 * What one card cost the last time this was paid for, so the email
+		 * can say when it is different now.
+		 *
+		 * This used to read programmes.unit_price, on the understanding
+		 * that it was the rate they signed up at. It is not: it is the
+		 * list price on the day the row was made, copied before anybody
+		 * was on the occasion. A company of thirty-four signs up at the
+		 * bulk rate, so its first renewal read "the price of a card has
+		 * come down, from 3.60 to 1.99" — about a price that had not
+		 * moved and that they had never paid.
+		 *
+		 * paid_rate is written when a payment lands. An occasion paid for
+		 * before it existed has none, and for those the email makes no
+		 * claim either way rather than guessing.
 		 */
-		$was     = (float) ( $programme['unit_price'] ?? 0 );
+		$was     = (float) ( $programme['paid_rate'] ?? 0 );
 		$changed = $was > 0 && abs( $was - $each ) >= 0.005;
 
 		return array(
 			'people'   => $people,
-			/* The rate they signed up at, and whether today's differs. */
+			/* What a card cost last time, and whether today's differs. */
 			'was'           => $was,
 			'price_changed' => $changed,
+			/* Whether today's order is big enough for the bulk rate, so
+			   the email can say why the rate is what it is. */
+			'bulk'          => CardsCo_Programme::is_bulk_order( $programme, $people ),
 			/* What the list holds, for an email that has to explain the
 			   difference between the two numbers. */
 			'on_list'  => (int) $summary['total'],
 			'undated'  => (int) $summary['missing_date'],
 			'each'     => $each,
-			'total'    => $each * $people,
+			/* The same sum the till does, design by design. */
+			'total'    => (float) CardsCo_Programme::order_total( $programme, $people ),
 			'currency' => (string) CardsCo_Settings::get( 'currency', null, (int) $programme['company_id'] ),
 		);
 	}
@@ -524,33 +537,48 @@ class CardsCo_Renewal {
 		) . "\n\n";
 
 		/*
-		 * When it is not what they paid last year, say so and say what it
+		 * When it is not what they paid last time, say so and say what it
 		 * was. His instruction was that renewals are charged at the
 		 * current price and the email states any increase — an email that
 		 * quietly bills a different rate is the one that gets queried.
 		 *
-		 * A fall is announced too. Nobody has ever complained about being
-		 * told a price went down, and the alternative is code that decides
-		 * which direction is worth mentioning.
+		 * Stated as the two figures and the rule behind today's, not as
+		 * "the price has gone up". A rate changes for two reasons: the
+		 * list moved, or the order crossed the bulk limit — a team that
+		 * shrinks from thirty to twenty pays the single rate without any
+		 * price having risen. The email cannot tell which, and does not
+		 * need to: what they paid, what they will pay, and which rate
+		 * that is are all true either way.
+		 *
+		 * A fall is stated too, in the same words.
 		 */
 		if ( ! empty( $quote['price_changed'] ) ) {
 			$was_money = wp_strip_all_tags(
 				CardsCo_Shortcodes::money( number_format( $quote['was'], 2, '.', '' ), $quote['currency'] )
 			);
 
-			$body .= ( $quote['each'] > $quote['was'] )
+			$from = (int) CardsCo_Settings::get( 'bulk_from', null, (int) $programme['company_id'] );
+
+			$body .= sprintf(
+				/* translators: 1: what one card cost last time, 2: what it costs now. */
+				__( 'Last time you paid %1$s a card. This renewal is %2$s a card.', 'cardsco' ),
+				$was_money,
+				$each_money
+			) . ' ';
+
+			$body .= ! empty( $quote['bulk'] )
 				? sprintf(
-					/* translators: 1: the old price of one card, 2: the new one. */
-					__( 'The price of a card has gone up since you signed up, from %1$s to %2$s. The figure above is the new price. Renewals are charged at the price on the day you renew.', 'cardsco' ),
-					$was_money,
-					$each_money
-				) . "\n\n"
+					/* translators: %d: how many cards make a bulk order. */
+					__( 'That is our price for orders of %d cards or more.', 'cardsco' ),
+					$from
+				)
 				: sprintf(
-					/* translators: 1: the old price of one card, 2: the new one. */
-					__( 'The price of a card has come down since you signed up, from %1$s to %2$s. The figure above is the new price.', 'cardsco' ),
-					$was_money,
-					$each_money
-				) . "\n\n";
+					/* translators: %d: how many cards make a bulk order. */
+					__( 'That is our price for orders of fewer than %d cards.', 'cardsco' ),
+					$from
+				);
+
+			$body .= ' ' . __( 'Renewals are charged at the price on the day you renew.', 'cardsco' ) . "\n\n";
 		}
 
 		if ( $quote['undated'] > 0 ) {

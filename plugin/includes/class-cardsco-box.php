@@ -261,7 +261,8 @@ class CardsCo_Box {
 
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT r.*, o.id AS occasion_id, o.event_day, o.event_month
+				"SELECT r.*, o.id AS occasion_id, o.event_day, o.event_month,
+				        l.card_id AS dealt_card, l.message_no AS dealt_message, l.note AS personal_note
 				 FROM {$link} l
 				 INNER JOIN {$recipients} r ON r.id = l.recipient_id AND r.status = 'active'
 				 INNER JOIN {$occasions} o ON o.recipient_id = l.recipient_id
@@ -571,6 +572,16 @@ class CardsCo_Box {
 			'reasons' => array(),
 		);
 
+		/*
+		 * Who gets which design and which message, settled before anybody
+		 * is read, so a person added since the last box has theirs. It
+		 * does nothing on an occasion with one of each. Not on a dry run:
+		 * a dry run writes nothing.
+		 */
+		if ( ! $dry_run ) {
+			CardsCo_Programme::assign( $programme );
+		}
+
 		$members = self::members_in_period( $programme, $box['period'] );
 
 		if ( ! $members ) {
@@ -611,34 +622,81 @@ class CardsCo_Box {
 	 * @return array|WP_Error
 	 */
 	public static function prepare( array $programme ) {
-		$card = $programme['card_id'] ? get_post( (int) $programme['card_id'] ) : null;
+		/*
+		 * Every design the occasion sends, keyed by card. The first is the
+		 * one anybody not yet dealt a design falls back to, which is also
+		 * the only one there is on an ordinary occasion.
+		 */
+		$cards = array();
 
-		if ( ! $card || 'publish' !== $card->post_status ) {
-			return new WP_Error( 'no_card', __( 'This occasion has no card chosen.', 'cardsco' ) );
-		}
+		foreach ( CardsCo_Programme::designs( $programme ) as $one ) {
+			$post = get_post( (int) $one['card'] );
 
-		// Wording typed into the setup wins over a saved message, because that
-		// is the box the company actually filled in.
-		$template = trim( (string) $programme['message_override'] );
-
-		if ( '' === $template && $programme['message_id'] ) {
-			$message = get_post( (int) $programme['message_id'] );
-
-			if ( $message && 'publish' === $message->post_status ) {
-				$template = CardsCo_Message::text( $message->ID );
+			if ( $post && 'publish' === $post->post_status ) {
+				$cards[ (int) $post->ID ] = $post;
 			}
 		}
 
-		if ( '' === trim( $template ) ) {
+		if ( ! $cards ) {
+			return new WP_Error( 'no_card', __( 'This occasion has no card chosen.', 'cardsco' ) );
+		}
+
+		$templates = CardsCo_Programme::messages( $programme );
+
+		if ( ! $templates ) {
 			return new WP_Error( 'no_message', __( 'This occasion has no wording.', 'cardsco' ) );
 		}
 
+		$card = reset( $cards );
+
+		return array(
+			'card'      => $card,
+			'cards'     => $cards,
+			'template'  => $templates[0],
+			'templates' => $templates,
+			/*
+			 * What a card on this occasion cost: the rate it was last paid
+			 * for at, where that is on record, and otherwise the rate the
+			 * till would charge today.
+			 *
+			 * This used to be programmes.unit_price, the list price on the
+			 * day the row was made. A bulk order is paid for at the bulk
+			 * rate, so every card it queued was recorded at nearly twice
+			 * what it cost — and the dashboard's "spent this year" and the
+			 * amount on each box are both added up from these.
+			 */
+			'price'     => (float) ( $programme['paid_rate'] ?? 0 ) > 0
+				? (float) $programme['paid_rate']
+				: CardsCo_Programme::rate( $programme, (int) CardsCo_Programme::people_summary( $programme )['ready'] ),
+		);
+	}
+
+	/**
+	 * The card and the wording one person's card carries.
+	 *
+	 * What they were dealt, where the occasion has several designs or
+	 * several messages; the occasion's first of each otherwise, and for
+	 * anybody whose dealt design or message is no longer on the occasion.
+	 * Their own note, if the customer wrote them one, goes after the
+	 * message.
+	 *
+	 * @param array $member   Recipient row from members_in_period().
+	 * @param array $prepared Output of prepare().
+	 * @return array{card:WP_Post, template:string}
+	 */
+	public static function for_member( array $member, array $prepared ) {
+		$cards     = (array) ( $prepared['cards'] ?? array() );
+		$templates = (array) ( $prepared['templates'] ?? array() );
+
+		$dealt = (int) ( $member['dealt_card'] ?? 0 );
+		$card  = isset( $cards[ $dealt ] ) ? $cards[ $dealt ] : $prepared['card'];
+
+		$no       = (int) ( $member['dealt_message'] ?? 0 );
+		$template = isset( $templates[ $no - 1 ] ) ? $templates[ $no - 1 ] : $prepared['template'];
+
 		return array(
 			'card'     => $card,
-			'template' => $template,
-			'price'    => null !== $programme['unit_price']
-				? (float) $programme['unit_price']
-				: (float) CardsCo_Card::price( $card->ID, (int) $programme['company_id'] ),
+			'template' => CardsCo_Mix::with_note( $template, (string) ( $member['personal_note'] ?? '' ) ),
 		);
 	}
 
@@ -669,8 +727,9 @@ class CardsCo_Box {
 			);
 		}
 
+		$theirs   = self::for_member( $member, $prepared );
 		$rendered = CardsCo_Merge::render(
-			$prepared['template'],
+			$theirs['template'],
 			CardsCo_Merge::context_for_recipient( $member )
 		);
 
@@ -733,8 +792,8 @@ class CardsCo_Box {
 				'address_snapshot'  => $address,
 				'postcode'          => $postcode,
 				'country'           => $country,
-				'card_id'           => (int) $prepared['card']->ID,
-				'card_title'        => $prepared['card']->post_title,
+				'card_id'           => (int) $theirs['card']->ID,
+				'card_title'        => $theirs['card']->post_title,
 				'occasion_label'    => (string) $member['occasion_label'],
 				'message_final'     => $rendered['text'],
 				'event_date'        => $event_date,
@@ -742,7 +801,16 @@ class CardsCo_Box {
 				'post_by'           => $post_by,
 				'status'            => $status,
 				'hold_reason'       => $reason,
-				'unit_price'        => number_format( $prepared['price'], 2, '.', '' ),
+				/* A design that carries its own price keeps it; the rest are
+				   at the rate the order was paid for at. */
+				'unit_price'        => number_format(
+					'' !== (string) get_post_meta( (int) $theirs['card']->ID, '_cardsco_price', true )
+						? (float) get_post_meta( (int) $theirs['card']->ID, '_cardsco_price', true )
+						: (float) $prepared['price'],
+					2,
+					'.',
+					''
+				),
 			)
 		);
 
@@ -897,6 +965,10 @@ class CardsCo_Box {
 
 		$lead = (int) $programme['days_before'];
 		$lead = $lead > 0 ? $lead : (int) CardsCo_Settings::get( 'default_lead_days', null, (int) $programme['company_id'] );
+
+		if ( ! $dry_run ) {
+			CardsCo_Programme::assign( $programme );
+		}
 
 		$prepared = self::prepare( $programme );
 

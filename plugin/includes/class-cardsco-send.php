@@ -52,6 +52,7 @@ class CardsCo_Send {
 	 * @return void
 	 */
 	public static function init() {
+		add_action( 'template_redirect', array( __CLASS__, 'route' ), 4 );
 		add_action( 'template_redirect', array( __CLASS__, 'handle' ), 5 );
 		add_action( 'woocommerce_checkout_create_order_line_item', array( __CLASS__, 'keep_on_line_item' ), 10, 4 );
 		add_action( 'woocommerce_thankyou', array( __CLASS__, 'after_paying' ), 5 );
@@ -494,13 +495,108 @@ class CardsCo_Send {
 	 * @return string
 	 */
 	public static function use_url( $card_id, $fallback = '' ) {
-		$page = self::flow_url();
+		/*
+		 * Always the public page, whoever is looking.
+		 *
+		 * This used to pick the portal copy for a signed-in customer, which
+		 * put the answer inside the catalogue's HTML — and the catalogue is
+		 * a page the host caches. Whichever version was stored was served
+		 * to everybody: a guest could be handed a button to a dashboard
+		 * page they have no account for. The link is now the same for all,
+		 * and route() sends a customer on to their own copy when they
+		 * arrive, where the answer cannot be cached.
+		 */
+		$page = self::page_url();
+
+		if ( '' === $page ) {
+			$page = self::flow_url();
+		}
 
 		if ( '' === $page ) {
 			return (string) $fallback;
 		}
 
 		return add_query_arg( 'card', (int) $card_id, $page );
+	}
+
+	/**
+	 * Put each visitor on their own copy of the flow.
+	 *
+	 * There are two pages: the public one, for anyone, and the copy inside
+	 * the portal, for a customer. A signed-in customer who lands on the
+	 * public one is moved to the portal's; a visitor who is not signed in
+	 * and lands on the portal's is moved to the public one. Whatever they
+	 * arrived with — the card they chose, the step — goes with them.
+	 *
+	 * Only on a plain page view. A form being posted is somebody halfway
+	 * through, and is left exactly where it is.
+	 *
+	 * @return void
+	 */
+	public static function route() {
+		if ( 'GET' !== ( $_SERVER['REQUEST_METHOD'] ?? 'GET' ) || ! is_page() ) {
+			return;
+		}
+
+		$to = self::route_for( (string) get_permalink( get_queried_object_id() ) );
+
+		if ( '' === $to ) {
+			return;
+		}
+
+		$keep = array();
+
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only, carried across unchanged.
+		foreach ( array( 'card', 'step' ) as $key ) {
+			if ( isset( $_GET[ $key ] ) && absint( $_GET[ $key ] ) ) {
+				$keep[ $key ] = absint( $_GET[ $key ] );
+			}
+		}
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+		nocache_headers();
+		wp_safe_redirect( $keep ? add_query_arg( $keep, $to ) : $to );
+		exit;
+	}
+
+	/**
+	 * Where somebody on this page belongs instead, if anywhere.
+	 *
+	 * @param string $here The page being viewed.
+	 * @return string The other copy's address, or '' to stay.
+	 */
+	public static function route_for( $here ) {
+		$public = self::page_url();
+		$portal = self::portal_page_url();
+		/*
+		 * By the page each address leads to, not by the text of it. On a
+		 * site with plain permalinks every page is the home address with a
+		 * different ?page_id= on the end, so comparing the part before the
+		 * question mark called them all the same page.
+		 */
+		$same = static function ( $a, $b ) {
+			$one = '' === (string) $a ? 0 : (int) url_to_postid( (string) $a );
+			$two = '' === (string) $b ? 0 : (int) url_to_postid( (string) $b );
+
+			return $one > 0 && $one === $two;
+		};
+
+		/* With only one of the two published there is nowhere else to be. */
+		if ( '' === $public || '' === $portal || $same( $public, $portal ) ) {
+			return '';
+		}
+
+		$customer = is_user_logged_in() && CardsCo_Access::company_id();
+
+		if ( $customer && $same( $here, $public ) ) {
+			return $portal;
+		}
+
+		if ( ! is_user_logged_in() && $same( $here, $portal ) ) {
+			return $public;
+		}
+
+		return '';
 	}
 
 	/**

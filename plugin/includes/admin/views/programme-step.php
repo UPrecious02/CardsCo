@@ -786,7 +786,7 @@ $cardsco_step_url = static function ( $n ) use ( $cardsco_pid ) {
 
 			<div class="cardsco-side-price">
 				<div class="cardsco-pay-row"><span><?php esc_html_e( 'Price per card', 'cardsco' ); ?></span><span><?php echo esc_html( $estimate['currency'] . ' ' . $estimate['unit_price'] ); ?></span></div>
-				<p class="description"><?php esc_html_e( 'Charged as the cards are written. Postage is extra.', 'cardsco' ); ?></p>
+				<p class="description"><?php esc_html_e( 'Postage is included in the card price.', 'cardsco' ); ?></p>
 			</div>
 		</aside>
 	</div>

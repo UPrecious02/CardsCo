@@ -185,7 +185,46 @@ class CardsCo_Setup {
 
 		switch ( (int) $step ) {
 			case 3:
-				return $only( array( 'card_id' => absint( $get( 'card_id', 0 ) ) ) );
+				/*
+				 * Two shapes of the same screen. Where the order may carry
+				 * several designs the tiles are tickboxes and arrive as a
+				 * list, each with how many cards it is to have; where it
+				 * may carry one they are radios and arrive as a single id.
+				 * Both are saved as the occasion's list of designs, so
+				 * choosing one card on an occasion that used to have three
+				 * leaves it with one rather than with the old three and a
+				 * new first.
+				 */
+				if ( isset( $post['card_ids'] ) || isset( $post['cc_designs'] ) ) {
+					$many    = (array) $get( 'qty', array() );
+					$designs = array();
+
+					foreach ( (array) $get( 'card_ids', array() ) as $card ) {
+						if ( ! is_scalar( $card ) ) {
+							continue;
+						}
+
+						$qty = $many[ $card ] ?? 0;
+
+						$designs[] = array(
+							'card' => $card,
+							'qty'  => is_scalar( $qty ) ? $qty : 0,
+						);
+					}
+
+					/*
+					 * Whole numbers above nought or nothing: clean_designs()
+					 * drops an id that is not one rather than rounding it
+					 * into a different card.
+					 */
+					return array( 'designs' => CardsCo_Mix::clean_designs( $designs ) );
+				}
+
+				if ( isset( $post['card_id'] ) ) {
+					return array( 'designs' => array( absint( $get( 'card_id', 0 ) ) ) );
+				}
+
+				return array();
 
 			case 4:
 				return $only(
@@ -367,6 +406,11 @@ class CardsCo_Setup {
 			return;
 		}
 
+		if ( 'remove_message' === $action ) {
+			$this->remove_message( $programme );
+			return;
+		}
+
 		if ( 'upload_people' === $action ) {
 			$this->upload_people( $programme );
 			return;
@@ -543,10 +587,21 @@ class CardsCo_Setup {
 		$signature = sanitize_text_field( wp_unslash( $_POST['signature'] ?? '' ) );
 		// phpcs:enable WordPress.Security.NonceVerification.Missing
 
+		/*
+		 * Which of the occasion's messages this is. An occasion with one
+		 * message only ever writes the first; one that may carry several
+		 * writes whichever was opened, or a new one on the end.
+		 */
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified in handle().
+		$slot     = max( 1, absint( $_POST['slot'] ?? 1 ) );
+		$messages = CardsCo_Programme::messages( $programme );
+		$slot     = min( $slot, count( $messages ) + 1 );
+
 		$back = array(
 			self::ARG  => (int) $programme['id'],
 			'step'     => 4,
 			'cc_write' => 1,
+			'cc_slot'  => $slot,
 		);
 
 		/*
@@ -567,6 +622,28 @@ class CardsCo_Setup {
 
 		if ( '' === trim( $text ) ) {
 			$fail( __( 'Write something before saving.', 'cardsco' ) );
+		}
+
+		/* One more than the occasion may carry. */
+		$most = CardsCo_Programme::message_limit( $programme );
+
+		if ( $slot > count( $messages ) && count( $messages ) >= $most ) {
+			$fail(
+				1 === $most
+					? __( 'This occasion carries one message. Edit that one instead.', 'cardsco' )
+					: sprintf(
+						/* translators: %d: how many messages are allowed. */
+						__( 'This occasion can have up to %d messages. Edit one of those, or take one off first.', 'cardsco' ),
+						$most
+					)
+			);
+		}
+
+		/* The same wording twice is not a second message. */
+		foreach ( $messages as $cc_at => $cc_other ) {
+			if ( $cc_at !== $slot - 1 && trim( $cc_other ) === trim( $text ) ) {
+				$fail( __( 'You already have a message with exactly that wording. Change this one so the two are different.', 'cardsco' ) );
+			}
 		}
 
 		/*
@@ -655,23 +732,41 @@ class CardsCo_Setup {
 			}
 		}
 
+		$messages[ $slot - 1 ] = $text;
+
 		CardsCo_Programme::update(
 			(int) $programme['id'],
 			array(
-				'message_override' => $text,
-				'signature'        => $signature,
+				'messages'  => array_values( $messages ),
+				'signature' => $signature,
 			)
 		);
 
 		// Saved, so nothing is waiting to be handed back.
 		self::drop_draft( (int) $programme['id'] );
 
-		self::go(
-			array(
-				self::ARG => (int) $programme['id'],
-				'step'    => 4,
-			)
+		$done = array(
+			self::ARG => (int) $programme['id'],
+			'step'    => 4,
 		);
+
+		if ( $slot > 1 ) {
+			$done['cc_msg'] = $slot;
+		}
+
+		/*
+		 * A longer message can push somebody's personal note off the end
+		 * of their card. The message is saved — it is theirs, and right on
+		 * its own — and the step says which note no longer fits.
+		 */
+		$fresh = CardsCo_Programme::get( (int) $programme['id'] );
+		$wrong = $fresh ? CardsCo_Programme::mix_problems( $fresh, 'messages' ) : array();
+
+		if ( $wrong ) {
+			$done['cardsco_error'] = $wrong[0];
+		}
+
+		self::go( $done );
 	}
 
 	/**
@@ -1107,7 +1202,28 @@ class CardsCo_Setup {
 		 * the first, which, with nothing on the site listing drafts, meant
 		 * the earlier work was gone for good.
 		 */
+		/*
+		 * Single or bulk, asked at the start because the rest follows from
+		 * it: a bulk order goes to one address and may mix designs, single
+		 * cards are posted to each person and carry one. In the model that
+		 * is where the cards are shipped, so that is what it sets — and
+		 * step 5 only has to ask for the address, not for the decision.
+		 *
+		 * Anything else, or nothing, leaves the occasion as it is.
+		 */
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified in handle().
+		$order = sanitize_key( wp_unslash( $_POST['order_type'] ?? '' ) );
+		$ship  = array(
+			'single' => 'individual',
+			'bulk'   => 'company',
+		);
+
 		$draft = CardsCo_Programme::draft_for( $company_id, $category );
+
+		if ( $draft && isset( $ship[ $order ] ) && $ship[ $order ] !== (string) $draft['shipping_mode'] ) {
+			CardsCo_Programme::update( (int) $draft['id'], array( 'shipping_mode' => $ship[ $order ] ) );
+			$draft['shipping_mode'] = $ship[ $order ];
+		}
 
 		if ( $draft ) {
 			/*
@@ -1133,6 +1249,10 @@ class CardsCo_Setup {
 
 		if ( is_wp_error( $id ) ) {
 			self::go( array( 'cardsco_error' => $id->get_error_message() ) );
+		}
+
+		if ( isset( $ship[ $order ] ) ) {
+			CardsCo_Programme::update( (int) $id, array( 'shipping_mode' => $ship[ $order ] ) );
 		}
 
 		self::go( array( self::ARG => $id, 'step' => 2 ) );
@@ -1255,8 +1375,34 @@ class CardsCo_Setup {
 			self::save_each_address( $programme );
 		}
 
+		/*
+		 * The notes for individual people sit on the message step and are
+		 * saved with it. They go in before anything is checked, for the
+		 * same reason the addresses on step 5 do: they belong to the
+		 * people, and a redirect must not throw away what was typed.
+		 */
+		if ( 4 === $step ) {
+			self::save_notes( $programme );
+		}
+
+		/*
+		 * Where the cards go decides how many designs an order may carry,
+		 * so step 5 can undo step 3: thirty cards with three designs, moved
+		 * to each person's own address, no longer has a finished card step.
+		 * Moving it back is the cure — and it was refused, because the card
+		 * step was unfinished. The answer being given counts here.
+		 */
+		$cc_as = $programme;
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified in handle().
+		$cc_mode = isset( $_POST['shipping_mode'] ) ? sanitize_key( wp_unslash( $_POST['shipping_mode'] ) ) : '';
+
+		if ( 5 === $step && in_array( $cc_mode, array( 'company', 'individual' ), true ) ) {
+			$cc_as['shipping_mode'] = $cc_mode;
+		}
+
 		for ( $cc_before = 1; $cc_before < $step; $cc_before++ ) {
-			if ( CardsCo_Programme::step_complete( $programme, $cc_before ) ) {
+			if ( CardsCo_Programme::step_complete( $programme, $cc_before ) || ( 5 === $step && CardsCo_Programme::step_complete( $cc_as, $cc_before ) ) ) {
 				continue;
 			}
 
@@ -1277,6 +1423,32 @@ class CardsCo_Setup {
 
 		$data = self::fields( $step, (array) $_POST, $programme );
 		$next = min( 7, max( 2, $step + 1 ) );
+
+		/*
+		 * A design has to be one this occasion actually offers this
+		 * company. The tiles only show those, but the id arrives from a
+		 * form, and a form can be made to say anything — another
+		 * company's own design, a card for a different occasion.
+		 */
+		if ( 3 === $step && ! empty( $data['designs'] ) ) {
+			$on_offer = array();
+
+			foreach ( (array) CardsCo_Category::cards( (string) $programme['category'], (int) $programme['company_id'] ) as $cc_card ) {
+				$on_offer[ (int) $cc_card->ID ] = true;
+			}
+
+			foreach ( CardsCo_Mix::clean_designs( $data['designs'] ) as $cc_one ) {
+				if ( ! isset( $on_offer[ (int) $cc_one['card'] ] ) ) {
+					self::go(
+						array(
+							self::ARG       => (int) $programme['id'],
+							'step'          => 3,
+							'cardsco_error' => __( 'That card is not one of the designs for this occasion. Choose from the ones shown.', 'cardsco' ),
+						)
+					);
+				}
+			}
+		}
 
 		/*
 		 * What the step sent, saved on its own. The furthest step reached
@@ -1311,15 +1483,30 @@ class CardsCo_Setup {
 		if ( $fresh && ! CardsCo_Programme::step_complete( $fresh, $step ) ) {
 			$steps = self::steps();
 
+			/*
+			 * Where the trouble is with the designs or the messages, say
+			 * which — "too many", "the numbers do not add up" — rather
+			 * than that something, somewhere, is still to fill in.
+			 */
+			$wrong = array();
+
+			if ( 3 === $step ) {
+				$wrong = CardsCo_Programme::mix_problems( $fresh, 'designs' );
+			} elseif ( 4 === $step ) {
+				$wrong = CardsCo_Programme::mix_problems( $fresh, 'messages' );
+			}
+
 			self::go(
 				array(
 					self::ARG       => (int) $programme['id'],
 					'step'          => $step,
-					'cardsco_error' => sprintf(
-						/* translators: %s: the name of a step, such as "Who's celebrating". */
-						__( 'There is something still to fill in on %s.', 'cardsco' ),
-						$steps[ $step ]['label'] ?? ''
-					),
+					'cardsco_error' => $wrong
+						? $wrong[0]
+						: sprintf(
+							/* translators: %s: the name of a step, such as "Who's celebrating". */
+							__( 'There is something still to fill in on %s.', 'cardsco' ),
+							$steps[ $step ]['label'] ?? ''
+						),
 				)
 			);
 		}
@@ -1330,6 +1517,66 @@ class CardsCo_Setup {
 		);
 
 		self::go( array( self::ARG => (int) $programme['id'], 'step' => $next ) );
+	}
+
+	/**
+	 * The personal notes typed into step 4, one per person.
+	 *
+	 * Only people actually on this occasion: the ids come from a form, so
+	 * who is on it is worked out again here rather than believed. An empty
+	 * box takes that person's note away.
+	 *
+	 * Whether a note still fits on the card is not decided here. It is
+	 * saved as typed, so the person sees their own words again, and the
+	 * step then refuses to be finished while any card is too long — see
+	 * CardsCo_Programme::mix_problems().
+	 *
+	 * @param array $programme Programme row.
+	 * @return void
+	 */
+	protected static function save_notes( array $programme ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified in handle().
+		if ( ! isset( $_POST['notes'] ) || ! is_array( $_POST['notes'] ) ) {
+			return;
+		}
+
+		$mine = array_flip( CardsCo_Programme::recipient_ids( (int) $programme['id'] ) );
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing,WordPress.Security.ValidatedSanitizedInput -- verified in handle(); cleaned in set_note().
+		foreach ( (array) wp_unslash( $_POST['notes'] ) as $rid => $note ) {
+			$rid = absint( $rid );
+
+			if ( ! $rid || ! isset( $mine[ $rid ] ) || ! is_string( $note ) ) {
+				continue;
+			}
+
+			CardsCo_Programme::set_note( (int) $programme['id'], $rid, $note );
+		}
+	}
+
+	/**
+	 * Take one of the occasion's messages off.
+	 *
+	 * @param array $programme Programme row.
+	 * @return void
+	 */
+	protected function remove_message( array $programme ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- verified in handle().
+		$slot     = absint( $_POST['slot'] ?? 0 );
+		$messages = CardsCo_Programme::messages( $programme );
+
+		/* The last one is not removed: an occasion has to say something. */
+		if ( $slot >= 1 && $slot <= count( $messages ) && count( $messages ) > 1 ) {
+			array_splice( $messages, $slot - 1, 1 );
+			CardsCo_Programme::update( (int) $programme['id'], array( 'messages' => $messages ) );
+		}
+
+		self::go(
+			array(
+				self::ARG => (int) $programme['id'],
+				'step'    => 4,
+			)
+		);
 	}
 
 	/**
@@ -1452,6 +1699,8 @@ class CardsCo_Setup {
 			'cc_up_on',
 			'cc_person',
 			'cc_write',
+			'cc_slot',
+			'cc_msg',
 			'cc_up_added',
 			'cc_up_matched',
 			'cc_up_nodate',

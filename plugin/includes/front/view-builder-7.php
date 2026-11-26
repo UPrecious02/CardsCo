@@ -13,6 +13,7 @@
  * @var array        $preview
  * @var array        $summary
  * @var WP_Error|true $ready
+ * @var array|null   $referral From CardsCo_Campaign::referral(), when it applies.
  * @var array        $links
  */
 
@@ -48,6 +49,15 @@ $cc_money = static function ( $amount ) use ( $campaign, $cc ) {
 	<?php if ( ! empty( $preview['text'] ) || ! empty( $preview['problem'] ) ) : ?>
 		<section class="cc-bd-preview">
 			<h2><?php esc_html_e( 'How one of them reads', 'cardsco' ); ?></h2>
+			<?php $cc_count = count( CardsCo_Campaign::messages( $campaign ) ); ?>
+			<?php if ( $cc_count > 1 ) : ?>
+				<p class="cc-bd-hint">
+					<?php
+					/* translators: %d: how many messages there are. */
+					printf( esc_html__( 'This is the first of your %d messages.', 'cardsco' ), (int) $cc_count );
+					?>
+				</p>
+			<?php endif; ?>
 
 			<?php if ( ! empty( $preview['text'] ) ) : ?>
 				<div class="cc-bd-paper">
@@ -65,6 +75,22 @@ $cc_money = static function ( $amount ) use ( $campaign, $cc ) {
 		</section>
 	<?php endif; ?>
 
+	<?php if ( ! empty( $referral ) && 'draft' === (string) $campaign['status'] ) : ?>
+		<?php
+		/*
+		 * Twenty-five or more, each posted to its own address: not sold
+		 * here, so there is no price to show and nothing to pay. The same
+		 * panel an occasion shows, from the same file.
+		 */
+		?>
+		<section class="cc-bd-pay cc-bd-pay-refer">
+			<div class="cc-bd-pay-line">
+				<span><?php esc_html_e( 'Cards', 'cardsco' ); ?></span>
+				<span><?php echo esc_html( number_format_i18n( count( $audience['ids'] ) ) ); ?></span>
+			</div>
+			<?php require CARDSCO_PATH . 'includes/front/partial-referral.php'; ?>
+		</section>
+	<?php else : ?>
 	<section class="cc-bd-pay">
 		<div class="cc-bd-pay-line">
 			<span><?php esc_html_e( 'Cards', 'cardsco' ); ?></span>
@@ -97,6 +123,7 @@ $cc_money = static function ( $amount ) use ( $campaign, $cc ) {
 			<?php esc_html_e( 'Nothing is scheduled until the payment goes through.', 'cardsco' ); ?>
 		</p>
 	</section>
+	<?php endif; ?>
 </div>
 
 <div class="cc-wz-foot">

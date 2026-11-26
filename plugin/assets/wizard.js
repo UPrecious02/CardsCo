@@ -58,7 +58,8 @@ window.CardsCo.add( function () {
 		{ name: 'return_mode', item: '.cc-radio', on: 'is-on' },
 		{ name: 'timing_mode', item: '.cc-opt', on: 'is-on' },
 		{ name: 'occasion_type_id', item: '.cc-tim-chip', on: 'is-on' },
-		{ name: 'how', item: '.cc-up-ask-one', on: 'is-on' }
+		{ name: 'how', item: '.cc-up-ask-one', on: 'is-on' },
+		{ name: 'order_type', item: '.cc-kind-one', on: 'is-on' }
 	];
 
 	function closest( el, selector ) {
@@ -206,4 +207,225 @@ window.CardsCo.add( function () {
 			form.submit();
 		} );
 	} );
+} );
+
+/**
+ * Step 3 — several designs.
+ *
+ * Where an order may carry more than one design the tiles are tickboxes.
+ * This keeps the screen honest about what is ticked: the tile's highlight,
+ * the box for how many cards a ticked design is to have, the most that may
+ * be ticked, and a running line saying whether the numbers add up.
+ *
+ * None of it is the rule. The server counts the designs and adds up the
+ * numbers when the step is saved, so without this the page still works —
+ * it is just told afterwards rather than as it goes.
+ */
+window.CardsCo.add( function () {
+	'use strict';
+
+	var list = document.querySelector( '[data-cc-mix]' );
+
+	if ( ! list || list.getAttribute( 'data-cc-mix-ready' ) ) {
+		return;
+	}
+
+	list.setAttribute( 'data-cc-mix-ready', '1' );
+
+	var limit  = parseInt( list.getAttribute( 'data-cc-limit' ), 10 ) || 1;
+	var cards  = parseInt( list.getAttribute( 'data-cc-cards' ), 10 ) || 0;
+	var boxes  = list.querySelectorAll( 'input[type="checkbox"][name="card_ids[]"]' );
+	var status = document.querySelector( '[data-cc-mix-status]' );
+	var full   = false;
+
+	function tileOf( box ) {
+		var el = box;
+
+		while ( el && ! ( el.classList && el.classList.contains( 'cc-card-pick' ) ) ) {
+			el = el.parentElement;
+		}
+
+		return el;
+	}
+
+	function qtyOf( box ) {
+		var tile = tileOf( box );
+
+		return tile ? tile.querySelector( '.cc-card-pick-qty input' ) : null;
+	}
+
+	function fill( pattern, a, b, c, d ) {
+		return String( pattern || '' )
+			.replace( '%1$s', a )
+			.replace( '%2$s', b )
+			.replace( '%3$s', c )
+			.replace( '%4$s', d );
+	}
+
+	function say( text, tone ) {
+		if ( ! status ) {
+			return;
+		}
+
+		status.textContent = text;
+		status.classList.toggle( 'is-wrong', tone === 'wrong' );
+		status.classList.toggle( 'is-right', tone === 'right' );
+	}
+
+	function refresh() {
+		var ticked = 0;
+		var typed  = 0;
+		var sum    = 0;
+
+		Array.prototype.forEach.call( boxes, function ( box ) {
+			var tile = tileOf( box );
+			var qty  = qtyOf( box );
+
+			if ( tile ) {
+				tile.classList.toggle( 'is-on', box.checked );
+			}
+
+			if ( qty ) {
+				/* An unticked design sends no number. */
+				qty.disabled = ! box.checked;
+			}
+
+			if ( ! box.checked ) {
+				return;
+			}
+
+			ticked++;
+
+			var n = qty ? parseInt( qty.value, 10 ) : NaN;
+
+			if ( qty && qty.value !== '' && ! isNaN( n ) && n > 0 ) {
+				typed++;
+				sum += n;
+			} else if ( qty && qty.value !== '' ) {
+				/* Something typed that is not a number above nought. */
+				typed += 0.5;
+			}
+		} );
+
+		var button = document.querySelector( '.cc-wz-foot .cc-btn-primary' );
+
+		if ( button ) {
+			if ( ticked > 0 ) {
+				button.removeAttribute( 'disabled' );
+			} else {
+				button.setAttribute( 'disabled', 'disabled' );
+			}
+		}
+
+		var state = document.querySelector( '.cc-wz-state' );
+
+		if ( state && status ) {
+			state.textContent = ticked === 1
+				? status.getAttribute( 'data-cc-count-one' )
+				: ( ticked > 1 ? fill( status.getAttribute( 'data-cc-count' ), ticked ) : status.getAttribute( 'data-cc-none' ) );
+		}
+
+		if ( ! status ) {
+			return;
+		}
+
+		if ( full ) {
+			full = false;
+			say( status.getAttribute( 'data-cc-full' ), 'wrong' );
+			return;
+		}
+
+		if ( ! ticked ) {
+			say( status.getAttribute( 'data-cc-none' ), '' );
+		} else if ( ticked === 1 ) {
+			say( fill( status.getAttribute( 'data-cc-one' ), 1, cards ), 'right' );
+		} else if ( typed === 0 ) {
+			say( fill( status.getAttribute( 'data-cc-even' ), ticked, cards ), 'right' );
+		} else if ( typed !== ticked ) {
+			say( status.getAttribute( 'data-cc-part' ), 'wrong' );
+		} else if ( sum === cards ) {
+			say( fill( status.getAttribute( 'data-cc-right' ), ticked, cards, sum ), 'right' );
+		} else if ( sum < cards ) {
+			say( fill( status.getAttribute( 'data-cc-short' ), ticked, cards, sum, cards - sum ), 'wrong' );
+		} else {
+			say( fill( status.getAttribute( 'data-cc-over' ), ticked, cards, sum, sum - cards ), 'wrong' );
+		}
+	}
+
+	Array.prototype.forEach.call( boxes, function ( box ) {
+		box.addEventListener( 'change', function () {
+			if ( box.checked ) {
+				var ticked = 0;
+
+				Array.prototype.forEach.call( boxes, function ( other ) {
+					if ( other.checked ) {
+						ticked++;
+					}
+				} );
+
+				/* One more than the order may carry: it does not take. */
+				if ( ticked > limit ) {
+					box.checked = false;
+					full        = true;
+				}
+			}
+
+			refresh();
+		} );
+
+		var qty = qtyOf( box );
+
+		if ( qty ) {
+			qty.addEventListener( 'input', refresh );
+		}
+	} );
+
+	/*
+	 * The tabs. Every card is already on the page, so they hide and show
+	 * rather than load — a reload would drop every tick not yet saved.
+	 */
+	var tabs  = document.querySelectorAll( '[data-cc-mix-tab]' );
+	var empty = document.querySelector( '[data-cc-mix-empty]' );
+
+	Array.prototype.forEach.call( tabs, function ( tab ) {
+		tab.addEventListener( 'click', function ( e ) {
+			e.preventDefault();
+			/* The wizard's own link handling must not load the tab. */
+			e.stopPropagation();
+
+			var mineOnly = tab.getAttribute( 'data-cc-mix-tab' ) === 'mine';
+			var shown    = 0;
+
+			Array.prototype.forEach.call( list.querySelectorAll( '.cc-card-pick' ), function ( tile ) {
+				var hide = mineOnly && tile.getAttribute( 'data-cc-mine' ) !== '1';
+
+				if ( hide ) {
+					tile.setAttribute( 'hidden', 'hidden' );
+				} else {
+					tile.removeAttribute( 'hidden' );
+					shown++;
+				}
+			} );
+
+			if ( empty ) {
+				if ( shown ) {
+					empty.setAttribute( 'hidden', 'hidden' );
+				} else {
+					empty.removeAttribute( 'hidden' );
+				}
+			}
+
+			Array.prototype.forEach.call( tabs, function ( other ) {
+				other.classList.toggle( 'is-on', other === tab );
+
+				if ( other === tab ) {
+					other.setAttribute( 'aria-current', 'true' );
+				} else {
+					other.removeAttribute( 'aria-current' );
+				}
+			} );
+		} );
+	} );
+
+	refresh();
 } );

@@ -103,6 +103,18 @@ $cc_spec = $steps[ $step ] ?? array( 'heading' => '', 'label' => '' );
 
 			<h1 class="cc-wz-head"><?php echo esc_html( $cc_spec['heading'] ); ?></h1>
 
+			<?php if ( ! empty( $referral ) && ! $finished && 'draft' === (string) $campaign['status'] && $step >= 2 && $step <= 6 ) : ?>
+				<?php
+				/*
+				 * Said as soon as the list is long enough for it to be true,
+				 * not on the last page after five more steps of work.
+				 */
+				?>
+				<div class="cc-bd-refer">
+					<?php require CARDSCO_PATH . 'includes/front/partial-referral.php'; ?>
+				</div>
+			<?php endif; ?>
+
 			<?php include $body; ?>
 		</div>
 	</div>

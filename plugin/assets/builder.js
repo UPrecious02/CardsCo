@@ -96,6 +96,58 @@ window.CardsCo.add( function () {
 	var text = document.querySelector( '#cc-bd-msg' );
 
 	if ( text ) {
+		/*
+		 * With several message boxes on the page, a merge field goes into
+		 * whichever one was last typed in — not always the first.
+		 */
+		var first = text;
+
+		document.addEventListener( 'focusin', function ( e ) {
+			if ( e.target && e.target.matches && e.target.matches( 'textarea[data-cc-text]' ) ) {
+				text = e.target;
+			}
+		} );
+
+		var more = document.querySelector( '[data-cc-bd-more]' );
+		var add = more ? more.querySelector( '[data-cc-bd-more-add]' ) : null;
+
+		if ( more && add ) {
+			var most = parseInt( more.getAttribute( 'data-cc-limit' ), 10 ) || 1;
+
+			var room = function () {
+				/* The first box counts as one of them. */
+				add.hidden = more.querySelectorAll( '.cc-bd-more-one' ).length + 1 >= most;
+			};
+
+			add.addEventListener( 'click', function () {
+				var boxes = more.querySelectorAll( '.cc-bd-more-one' );
+				var last = boxes[ boxes.length - 1 ];
+
+				if ( ! last || boxes.length + 1 >= most ) {
+					return;
+				}
+
+				var copy = last.cloneNode( true );
+				var area = copy.querySelector( 'textarea' );
+				var label = copy.querySelector( 'label' );
+				var id = 'cc-bd-more-' + boxes.length;
+
+				area.value = '';
+				area.id = id;
+
+				if ( label ) {
+					label.setAttribute( 'for', id );
+					label.textContent = label.textContent.replace( /\d+/, String( boxes.length + 2 ) );
+				}
+
+				more.insertBefore( copy, add );
+				area.focus();
+				room();
+			} );
+
+			room();
+		}
+
 		Array.prototype.forEach.call( document.querySelectorAll( '[data-cc-tag]' ), function ( tag ) {
 			tag.addEventListener( 'click', function () {
 				var token = tag.getAttribute( 'data-cc-tag' ) || '';
@@ -122,11 +174,123 @@ window.CardsCo.add( function () {
 		/* The starters fill the box rather than adding to what is there. */
 		Array.prototype.forEach.call( document.querySelectorAll( '[data-cc-fill]' ), function ( btn ) {
 			btn.addEventListener( 'click', function () {
-				text.value = btn.getAttribute( 'data-cc-fill' ) || '';
-				text.focus();
-				text.dispatchEvent( new Event( 'input', { bubbles: true } ) );
+				/* An empty box that was clicked into takes it; otherwise the first. */
+				var into = ( text !== first && '' === text.value.trim() ) ? text : first;
+
+				into.value = btn.getAttribute( 'data-cc-fill' ) || '';
+				into.focus();
+				into.dispatchEvent( new Event( 'input', { bubbles: true } ) );
 			} );
 		} );
+	}
+
+	/* ---------------------------------------------------------- step 1 */
+
+	var kinds = document.querySelectorAll( 'input[data-cc-kind]' );
+	var ship = document.querySelector( '[data-cc-kind-ship]' );
+
+	if ( kinds.length ) {
+		var showKind = function () {
+			var bulk = false;
+
+			Array.prototype.forEach.call( kinds, function ( one ) {
+				var tile = one.closest( '.cc-kind-one' );
+
+				if ( tile ) {
+					tile.classList.toggle( 'is-on', one.checked );
+				}
+
+				if ( one.checked && 'bulk' === one.value ) {
+					bulk = true;
+				}
+			} );
+
+			if ( ship ) {
+				ship.classList.toggle( 'is-on', bulk );
+			}
+		};
+
+		Array.prototype.forEach.call( kinds, function ( one ) {
+			one.addEventListener( 'change', showKind );
+		} );
+
+		showKind();
+	}
+
+	/* ------------------------------------------- step 3, several designs */
+
+	var mix = document.querySelector( '[data-cc-bd-mix]' );
+
+	if ( mix ) {
+		var limit = parseInt( mix.getAttribute( 'data-cc-limit' ), 10 ) || 1;
+		var total = parseInt( mix.getAttribute( 'data-cc-total' ), 10 ) || 0;
+		var status = document.querySelector( '[data-cc-bd-mix-status]' );
+		var say = function ( key, values ) {
+			var words = status ? ( status.getAttribute( 'data-cc-' + key ) || '' ) : '';
+
+			return words.replace( /%(\d)\$d/g, function ( all, n ) {
+				return String( values[ parseInt( n, 10 ) - 1 ] );
+			} );
+		};
+
+		var tally = function () {
+			var on = 0;
+			var typed = 0;
+			var sum = 0;
+
+			Array.prototype.forEach.call( mix.querySelectorAll( '.cc-bd-pick' ), function ( pick ) {
+				var box = pick.querySelector( 'input[type="checkbox"]' );
+				var qty = pick.querySelector( 'input[type="number"]' );
+				var tile = pick.querySelector( '.cc-bd-card' );
+
+				pick.classList.toggle( 'is-on', box.checked );
+
+				if ( tile ) {
+					tile.classList.toggle( 'is-on', box.checked );
+				}
+
+				qty.disabled = ! box.checked;
+
+				if ( box.checked ) {
+					on++;
+
+					if ( /^[1-9]\d*$/.test( qty.value.trim() ) ) {
+						typed++;
+						sum += parseInt( qty.value, 10 );
+					}
+				}
+			} );
+
+			/* At the limit, the unticked ones cannot be ticked. */
+			Array.prototype.forEach.call( mix.querySelectorAll( '.cc-bd-pick' ), function ( pick ) {
+				var box = pick.querySelector( 'input[type="checkbox"]' );
+
+				box.disabled = ! box.checked && on >= limit;
+				pick.classList.toggle( 'is-full', box.disabled );
+			} );
+
+			if ( ! status ) {
+				return;
+			}
+
+			status.classList.remove( 'is-wrong' );
+
+			if ( ! on ) {
+				status.textContent = say( 'none', [] );
+			} else if ( ! typed ) {
+				status.textContent = say( 'even', [ on, limit ] ) + ( on >= limit ? ' ' + say( 'full', [] ) : '' );
+			} else if ( typed < on ) {
+				status.textContent = say( 'part', [] );
+				status.classList.add( 'is-wrong' );
+			} else {
+				status.textContent = say( 'sum', [ on, limit, sum, total ] );
+				status.classList.toggle( 'is-wrong', sum !== total );
+			}
+		};
+
+		mix.addEventListener( 'change', tally );
+		mix.addEventListener( 'input', tally );
+		tally();
 	}
 
 	/* ---------------------------------------------------------- step 3 */
@@ -134,7 +298,8 @@ window.CardsCo.add( function () {
 	var pills = document.querySelector( '[data-cc-pills]' );
 
 	if ( pills ) {
-		var cards = Array.prototype.slice.call( document.querySelectorAll( '.cc-bd-card' ) );
+		/* Whatever carries the collection: the tile, or on a bulk order the tile and its number together. */
+		var cards = Array.prototype.slice.call( document.querySelectorAll( '.cc-bd-cards [data-cc-in]' ) );
 		var none = document.querySelector( '[data-cc-pills-none]' );
 
 		pills.addEventListener( 'click', function ( e ) {

@@ -370,6 +370,47 @@ $cardsco_step_url = static function ( $n ) use ( $cardsco_cid ) {
 					<span class="cardsco-side-value"><?php echo esc_html( number_format_i18n( (int) $campaign['excluded_count'] ) ); ?></span>
 				</div>
 			<?php endif; ?>
+			<?php
+			/*
+			 * How the customer set the order up. Staff pack from this: a
+			 * bulk order is one parcel to one address, with the designs in
+			 * the numbers shown, whatever the screens on the left offer.
+			 */
+			$cardsco_bulk    = CardsCo_Campaign::one_address( $campaign );
+			$cardsco_designs = CardsCo_Campaign::designs( $campaign );
+			$cardsco_says    = CardsCo_Campaign::messages( $campaign );
+			?>
+			<div class="cardsco-side-row">
+				<span class="cardsco-side-label"><?php esc_html_e( 'Delivery', 'cardsco' ); ?></span>
+				<span class="cardsco-side-value">
+					<?php
+					echo $cardsco_bulk
+						? nl2br( esc_html( trim( __( 'Bulk order — all to one address:', 'cardsco' ) . "\n" . CardsCo_Dashboard::address_block( CardsCo_Dashboard::address_lines( (string) $campaign['ship_address'] ) ) . "\n" . (string) $campaign['ship_postcode'] ) ) )
+						: esc_html__( 'Single cards — posted to each person', 'cardsco' );
+					?>
+				</span>
+			</div>
+			<?php if ( count( $cardsco_designs ) > 1 && (int) $campaign['recipient_count'] > 0 ) : ?>
+				<div class="cardsco-side-row">
+					<span class="cardsco-side-label"><?php esc_html_e( 'Designs', 'cardsco' ); ?></span>
+					<span class="cardsco-side-value">
+						<?php foreach ( CardsCo_Mix::split( $cardsco_designs, (int) $campaign['recipient_count'] ) as $cardsco_card_id => $cardsco_n ) : ?>
+							<?php echo esc_html( (int) $cardsco_n . ' × ' . get_the_title( (int) $cardsco_card_id ) ); ?><br />
+						<?php endforeach; ?>
+					</span>
+				</div>
+			<?php endif; ?>
+			<?php if ( count( $cardsco_says ) > 1 ) : ?>
+				<div class="cardsco-side-row">
+					<span class="cardsco-side-label"><?php esc_html_e( 'Messages', 'cardsco' ); ?></span>
+					<span class="cardsco-side-value">
+						<?php
+						/* translators: %d: how many messages. */
+						echo esc_html( sprintf( __( '%d, used in turn. Only the first is shown on the message step.', 'cardsco' ), count( $cardsco_says ) ) );
+						?>
+					</span>
+				</div>
+			<?php endif; ?>
 			<div class="cardsco-side-row">
 				<span class="cardsco-side-label"><?php esc_html_e( 'Arrives', 'cardsco' ); ?></span>
 				<span class="cardsco-side-value">
@@ -387,7 +428,7 @@ $cardsco_step_url = static function ( $n ) use ( $cardsco_cid ) {
 					?>
 				</span>
 			</div>
-			<p class="description"><?php esc_html_e( 'Postage is added on top.', 'cardsco' ); ?></p>
+			<p class="description"><?php esc_html_e( 'Postage is included in the card price.', 'cardsco' ); ?></p>
 		</aside>
 	</div>
 </div>

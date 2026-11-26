@@ -357,6 +357,91 @@ class CardsCo_Programme {
 			}
 		}
 
+		/*
+		 * $fields and $format run in step, by position. A column that is
+		 * already in the list keeps its place and takes the new value; a
+		 * new one goes on the end of both.
+		 */
+		$put = static function ( $column, $value, $as ) use ( &$fields, &$format ) {
+			if ( ! array_key_exists( $column, $fields ) ) {
+				$format[] = $as;
+			}
+
+			$fields[ $column ] = $value;
+		};
+
+		/*
+		 * Several designs. card_id is always the first of them, so every
+		 * screen that shows "the card" — a cover, a rail, a receipt — goes
+		 * on working without knowing there can be more than one.
+		 *
+		 * Two ways in. The card step sends the whole list. Anything older
+		 * — the admin's own screen, an import — sends a bare card_id, and
+		 * on an occasion with several designs that changes the first of
+		 * them rather than throwing the rest away.
+		 */
+		$redeal_designs = false;
+
+		if ( array_key_exists( 'designs', $data ) ) {
+			$designs = CardsCo_Mix::clean_designs( $data['designs'] );
+
+			/* An empty list is somebody unticking every design: no card. */
+			$put( 'card_id', $designs ? (int) $designs[0]['card'] : 0, '%d' );
+			$put( 'designs', count( $designs ) > 1 ? wp_json_encode( $designs ) : null, '%s' );
+
+			$redeal_designs = true;
+		} elseif ( array_key_exists( 'card_id', $data ) ) {
+			$stored = CardsCo_Mix::clean_designs( (string) ( $existing['designs'] ?? '' ) );
+
+			if ( count( $stored ) > 1 && absint( $data['card_id'] ) ) {
+				$stored[0]['card'] = absint( $data['card_id'] );
+				$stored            = CardsCo_Mix::clean_designs( $stored );
+
+				$put( 'designs', count( $stored ) > 1 ? wp_json_encode( $stored ) : null, '%s' );
+			}
+
+			$redeal_designs = absint( $data['card_id'] ) !== (int) $existing['card_id'];
+		}
+
+		/*
+		 * Several messages, the same way: message_override is always the
+		 * first, and a bare message_override from an older screen changes
+		 * the first and leaves the others be.
+		 */
+		$redeal_messages = false;
+
+		if ( array_key_exists( 'messages', $data ) ) {
+			$messages = CardsCo_Mix::clean_messages( $data['messages'] );
+
+			if ( $messages ) {
+				$put( 'message_override', $messages[0], '%s' );
+			}
+
+			$put( 'messages', count( $messages ) > 1 ? wp_json_encode( $messages ) : null, '%s' );
+
+			$redeal_messages = true;
+		} elseif ( array_key_exists( 'message_override', $data ) ) {
+			$stored = CardsCo_Mix::clean_messages( (string) ( $existing['messages'] ?? '' ) );
+
+			if ( count( $stored ) > 1 ) {
+				if ( '' === trim( (string) $fields['message_override'] ) ) {
+					array_shift( $stored );
+				} else {
+					$stored[0] = $fields['message_override'];
+				}
+
+				$stored = CardsCo_Mix::clean_messages( $stored );
+
+				if ( $stored ) {
+					$put( 'message_override', $stored[0], '%s' );
+				}
+
+				$put( 'messages', count( $stored ) > 1 ? wp_json_encode( $stored ) : null, '%s' );
+
+				$redeal_messages = true;
+			}
+		}
+
 		foreach ( array( 'weekend_rule', 'notify_before_box' ) as $field ) {
 			if ( array_key_exists( $field, $data ) ) {
 				$fields[ $field ] = $data[ $field ] ? 1 : 0;
@@ -425,6 +510,13 @@ class CardsCo_Programme {
 			$format[]         = '%s';
 		}
 
+		if ( array_key_exists( 'paid_rate', $data ) ) {
+			$fields['paid_rate'] = ( null === $data['paid_rate'] || (float) $data['paid_rate'] <= 0 )
+				? null
+				: number_format( (float) $data['paid_rate'], 2, '.', '' );
+			$format[]            = '%s';
+		}
+
 		if ( empty( $fields ) ) {
 			return true;
 		}
@@ -433,6 +525,21 @@ class CardsCo_Programme {
 		$format[]             = '%s';
 
 		$wpdb->update( cardsco_table( 'programmes' ), $fields, array( 'id' => $programme_id ), $format, array( '%d' ) );
+
+		/*
+		 * Who gets which design, and which message, was worked out against
+		 * the list as it stood. Change the list and those answers are
+		 * about something that no longer exists, so they are cleared and
+		 * dealt again the next time they are needed. A card already with
+		 * the writers keeps what it was queued with.
+		 */
+		if ( $redeal_designs ) {
+			$wpdb->update( cardsco_table( 'programme_recipients' ), array( 'card_id' => 0 ), array( 'programme_id' => $programme_id ), array( '%d' ), array( '%d' ) );
+		}
+
+		if ( $redeal_messages ) {
+			$wpdb->update( cardsco_table( 'programme_recipients' ), array( 'message_no' => 0 ), array( 'programme_id' => $programme_id ), array( '%d' ), array( '%d' ) );
+		}
 
 		return true;
 	}
@@ -691,7 +798,7 @@ class CardsCo_Programme {
 		// Addresses only matter when each card is posted to the person.
 		$missing_address = 0;
 
-		if ( 'individual' === $programme['shipping_mode'] ) {
+		if ( 'individual' === ( $programme['shipping_mode'] ?? '' ) ) {
 			$missing_address = (int) $wpdb->get_var(
 				$wpdb->prepare(
 					"SELECT COUNT(*) FROM {$link} l
@@ -708,6 +815,488 @@ class CardsCo_Programme {
 			'missing_date'    => $type ? max( 0, $total - $with_date ) : 0,
 			'missing_address' => $missing_address,
 		);
+	}
+
+	/* ---------------------------------------------------------------------
+	 * Several designs, several messages, and a note for one person
+	 * ------------------------------------------------------------------ */
+
+	/**
+	 * The designs an occasion sends, in the order they were chosen.
+	 *
+	 * One entry for the ordinary occasion with a single card, and none
+	 * before a card has been picked.
+	 *
+	 * @param array $programme Programme row.
+	 * @return array<int, array{card:int, qty:int}>
+	 */
+	public static function designs( array $programme ) {
+		$designs = CardsCo_Mix::clean_designs( (string) ( $programme['designs'] ?? '' ) );
+
+		if ( count( $designs ) > 1 ) {
+			return $designs;
+		}
+
+		$card = (int) ( $programme['card_id'] ?? 0 );
+
+		return $card
+			? array(
+				array(
+					'card' => $card,
+					'qty'  => 0,
+				),
+			)
+			: array();
+	}
+
+	/**
+	 * The messages an occasion sends, in the order they were written.
+	 *
+	 * @param array $programme Programme row.
+	 * @return string[]
+	 */
+	public static function messages( array $programme ) {
+		$messages = CardsCo_Mix::clean_messages( (string) ( $programme['messages'] ?? '' ) );
+
+		if ( count( $messages ) > 1 ) {
+			return $messages;
+		}
+
+		// Wording typed into the setup wins over a saved message, because
+		// that is the box the company actually filled in.
+		$text = trim( (string) ( $programme['message_override'] ?? '' ) );
+
+		if ( '' === $text && ! empty( $programme['message_id'] ) ) {
+			$saved = get_post( (int) $programme['message_id'] );
+
+			if ( $saved && 'publish' === $saved->post_status ) {
+				$text = trim( (string) CardsCo_Message::text( $saved->ID ) );
+			}
+		}
+
+		return '' === $text ? array() : array( $text );
+	}
+
+	/**
+	 * How many designs this occasion may carry at its present size.
+	 *
+	 * @param array $programme Programme row.
+	 * @param int   $quantity  How many cards, or null to count them.
+	 * @return int
+	 */
+	public static function design_limit( array $programme, $quantity = null ) {
+		if ( null === $quantity ) {
+			$quantity = (int) self::people_summary( $programme )['ready'];
+		}
+
+		return CardsCo_Mix::design_limit( (int) $quantity, self::one_address( $programme ), (int) $programme['company_id'] );
+	}
+
+	/**
+	 * How many messages this occasion may carry at its present size.
+	 *
+	 * @param array $programme Programme row.
+	 * @param int   $quantity  How many cards, or null to count them.
+	 * @return int
+	 */
+	public static function message_limit( array $programme, $quantity = null ) {
+		if ( null === $quantity ) {
+			$quantity = (int) self::people_summary( $programme )['ready'];
+		}
+
+		return CardsCo_Mix::message_limit(
+			(int) $quantity,
+			self::one_address( $programme ),
+			(string) $programme['category'],
+			(int) $programme['company_id']
+		);
+	}
+
+	/**
+	 * How many cards of each design this occasion comes to.
+	 *
+	 * @param array $programme Programme row.
+	 * @param int   $quantity  How many cards, or null to count them.
+	 * @return array<int, int> Card id => how many.
+	 */
+	public static function allocation( array $programme, $quantity = null ) {
+		if ( null === $quantity ) {
+			$quantity = (int) self::people_summary( $programme )['ready'];
+		}
+
+		return CardsCo_Mix::split( self::designs( $programme ), (int) $quantity );
+	}
+
+	/**
+	 * The link rows of everybody who gets a card.
+	 *
+	 * The same people people_summary() counts as ready: on the occasion,
+	 * active, and holding the date it runs on.
+	 *
+	 * @param array $programme Programme row.
+	 * @return array[] id, recipient_id, card_id, message_no, note.
+	 */
+	public static function ready_links( array $programme ) {
+		global $wpdb;
+
+		$type       = CardsCo_Category::primary_type( $programme['category'], (int) $programme['company_id'] );
+		$link       = cardsco_table( 'programme_recipients' );
+		$recipients = cardsco_table( 'recipients' );
+		$occasions  = cardsco_table( 'occasions' );
+
+		if ( $type ) {
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT l.id, l.recipient_id, l.card_id, l.message_no, l.note FROM {$link} l
+					 INNER JOIN {$recipients} r ON r.id = l.recipient_id AND r.status = 'active'
+					 INNER JOIN {$occasions} o ON o.recipient_id = l.recipient_id
+					   AND o.occasion_type_id = %d AND o.is_active = 1
+					 WHERE l.programme_id = %d
+					 ORDER BY l.recipient_id ASC", // phpcs:ignore WordPress.DB.PreparedSQL
+					(int) $type['id'],
+					(int) $programme['id']
+				),
+				ARRAY_A
+			);
+		} else {
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT l.id, l.recipient_id, l.card_id, l.message_no, l.note FROM {$link} l
+					 INNER JOIN {$recipients} r ON r.id = l.recipient_id AND r.status = 'active'
+					 WHERE l.programme_id = %d
+					 ORDER BY l.recipient_id ASC", // phpcs:ignore WordPress.DB.PreparedSQL
+					(int) $programme['id']
+				),
+				ARRAY_A
+			);
+		}
+
+		return (array) $rows;
+	}
+
+	/**
+	 * Decide who gets which design and which message, and write it down.
+	 *
+	 * Only people who have not been given one yet, so it is safe to run as
+	 * often as anything asks: before a box is filled, when an occasion is
+	 * turned on, after somebody joins. Whoever already has a design keeps
+	 * it; a newcomer goes to whichever design is furthest short of its
+	 * share, and gets whichever message has been used least.
+	 *
+	 * Written down rather than worked out afresh each time, because the
+	 * cards for one occasion are queued a month at a time across a year.
+	 * Somebody joining in March must not change which design the people
+	 * with April birthdays were already down for.
+	 *
+	 * An occasion with one design and one message has nothing to decide,
+	 * and this does nothing at all for it.
+	 *
+	 * @param array $programme Programme row.
+	 * @return int How many people were given something.
+	 */
+	public static function assign( array $programme ) {
+		global $wpdb;
+
+		$designs  = self::designs( $programme );
+		$messages = self::messages( $programme );
+
+		if ( count( $designs ) < 2 && count( $messages ) < 2 ) {
+			return 0;
+		}
+
+		$rows = self::ready_links( $programme );
+
+		if ( ! $rows ) {
+			return 0;
+		}
+
+		$table  = cardsco_table( 'programme_recipients' );
+		$change = array();
+
+		if ( count( $designs ) > 1 ) {
+			$targets = CardsCo_Mix::split( $designs, count( $rows ) );
+			$have    = array_fill_keys( array_keys( $targets ), 0 );
+			$waiting = array();
+
+			foreach ( $rows as $row ) {
+				$card = (int) $row['card_id'];
+
+				if ( $card && isset( $have[ $card ] ) ) {
+					$have[ $card ]++;
+				} else {
+					$waiting[] = (int) $row['recipient_id'];
+				}
+			}
+
+			$dealt = CardsCo_Mix::deal_designs(
+				CardsCo_Mix::shuffled( $waiting, 'design:' . (int) $programme['id'] ),
+				$targets,
+				$have
+			);
+
+			foreach ( $dealt as $recipient_id => $card ) {
+				$change[ $recipient_id ]['card_id'] = (int) $card;
+			}
+		}
+
+		if ( count( $messages ) > 1 ) {
+			$total   = count( $messages );
+			$used    = array();
+			$waiting = array();
+
+			foreach ( $rows as $row ) {
+				$no = (int) $row['message_no'];
+
+				if ( $no >= 1 && $no <= $total ) {
+					$used[ $no ] = ( $used[ $no ] ?? 0 ) + 1;
+				} else {
+					$waiting[] = (int) $row['recipient_id'];
+				}
+			}
+
+			$dealt = CardsCo_Mix::deal_messages(
+				CardsCo_Mix::shuffled( $waiting, 'message:' . (int) $programme['id'] ),
+				$total,
+				$used
+			);
+
+			foreach ( $dealt as $recipient_id => $no ) {
+				$change[ $recipient_id ]['message_no'] = (int) $no;
+			}
+		}
+
+		foreach ( $change as $recipient_id => $fields ) {
+			$wpdb->update(
+				$table,
+				$fields,
+				array(
+					'programme_id' => (int) $programme['id'],
+					'recipient_id' => (int) $recipient_id,
+				),
+				array_fill( 0, count( $fields ), '%d' ),
+				array( '%d', '%d' )
+			);
+		}
+
+		return count( $change );
+	}
+
+	/**
+	 * The personal notes on an occasion.
+	 *
+	 * @param int $programme_id Programme ID.
+	 * @return array<int, string> Recipient id => note, only where there is one.
+	 */
+	public static function notes( $programme_id ) {
+		global $wpdb;
+
+		$rows = $wpdb->get_results(
+			$wpdb->prepare(
+				'SELECT recipient_id, note FROM ' . cardsco_table( 'programme_recipients' ) . " WHERE programme_id = %d AND note <> ''", // phpcs:ignore WordPress.DB.PreparedSQL
+				absint( $programme_id )
+			),
+			ARRAY_A
+		);
+
+		$out = array();
+
+		foreach ( (array) $rows as $row ) {
+			$out[ (int) $row['recipient_id'] ] = (string) $row['note'];
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Save one person's note. An empty note takes it away.
+	 *
+	 * Only for somebody actually on the occasion: the update is keyed on
+	 * both, so an id from a form cannot write a note onto anybody else.
+	 *
+	 * @param int    $programme_id Programme ID.
+	 * @param int    $recipient_id Recipient ID.
+	 * @param string $note         The note.
+	 * @return void
+	 */
+	public static function set_note( $programme_id, $recipient_id, $note ) {
+		global $wpdb;
+
+		$wpdb->update(
+			cardsco_table( 'programme_recipients' ),
+			array( 'note' => CardsCo_Mix::clean_note( $note ) ),
+			array(
+				'programme_id' => absint( $programme_id ),
+				'recipient_id' => absint( $recipient_id ),
+			),
+			array( '%s' ),
+			array( '%d', '%d' )
+		);
+	}
+
+	/**
+	 * What is wrong with the designs and messages chosen, if anything.
+	 *
+	 * The limits move with the order: add ten people and five designs
+	 * become ten, take ten away and five become one. So this is asked
+	 * again wherever the order could have changed since the choice was
+	 * made, rather than only at the moment of choosing.
+	 *
+	 * @param array  $programme Programme row.
+	 * @param string $what      'designs', 'messages', or 'all'.
+	 * @return string[] One sentence per problem; empty when there is none.
+	 */
+	public static function mix_problems( array $programme, $what = 'all' ) {
+		$problems = array();
+		$quantity = (int) self::people_summary( $programme )['ready'];
+		$designs  = 'messages' === $what ? array() : self::designs( $programme );
+		$messages = 'designs' === $what ? array() : self::messages( $programme );
+
+		$most = self::design_limit( $programme, $quantity );
+
+		if ( count( $designs ) > $most ) {
+			$problems[] = 1 === $most
+				? sprintf(
+					/* translators: %d: how many cards make a bulk order. */
+					__( 'Several designs are for bulk orders — %d cards or more going to one address. This one is not, so choose a single design.', 'cardsco' ),
+					(int) CardsCo_Settings::get( 'bulk_from', null, (int) $programme['company_id'] )
+				)
+				: sprintf(
+					/* translators: 1: how many cards, 2: how many designs are allowed. */
+					__( 'An order of %1$d cards can have up to %2$d designs. Take some off to carry on.', 'cardsco' ),
+					$quantity,
+					$most
+				);
+		}
+
+		/*
+		 * A number against some designs and not others. There is no good
+		 * guess at what was meant, and guessing "split them evenly" would
+		 * throw away the numbers that were typed.
+		 */
+		$numbered = 0;
+
+		foreach ( $designs as $one ) {
+			if ( (int) $one['qty'] > 0 ) {
+				$numbered++;
+			}
+		}
+
+		if ( count( $designs ) > 1 && $numbered > 0 && $numbered < count( $designs ) ) {
+			$problems[] = __( 'Give every design a number of cards, or leave them all blank and we will split the cards evenly.', 'cardsco' );
+		}
+
+		if ( count( $designs ) > 1 && CardsCo_Mix::is_explicit( $designs ) ) {
+			$asked = 0;
+
+			foreach ( $designs as $one ) {
+				$asked += (int) $one['qty'];
+			}
+
+			if ( $asked !== $quantity ) {
+				$problems[] = sprintf(
+					/* translators: 1: how many cards were shared out, 2: how many there are. */
+					__( 'The designs add up to %1$d cards and there are %2$d to share out. Change the numbers, or clear them and we will split the cards evenly.', 'cardsco' ),
+					$asked,
+					$quantity
+				);
+			}
+		}
+
+		$most = self::message_limit( $programme, $quantity );
+
+		if ( count( $messages ) > $most ) {
+			$problems[] = 1 === $most
+				? __( 'This occasion carries one message. Take the others off to carry on.', 'cardsco' )
+				: sprintf(
+					/* translators: %d: how many messages are allowed. */
+					__( 'This occasion can have up to %d messages. Take some off to carry on.', 'cardsco' ),
+					$most
+				);
+		}
+
+		if ( 'designs' !== $what && $messages ) {
+			$problems = array_merge( $problems, self::note_problems( $programme, $messages ) );
+		}
+
+		return $problems;
+	}
+
+	/**
+	 * Whether anybody's note leaves their card unwritable.
+	 *
+	 * A note is written after whichever message the person gets, so it
+	 * has to fit after the longest of them, with their name filled in and
+	 * the sign-off underneath. It is checked against every message rather
+	 * than the one they have been dealt, because which one they are dealt
+	 * can change and the card has to fit whichever it turns out to be.
+	 *
+	 * Asked whenever the message step is, so it holds both ways round: a
+	 * note that fitted stops fitting when a message is made longer, and
+	 * that is caught on the message's save as well as on the note's.
+	 *
+	 * @param array    $programme Programme row.
+	 * @param string[] $messages  The occasion's messages.
+	 * @return string[]
+	 */
+	protected static function note_problems( array $programme, array $messages ) {
+		$notes = self::notes( (int) $programme['id'] );
+
+		if ( ! $notes ) {
+			return array();
+		}
+
+		$max       = (int) CardsCo_Settings::get( 'card_max_chars', 400, (int) $programme['company_id'] );
+		$signature = trim( (string) ( $programme['signature'] ?? '' ) );
+		$problems  = array();
+
+		foreach ( $notes as $recipient_id => $note ) {
+			$person = CardsCo_Recipient::get( (int) $recipient_id );
+
+			if ( ! $person ) {
+				continue;
+			}
+
+			$name    = trim( $person['first_name'] . ' ' . $person['last_name'] );
+			$context = CardsCo_Merge::context_for_recipient( $person );
+
+			/* A tag in the note that comes out empty, or is not one of ours. */
+			$alone = CardsCo_Merge::render( $note, $context );
+
+			if ( ! empty( $alone['missing'] ) || ! empty( $alone['unknown'] ) ) {
+				$problems[] = sprintf(
+					/* translators: %s: a person's name. */
+					__( 'The note for %s has a {tag} in it that we cannot fill in. Write the words out instead.', 'cardsco' ),
+					$name
+				);
+
+				continue;
+			}
+
+			if ( $max < 1 ) {
+				continue;
+			}
+
+			$longest = 0;
+
+			foreach ( $messages as $text ) {
+				$try  = CardsCo_Merge::render( CardsCo_Mix::with_note( $text, $note ), $context );
+				$used = mb_strlen( (string) $try['text'] . ( $signature ? "\n" . $signature : '' ) );
+
+				$longest = max( $longest, $used );
+			}
+
+			if ( $longest > $max ) {
+				$problems[] = sprintf(
+					/* translators: 1: a person's name, 2: characters used, 3: the limit. */
+					__( 'With the note for %1$s their card comes to %2$s characters, and a card holds %3$s. Shorten the note, or the message.', 'cardsco' ),
+					$name,
+					number_format_i18n( $longest ),
+					number_format_i18n( $max )
+				);
+			}
+		}
+
+		return $problems;
 	}
 
 	/* ---------------------------------------------------------------------
@@ -731,11 +1320,33 @@ class CardsCo_Programme {
 				return $people['ready'] > 0;
 
 			case 3:
-				return self::post_is_usable( (int) $programme['card_id'], CardsCo_Card::POST_TYPE );
+				/*
+				 * Every design, not only the first, and no more of them
+				 * than an order this size may carry. The allowance moves
+				 * with the order — five designs chosen for thirty people
+				 * are four too many once ten of those people are taken off
+				 * — so this step can come unfinished after it was done.
+				 */
+				$designs = self::designs( $programme );
+
+				if ( ! $designs ) {
+					return false;
+				}
+
+				foreach ( $designs as $one ) {
+					if ( ! self::post_is_usable( (int) $one['card'], CardsCo_Card::POST_TYPE ) ) {
+						return false;
+					}
+				}
+
+				return ! self::mix_problems( $programme, 'designs' );
 
 			case 4:
-				return self::post_is_usable( (int) $programme['message_id'], CardsCo_Message::POST_TYPE )
-					|| '' !== trim( (string) $programme['message_override'] );
+				if ( ! self::messages( $programme ) ) {
+					return false;
+				}
+
+				return ! self::mix_problems( $programme, 'messages' );
 
 			case 5:
 				if ( 'individual' === $programme['shipping_mode'] ) {
@@ -1042,6 +1653,83 @@ class CardsCo_Programme {
 	}
 
 	/**
+	 * What the order comes to, a line for each design.
+	 *
+	 * The one place a total is worked out, for the same reason rate() is
+	 * the one place a rate is: the review screen, the till and the renewal
+	 * each used to do their own sum, and they disagreed.
+	 *
+	 * Every design is priced at the rate the WHOLE order earns. Ten cards
+	 * of one design and twenty-four of another are an order of
+	 * thirty-four, and all thirty-four are at the bulk rate — choosing
+	 * more designs does not cost more, and must not quietly cost more by
+	 * pricing each design as a small order of its own.
+	 *
+	 * A design that carries its own price keeps it, which is the only way
+	 * two lines on one order can be at different rates.
+	 *
+	 * @param array $programme Programme row.
+	 * @param int   $quantity  How many cards, or null to count them.
+	 * @return array[] card, qty, each (float), total (string, 2dp).
+	 */
+	public static function order_lines( array $programme, $quantity = null ) {
+		if ( null === $quantity ) {
+			$quantity = (int) self::people_summary( $programme )['ready'];
+		}
+
+		$quantity   = max( 0, (int) $quantity );
+		$company_id = (int) $programme['company_id'];
+		$lines      = array();
+
+		foreach ( self::allocation( $programme, $quantity ) as $card => $many ) {
+			if ( $many < 1 ) {
+				continue;
+			}
+
+			$each    = (float) CardsCo_Card::price_for( (int) $card, max( 1, $quantity ), $company_id );
+			$lines[] = array(
+				'card'  => (int) $card,
+				'qty'   => (int) $many,
+				'each'  => $each,
+				'total' => number_format( $each * $many, 2, '.', '' ),
+			);
+		}
+
+		/*
+		 * No card chosen yet. There is still a figure to show, so it is
+		 * one line at whatever rate() falls back to.
+		 */
+		if ( ! $lines && $quantity > 0 ) {
+			$each    = self::rate( $programme, $quantity );
+			$lines[] = array(
+				'card'  => 0,
+				'qty'   => $quantity,
+				'each'  => $each,
+				'total' => number_format( $each * $quantity, 2, '.', '' ),
+			);
+		}
+
+		return $lines;
+	}
+
+	/**
+	 * What the order comes to altogether.
+	 *
+	 * @param array $programme Programme row.
+	 * @param int   $quantity  How many cards, or null to count them.
+	 * @return string Two decimal places.
+	 */
+	public static function order_total( array $programme, $quantity = null ) {
+		$total = 0.0;
+
+		foreach ( self::order_lines( $programme, $quantity ) as $line ) {
+			$total += (float) $line['total'];
+		}
+
+		return number_format( $total, 2, '.', '' );
+	}
+
+	/**
 	 * The figures the review step shows.
 	 *
 	 * @param array $programme Programme row.
@@ -1050,6 +1738,7 @@ class CardsCo_Programme {
 	public static function estimate( array $programme ) {
 		$people = self::people_summary( $programme );
 		$price  = self::rate( $programme, (int) $people['ready'] );
+		$year   = self::order_total( $programme, (int) $people['ready'] );
 
 		/* The box they will actually be charged for next, not the one that
 		   shipped three weeks ago. */
@@ -1061,10 +1750,17 @@ class CardsCo_Programme {
 			'currency'     => $programme['currency'] ? $programme['currency'] : CardsCo_Settings::get( 'currency' ),
 			'people'       => $people['total'],
 			'per_year'     => $people['ready'],
-			'yearly_total' => number_format( $people['ready'] * $price, 2, '.', '' ),
+			'yearly_total' => $year,
 			'next_period'  => $next_period,
 			'next_count'   => $next_count,
-			'next_total'   => number_format( $next_count * $price, 2, '.', '' ),
+			/*
+			 * The box's share of the year. With one rate across the order
+			 * — which is every order unless a design carries a price of
+			 * its own — this is the count at that rate, to the penny.
+			 */
+			'next_total'   => $people['ready'] > 0
+				? number_format( (float) $year * $next_count / $people['ready'], 2, '.', '' )
+				: number_format( 0, 2, '.', '' ),
 			'next_arrive'  => self::box_arrive_date( $programme, $next_period ),
 		);
 	}

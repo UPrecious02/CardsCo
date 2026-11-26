@@ -3,7 +3,7 @@
  * Plugin Name:       CardsCo
  * Plugin URI:        https://cardsco.uk
  * Description:       Corporate greeting card platform. Recipient management, occasion scheduling, campaigns and fulfilment.
- * Version: 1.4.0
+ * Version: 1.6.0
  * Requires at least: 6.4
  * Requires PHP:      8.0
  * Author:            PT Digital Studio
@@ -15,7 +15,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'CARDSCO_VERSION', '1.4.0' );
+define( 'CARDSCO_VERSION', '1.6.0' );
 define( 'CARDSCO_FILE', __FILE__ );
 define( 'CARDSCO_PATH', plugin_dir_path( __FILE__ ) );
 define( 'CARDSCO_URL', plugin_dir_url( __FILE__ ) );
@@ -47,6 +47,7 @@ require_once CARDSCO_PATH . 'includes/class-cardsco-merge.php';
 require_once CARDSCO_PATH . 'includes/class-cardsco-card.php';
 require_once CARDSCO_PATH . 'includes/class-cardsco-message.php';
 require_once CARDSCO_PATH . 'includes/class-cardsco-category.php';
+require_once CARDSCO_PATH . 'includes/class-cardsco-mix.php';
 require_once CARDSCO_PATH . 'includes/class-cardsco-programme.php';
 require_once CARDSCO_PATH . 'includes/class-cardsco-programme-import.php';
 require_once CARDSCO_PATH . 'includes/class-cardsco-queue.php';

@@ -147,10 +147,25 @@ class CardsCo_Catalogue {
 		 */
 
 		if ( ! self::is_sellable( $card_id ) ) {
-			// Unticked or unpublished. The product is hidden, never deleted:
-			// it may appear on orders already placed, and deleting it would
-			// leave those orders pointing at nothing.
-			if ( $product ) {
+			/*
+			 * Unticked or unpublished: not in the shop.
+			 *
+			 * The tick is about the public shop — whether this card is sold
+			 * one at a time to anybody who walks in. It is not about whether
+			 * a company may be charged for it: a design staff have put in an
+			 * occasion's collection is on offer to every customer setting
+			 * that occasion up, ticked or not, and it used to reach the
+			 * checkout as "cannot be bought" because its product had been
+			 * put back to draft here. So a published card keeps a product
+			 * that can be charged against, out of sight; only an unpublished
+			 * card's product is withdrawn.
+			 *
+			 * Never deleted either way: it may be on orders already placed,
+			 * and deleting it would leave those pointing at nothing.
+			 */
+			if ( $product && 'publish' === $card->post_status ) {
+				self::write_product( $card_id, $card, $product, false );
+			} elseif ( $product ) {
 				$product->set_status( 'draft' );
 				$product->set_catalog_visibility( 'hidden' );
 				$product->save();
@@ -159,15 +174,61 @@ class CardsCo_Catalogue {
 			return 0;
 		}
 
-		if ( ! $product ) {
-			$product = new WC_Product_Simple();
+		return self::write_product( $card_id, $card, $product ? $product : new WC_Product_Simple(), true );
+	}
+
+	/**
+	 * The product to charge a company's order against.
+	 *
+	 * Any published card has one, made here if need be. A card that is not
+	 * ticked for the shop gets a product nobody can browse to: it exists so
+	 * the checkout has something to put a price on, and for nothing else.
+	 *
+	 * @param int $card_id Card.
+	 * @return int Product ID, or 0 when the card cannot be charged for.
+	 */
+	public static function product_for_order( $card_id ) {
+		$card_id = absint( $card_id );
+		$card    = $card_id ? get_post( $card_id ) : null;
+
+		if ( ! $card || CardsCo_Card::POST_TYPE !== $card->post_type || 'publish' !== $card->post_status || ! self::shop_available() ) {
+			return 0;
 		}
 
+		$product_id = (int) get_post_meta( $card_id, self::PRODUCT, true );
+		$product    = $product_id ? wc_get_product( $product_id ) : null;
+
+		/*
+		 * There, and in a state the basket will take: nothing to do. A
+		 * published product is not always one — with no price on it the
+		 * shop refuses it — so the shop is asked, and one it would refuse
+		 * is written out again below, price and all.
+		 */
+		if ( $product && 'publish' === $product->get_status()
+			&& ( ! method_exists( $product, 'is_purchasable' ) || $product->is_purchasable() ) ) {
+			return $product_id;
+		}
+
+		$made = self::write_product( $card_id, $card, $product ? $product : new WC_Product_Simple(), self::is_sellable( $card_id ) );
+
+		return is_wp_error( $made ) ? 0 : (int) $made;
+	}
+
+	/**
+	 * Write a card's details onto its product.
+	 *
+	 * @param int        $card_id Card.
+	 * @param WP_Post    $card    The card's post.
+	 * @param WC_Product $product The product, new or existing.
+	 * @param bool       $listed  Whether it shows in the shop.
+	 * @return int|WP_Error Product ID.
+	 */
+	protected static function write_product( $card_id, $card, $product, $listed ) {
 		$price = CardsCo_Card::price( $card_id );
 
 		$product->set_name( $card->post_title );
 		$product->set_status( 'publish' );
-		$product->set_catalog_visibility( 'visible' );
+		$product->set_catalog_visibility( $listed ? 'visible' : 'hidden' );
 		$product->set_virtual( false );
 		/*
 		 * NOT sold individually. WooCommerce reads that flag as a hard cap
@@ -205,6 +266,20 @@ class CardsCo_Catalogue {
 
 		if ( ! $product_id ) {
 			return new WP_Error( 'cardsco_product_failed', __( 'We could not put that card in the shop.', 'cardsco' ) );
+		}
+
+		/*
+		 * And the price it is actually sold at, if it has none.
+		 *
+		 * WooCommerce works that out from the regular price, and only at
+		 * the moment the regular price changes. A product that already had
+		 * the right regular price and no selling price — imported, or made
+		 * by something other than this — stayed without one however often
+		 * it was saved: published, priced on its own screen, and refused
+		 * by the basket as not for sale.
+		 */
+		if ( '' === (string) get_post_meta( $product_id, '_price', true ) && '' !== (string) $price ) {
+			update_post_meta( $product_id, '_price', (string) $price );
 		}
 
 		update_post_meta( $product_id, self::CARD, (int) $card_id );

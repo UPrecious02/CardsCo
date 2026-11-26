@@ -1244,7 +1244,7 @@ class CardsCo_Dashboard {
 			'price_note'   => $price && $category
 				? sprintf(
 					/* translators: 1: the occasion, 2: the price of one card. */
-					__( '%1$s cards are %2$s each, charged as they’re written. Postage is extra.', 'cardsco' ),
+					__( '%1$s cards are %2$s each on this order, postage included.', 'cardsco' ),
 					/* Starts the sentence; the nouns are written for the
 					   middle of one. */
 					cardsco_ucfirst( self::card_noun( $programme['category'], $company_id ) ),
@@ -1284,6 +1284,16 @@ class CardsCo_Dashboard {
 				);
 
 			case 3:
+				$several = count( CardsCo_Programme::designs( $programme ) );
+
+				if ( $several > 1 ) {
+					return sprintf(
+						/* translators: %s: how many designs. */
+						__( '%s designs', 'cardsco' ),
+						number_format_i18n( $several )
+					);
+				}
+
 				$title = $programme['card_id'] ? get_the_title( (int) $programme['card_id'] ) : '';
 
 				return $title ? $title : '—';
@@ -1295,6 +1305,16 @@ class CardsCo_Dashboard {
 			 * on every screen from 4 onwards.
 			 */
 			case 4:
+				$several = count( CardsCo_Programme::messages( $programme ) );
+
+				if ( $several > 1 ) {
+					return sprintf(
+						/* translators: %s: how many messages. */
+						__( '%s messages, used in turn', 'cardsco' ),
+						number_format_i18n( $several )
+					);
+				}
+
 				$said = $programme['message_id']
 					? (string) get_the_title( (int) $programme['message_id'] )
 					: (string) $programme['message_override'];
@@ -1381,7 +1401,13 @@ class CardsCo_Dashboard {
 				__( 'We work back from each %s so nobody’s card is late.', 'cardsco' ),
 				$noun
 			),
-			7 => __( 'You only pay for cards as they’re written. Nothing is charged today.', 'cardsco' ),
+			/*
+			 * This used to say nothing is charged today, two inches above a
+			 * panel headed "Due today". The panel is the one that is true.
+			 */
+			7 => ! empty( $programme['id'] ) && CardsCo_Programme::needs_referral( $programme )
+				? __( 'Check everything is right. An order this size, posted to each person, is arranged with us directly.', 'cardsco' )
+				: __( 'Check everything is right. You pay once, on the next page, for the cards on this order.', 'cardsco' ),
 		);
 
 		/*
@@ -1390,6 +1416,14 @@ class CardsCo_Dashboard {
 		 * rather than kept as a fixed string. Step 4's line is fixed: the
 		 * frame does not name the occasion in it.
 		 */
+		/*
+		 * "Write it once" is wrong the moment the order may carry several
+		 * messages, which is every bulk order and every birthday occasion.
+		 */
+		if ( 4 === $step && ! empty( $programme['id'] ) && CardsCo_Programme::message_limit( $programme ) > 1 ) {
+			return __( 'Write one message, or a few to share between the cards. We add each person’s name, and every card is written by hand.', 'cardsco' );
+		}
+
 		if ( 3 === $step ) {
 			$noun = $category ? self::card_noun( $programme['category'], CardsCo_Access::company_id() ) : '';
 
@@ -1442,7 +1476,37 @@ class CardsCo_Dashboard {
 		);
 
 		$tab  = in_array( $tab, array( 'occasion', 'mine' ), true ) ? $tab : 'occasion';
-		$show = 'mine' === $tab ? $mine : $for_occasion;
+
+		/*
+		 * How many designs this order may carry. One, for most; up to
+		 * five or ten on a bulk order — see CardsCo_Mix. Where it is more
+		 * than one the screen is a different control: tickboxes rather
+		 * than radios, with a box on each chosen design for how many
+		 * cards it is to have.
+		 */
+		$quantity = $programme['id'] ? (int) CardsCo_Programme::people_summary( $programme )['ready'] : 0;
+		$limit    = $programme['id'] ? CardsCo_Programme::design_limit( $programme, $quantity ) : CardsCo_Mix::DESIGNS_SINGLE;
+		$multi    = $limit > 1;
+
+		$picked = array();
+
+		foreach ( $programme['id'] ? CardsCo_Programme::designs( $programme ) : array() as $one ) {
+			$picked[ (int) $one['card'] ] = (int) $one['qty'];
+		}
+
+		/*
+		 * With several to choose, every card is on the page whichever tab
+		 * is open, and the tabs only hide and show. A tab that reloaded
+		 * the list would drop every tick not yet saved, and a design
+		 * ticked under one tab would be invisible under the other while
+		 * still counting towards the total.
+		 */
+		$show    = ( 'mine' === $tab && ! $multi ) ? $mine : $for_occasion;
+		$is_mine = array();
+
+		foreach ( $mine as $post ) {
+			$is_mine[ (int) $post->ID ] = true;
+		}
 
 		$tiles = array();
 
@@ -1453,12 +1517,19 @@ class CardsCo_Dashboard {
 				continue;
 			}
 
+			$id = (int) $card['id'];
+
 			$tiles[] = array(
-				'id'       => (int) $card['id'],
+				'id'       => $id,
 				'title'    => $card['title'],
 				'sub'      => trim( implode( ' · ', array_filter( array( $card['pattern'], $card['format'] ) ) ) ),
 				'image'    => $card['image'],
-				'selected' => (int) $card['id'] === $chosen,
+				'selected' => $multi ? isset( $picked[ $id ] ) : $id === $chosen,
+				/* How many cards of this design, where the customer said. */
+				'qty'      => ( $multi && ! empty( $picked[ $id ] ) ) ? (int) $picked[ $id ] : '',
+				'mine'     => isset( $is_mine[ $id ] ),
+				/* Off the open tab: on the page, but not on show. */
+				'hidden'   => $multi && 'mine' === $tab && ! isset( $is_mine[ $id ] ),
 			);
 		}
 
@@ -1484,10 +1555,20 @@ class CardsCo_Dashboard {
 		);
 
 		return array(
-			'tabs'   => $tabs,
-			'tiles'  => $tiles,
-			'chosen' => $chosen,
-			'tab'    => $tab,
+			'tabs'     => $tabs,
+			'tiles'    => $tiles,
+			'chosen'   => $chosen,
+			'tab'      => $tab,
+			/* Several designs: whether, how many, and across how many cards. */
+			'multi'    => $multi,
+			'limit'    => $limit,
+			'quantity' => $quantity,
+			'picked'   => count( $picked ),
+			/* What is wrong with what is chosen, if anything, so the step
+			   can say so before Continue is pressed rather than after. */
+			'problems' => $programme['id'] && $picked
+				? CardsCo_Programme::mix_problems( $programme, 'designs' )
+				: array(),
 		);
 	}
 
@@ -1717,6 +1798,28 @@ class CardsCo_Dashboard {
 		$box   = (int) $timing['due_count'];
 		$year  = $have;
 
+		/*
+		 * Several designs and several messages. The order's own lines —
+		 * the ones the till will put in the basket — are what this panel
+		 * shows, so there is one sum and it is done in one place.
+		 */
+		$cards_due        = (int) CardsCo_Programme::people_summary( $programme )['ready'];
+		$order_lines      = CardsCo_Programme::order_lines( $programme, $cards_due );
+		$split            = CardsCo_Programme::allocation( $programme, $cards_due );
+		$several_designs  = count( $split ) > 1;
+		$several_messages = count( CardsCo_Programme::messages( $programme ) );
+		$several_messages = $several_messages > 1 ? $several_messages : 0;
+		$split_words      = array();
+
+		foreach ( $split as $cc_card => $cc_many ) {
+			$split_words[] = sprintf(
+				/* translators: 1: a card's name, 2: how many of it. */
+				_x( '%1$s × %2$s', 'a design and how many cards of it', 'cardsco' ),
+				get_the_title( (int) $cc_card ),
+				number_format_i18n( (int) $cc_many )
+			);
+		}
+
 		$rows = array(
 			array(
 				'key'    => 'occasion',
@@ -1766,20 +1869,44 @@ class CardsCo_Dashboard {
 			),
 			array(
 				'key'    => 'card',
-				'label'  => __( 'Card', 'cardsco' ),
-				'value'  => $card ? $card['title'] : __( 'Not chosen', 'cardsco' ),
-				'detail' => $card ? $card['format'] : '',
+				'label'  => $several_designs ? __( 'Cards', 'cardsco' ) : __( 'Card', 'cardsco' ),
+				'value'  => $several_designs
+					? sprintf(
+						/* translators: %s: how many designs. */
+						__( '%s designs', 'cardsco' ),
+						number_format_i18n( count( $split ) )
+					)
+					: ( $card ? $card['title'] : __( 'Not chosen', 'cardsco' ) ),
+				/* Which designs and how many cards of each, as they will be
+				   written — the split the customer asked for, or the even
+				   one they left us to make. */
+				'detail' => $several_designs
+					? implode( ' · ', $split_words )
+					: ( $card ? $card['format'] : '' ),
 				'step'   => 3,
 			),
 			array(
 				'key'    => 'message',
-				'label'  => __( 'Message', 'cardsco' ),
-				'value'  => $message['opening'] ? $message['opening'] : __( 'Nothing written yet', 'cardsco' ),
+				'label'  => $several_messages ? __( 'Messages', 'cardsco' ) : __( 'Message', 'cardsco' ),
+				'value'  => $several_messages
+					? sprintf(
+						/* translators: %s: how many messages. */
+						__( '%s messages, used in turn', 'cardsco' ),
+						number_format_i18n( $several_messages )
+					)
+					: ( $message['opening'] ? $message['opening'] : __( 'Nothing written yet', 'cardsco' ) ),
 				'detail' => trim(
 					implode(
 						' · ',
 						array_filter(
 							array(
+								$message['noted']
+									? sprintf(
+										/* translators: %s: how many people have a personal note. */
+										_n( '%s personal note', '%s personal notes', $message['noted'], 'cardsco' ),
+										number_format_i18n( $message['noted'] )
+									)
+									: '',
 								$message['hand'] && '—' !== $message['hand'] ? $message['hand'] : '',
 								$message['signature']
 									? sprintf(
@@ -1856,30 +1983,57 @@ class CardsCo_Dashboard {
 		$paying  = (int) $summary['ready'];
 		$undated = (int) $summary['missing_date'];
 
+		/*
+		 * One line for each design where there are several, saying how
+		 * many cards and what they come to, so the split the customer
+		 * chose is the split they are shown paying for.
+		 */
+		$design_lines = array();
+
+		if ( $several_designs ) {
+			foreach ( $order_lines as $cc_line ) {
+				$design_lines[] = array(
+					'label' => sprintf(
+						/* translators: 1: a card's name, 2: how many of it. */
+						_x( '%1$s × %2$s', 'a design and how many cards of it', 'cardsco' ),
+						get_the_title( (int) $cc_line['card'] ),
+						number_format_i18n( (int) $cc_line['qty'] )
+					),
+					'value' => $money( $cc_line['total'] ),
+				);
+			}
+		}
+
 		return array(
 			'rows'  => $rows,
-			'lines' => array(
-				array( 'label' => __( 'Price per card', 'cardsco' ), 'value' => $money( $price ) ),
+			'lines' => array_merge(
 				array(
-					'label' => __( 'Cards to write', 'cardsco' ),
-					'value' => sprintf(
-						/* translators: %s: how many cards. */
-						_n( '%s card', '%s cards', $paying, 'cardsco' ),
-						number_format_i18n( $paying )
+					array( 'label' => __( 'Price per card', 'cardsco' ), 'value' => $money( $price ) ),
+					array(
+						'label' => __( 'Cards to write', 'cardsco' ),
+						'value' => sprintf(
+							/* translators: %s: how many cards. */
+							_n( '%s card', '%s cards', $paying, 'cardsco' ),
+							number_format_i18n( $paying )
+						),
 					),
 				),
+				$design_lines,
 				array(
-					'label' => __( 'Postage', 'cardsco' ),
-					'value' => __( 'Included in the card price', 'cardsco' ),
-				),
-				array(
-					'label' => __( 'First cards', 'cardsco' ),
-					'value' => $timing['due_month'] ? $timing['due_month'] : __( 'Once dates are added', 'cardsco' ),
-				),
+					array(
+						'label' => __( 'Postage', 'cardsco' ),
+						'value' => __( 'Included in the card price', 'cardsco' ),
+					),
+					array(
+						'label' => __( 'First cards', 'cardsco' ),
+						'value' => $timing['due_month'] ? $timing['due_month'] : __( 'Once dates are added', 'cardsco' ),
+					),
+				)
 			),
 			'due'   => array(
 				'label' => __( 'Due today', 'cardsco' ),
-				'value' => $money( $price * $paying ),
+				/* The sum the till does, not a second one done here. */
+				'value' => $money( CardsCo_Programme::order_total( $programme, $paying ) ),
 			),
 			'note'  => $undated
 				? sprintf(
@@ -2802,16 +2956,19 @@ class CardsCo_Dashboard {
 	 * @param array $programme Programme row.
 	 * @return array
 	 */
-	public static function setup_message( array $programme ) {
+	public static function setup_message( array $programme, $slot = 1 ) {
 		$company_id = CardsCo_Access::company_id();
 		$max        = (int) CardsCo_Settings::get( 'card_max_chars', 400, $company_id );
 
-		$text = trim( (string) ( $programme['message_override'] ?? '' ) );
-
-		if ( '' === $text && ! empty( $programme['message_id'] ) ) {
-			$saved = get_post( (int) $programme['message_id'] );
-			$text  = $saved ? (string) get_post_meta( $saved->ID, CardsCo_Message::TEXT, true ) : '';
-		}
+		/*
+		 * Which of the occasion's messages. An occasion with one only has
+		 * a first; one with several shows whichever was asked for, and a
+		 * number past the end is the first rather than a blank card.
+		 */
+		$all  = ! empty( $programme['id'] ) ? CardsCo_Programme::messages( $programme ) : array();
+		$slot = max( 1, (int) $slot );
+		$slot = isset( $all[ $slot - 1 ] ) ? $slot : 1;
+		$text = isset( $all[ $slot - 1 ] ) ? trim( (string) $all[ $slot - 1 ] ) : '';
 
 		// Preview against somebody real, so the name in it is a name the
 		// customer will recognise rather than a placeholder.
@@ -2890,6 +3047,88 @@ class CardsCo_Dashboard {
 			 */
 			'sample'    => array_map( 'strval', (array) $sample ),
 			'ready'     => '' !== $text,
+			'slot'      => $slot,
+		) + self::setup_message_mix( $programme, $all, $slot );
+	}
+
+	/**
+	 * The parts of step 4 that only exist once there can be more than one
+	 * message: the list of them, whether another may be added, and the
+	 * personal notes.
+	 *
+	 * @param array    $programme Programme row.
+	 * @param string[] $all       The occasion's messages.
+	 * @param int      $slot      Which one is being previewed.
+	 * @return array
+	 */
+	protected static function setup_message_mix( array $programme, array $all, $slot ) {
+		if ( empty( $programme['id'] ) ) {
+			return array(
+				'limit'    => 1,
+				'messages' => array(),
+				'can_add'  => false,
+				'people'   => array(),
+				'noted'    => 0,
+				'note_max' => CardsCo_Mix::NOTE_MAX,
+				'problems' => array(),
+			);
+		}
+
+		$limit = CardsCo_Programme::message_limit( $programme );
+		$list  = array();
+
+		foreach ( $all as $i => $one ) {
+			$lines  = array_values( array_filter( array_map( 'trim', preg_split( '/\R/', (string) $one ) ), 'strlen' ) );
+			$list[] = array(
+				'no'      => $i + 1,
+				'opening' => $lines ? $lines[0] : '',
+				'on'      => ( $i + 1 ) === (int) $slot,
+			);
+		}
+
+		/*
+		 * Everybody on the occasion, each with the note written for them
+		 * if there is one. Capped where the people table is capped, for
+		 * the same reason: a company with thousands should not have them
+		 * all drawn into one page.
+		 */
+		$notes  = CardsCo_Programme::notes( (int) $programme['id'] );
+		$people = array();
+
+		foreach ( CardsCo_Programme::recipient_ids( (int) $programme['id'] ) as $rid ) {
+			if ( count( $people ) >= 200 ) {
+				break;
+			}
+
+			$person = CardsCo_Recipient::get( (int) $rid );
+
+			if ( ! $person || 'active' !== (string) $person['status'] ) {
+				continue;
+			}
+
+			$people[] = array(
+				'id'   => (int) $rid,
+				'name' => trim( $person['first_name'] . ' ' . $person['last_name'] ),
+				'note' => (string) ( $notes[ (int) $rid ] ?? '' ),
+			);
+		}
+
+		usort(
+			$people,
+			static function ( $a, $b ) {
+				return strcasecmp( $a['name'], $b['name'] );
+			}
+		);
+
+		return array(
+			'limit'    => $limit,
+			'messages' => $list,
+			/* Room for another, and something written to add to. */
+			'can_add'  => $limit > 1 && count( $all ) >= 1 && count( $all ) < $limit,
+			'people'   => $people,
+			'noted'    => count( $notes ),
+			'note_max' => CardsCo_Mix::NOTE_MAX,
+			'problems' => $all ? CardsCo_Programme::mix_problems( $programme, 'messages' ) : array(),
 		);
 	}
 
@@ -2982,14 +3221,30 @@ class CardsCo_Dashboard {
 		return array_keys( $blank );
 	}
 
-	public static function setup_writer( array $programme ) {
+	public static function setup_writer( array $programme, $slot = 1 ) {
 		$company_id = CardsCo_Access::company_id();
-		$message    = self::setup_message( $programme );
 
-		$text = trim( (string) ( $programme['message_override'] ?? '' ) );
+		/*
+		 * Which message is being written. One past the last is a new one,
+		 * and opens empty; anything further is brought back to that.
+		 */
+		$all  = CardsCo_Programme::messages( $programme );
+		$slot = max( 1, min( (int) $slot, count( $all ) + 1 ) );
+		$new  = ! isset( $all[ $slot - 1 ] );
 
-		if ( '' === $text && ! empty( $programme['message_id'] ) ) {
-			$text = CardsCo_Message::text( (int) $programme['message_id'] );
+		$message = self::setup_message( $programme, $slot );
+		$text    = $new ? '' : trim( (string) $all[ $slot - 1 ] );
+
+		/*
+		 * A new message starts from an empty card, not from a preview of
+		 * the first one — setup_message() falls back to the first when the
+		 * slot does not exist yet.
+		 */
+		if ( $new ) {
+			$message['lines'] = array();
+			$message['used']  = 0;
+			$message['over']  = false;
+			$message['ready'] = false;
 		}
 
 		/*
@@ -3106,6 +3361,11 @@ class CardsCo_Dashboard {
 			'posts'     => $posts ? mysql2date( 'D j M', $posts ) : '',
 			'noun'      => self::card_noun( (string) $programme['category'], $company_id ),
 			'people'    => count( CardsCo_Programme::recipient_ids( (int) $programme['id'] ) ),
+			/* Which message this is, of how many, and whether it is new. */
+			'slot'      => $slot,
+			'of'        => max( count( $all ), $slot ),
+			'several'   => count( $all ) > 1 || $slot > 1,
+			'is_new'    => $new,
 		);
 	}
 
@@ -3204,6 +3464,16 @@ class CardsCo_Dashboard {
 		}
 
 		if ( 3 === (int) $step ) {
+			$several = ! empty( $programme['id'] ) ? count( CardsCo_Programme::designs( $programme ) ) : 0;
+
+			if ( $several > 1 ) {
+				return sprintf(
+					/* translators: %s: how many designs. */
+					__( '%s designs selected', 'cardsco' ),
+					number_format_i18n( $several )
+				);
+			}
+
 			$card = ! empty( $programme['card_id'] )
 				? CardsCo_Card::summary( (int) $programme['card_id'] )
 				: null;
@@ -3342,6 +3612,87 @@ class CardsCo_Dashboard {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * Step 1 — single cards or a bulk order.
+	 *
+	 * Asked at the start because everything after it depends on the
+	 * answer: where the cards go, what each costs, and whether the order
+	 * may mix designs. The two are the client's own terms:
+	 *
+	 *   single  a card each, posted to each named person
+	 *   bulk    twenty-five or more delivered to one address, which the
+	 *           customer hands out, at the lower price
+	 *
+	 * In the model the answer is where the cards are shipped. Fewer than
+	 * twenty-five can still go to one address — a small team's cards in a
+	 * box to the office is the commonest order there is — and the second
+	 * option says so, because calling that "bulk" without the caveat
+	 * would promise a price it does not get.
+	 *
+	 * The figures are read from the settings rather than written into the
+	 * sentences, so a company on its own price list reads its own prices.
+	 *
+	 * @param array $programme Programme row, or the stand-in before one exists.
+	 * @return array
+	 */
+	public static function setup_order( array $programme ) {
+		$company_id = CardsCo_Access::company_id();
+		$currency   = (string) CardsCo_Settings::get( 'currency', null, $company_id );
+		$from       = (int) CardsCo_Settings::get( 'bulk_from', null, $company_id );
+
+		$money = static function ( $amount ) use ( $currency ) {
+			return wp_strip_all_tags(
+				CardsCo_Shortcodes::money( number_format( (float) $amount, 2, '.', '' ), $currency )
+			);
+		};
+
+		$single = $money( CardsCo_Settings::get( 'price_default', null, $company_id ) );
+		$bulk   = $money( CardsCo_Settings::get( 'price_bulk', null, $company_id ) );
+
+		/* One address unless the occasion already says otherwise. */
+		$chosen = 'individual' === (string) ( $programme['shipping_mode'] ?? 'company' ) ? 'single' : 'bulk';
+
+		return array(
+			'chosen'  => $chosen,
+			'options' => array(
+				array(
+					'value' => 'single',
+					'head'  => __( 'Single cards', 'cardsco' ),
+					'body'  => sprintf(
+						/* translators: 1: the price of one card, 2: the largest order this covers. */
+						__( 'A card each, posted to each person at their own address. %1$s a card, for up to %2$d cards.', 'cardsco' ),
+						$single,
+						max( 1, $from - 1 )
+					),
+					'small' => sprintf(
+						/* translators: %d: how many cards make a bulk order. */
+						__( '%d or more posted separately? We arrange that with you directly.', 'cardsco' ),
+						$from
+					),
+					'on'    => 'single' === $chosen,
+				),
+				array(
+					'value' => 'bulk',
+					'head'  => __( 'Bulk order', 'cardsco' ),
+					'body'  => sprintf(
+						/* translators: 1: how many cards make a bulk order, 2: the bulk price, 3: the most designs. */
+						__( '%1$d cards or more, delivered together to one address for you to hand out. %2$s a card, and you can mix up to %3$d designs.', 'cardsco' ),
+						$from,
+						$bulk,
+						CardsCo_Mix::DESIGNS_LARGE
+					),
+					'small' => sprintf(
+						/* translators: 1: how many cards make a bulk order, 2: the price of one card. */
+						__( 'Fewer than %1$d can still go to one address, at %2$s a card with one design.', 'cardsco' ),
+						$from,
+						$single
+					),
+					'on'    => 'bulk' === $chosen,
+				),
+			),
+		);
 	}
 
 	/**

@@ -633,8 +633,7 @@ a.cc-coll-card:focus-visible {
 	padding-top: 26px;
 }
 
-.cc-pv-use,
-.cc-pv-more {
+.cc-pv-use {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
@@ -649,14 +648,6 @@ a.cc-coll-card:focus-visible {
 }
 
 .cc-pv-use:hover { background: var(--cc-green-700); border-color: var(--cc-green-700); color: #FFFFFF; }
-
-.cc-pv-more {
-	border-color: var(--cc-line);
-	background: #FFFFFF;
-	color: var(--cc-ink);
-}
-
-.cc-pv-more:hover { border-color: var(--cc-ink); background: var(--cc-wash); color: var(--cc-ink); }
 
 /* ------------------------------------------------------------ close and nav */
 
@@ -720,8 +711,7 @@ a.cc-coll-card:focus-visible {
 
 .cc-pv-close:focus-visible,
 .cc-pv-arrow:focus-visible,
-.cc-pv-use:focus-visible,
-.cc-pv-more:focus-visible {
+.cc-pv-use:focus-visible {
 	outline: 2px solid var(--cc-green-600);
 	outline-offset: 2px;
 }

@@ -3094,7 +3094,15 @@
 
 .cc-card-pick-tick { width: 11px; height: 11px; stroke-width: 3; }
 
-.cc-card-pick-eye { color: var(--cc-text-tertiary); }
+/* It is a button, and a browser dresses a button: grey face, raised edge
+   and enough padding to squeeze the eye to a sliver two pixels wide. */
+.cc-card-pick-eye {
+	padding: 0;
+	border: 0;
+	background: none;
+	cursor: pointer;
+	color: var(--cc-text-tertiary);
+}
 .cc-card-pick-eye:hover { color: var(--cc-text-primary); }
 .cc-card-pick-eye-icon { width: 15px; height: 15px; }
 
@@ -3228,7 +3236,12 @@
 .cc-msg-note-icon { flex: 0 0 auto; padding-top: 1px; }
 .cc-msg-note-glyph { width: 14px; height: 14px; }
 
-@media (max-width: 1100px) {
+/*
+ * 1380, not 1100: the two columns need 952 and the page gives the content
+ * 423 less than the window, so anything narrower pushed the summary under
+ * the rail. A 1280 or 1366 laptop is the ordinary case, not the edge.
+ */
+@media (max-width: 1380px) {
 	.cc-msg { grid-template-columns: minmax(0, 1fr); }
 	.cc-msg-preview { max-width: 628px; }
 }
@@ -3247,7 +3260,7 @@
  * them no longer fit, then drops a column at a time rather than shrinking
  * the card art, which is the thing people are actually looking at.
  */
-@media (max-width: 1240px) {
+@media (max-width: 1380px) {
 	.cc-card-picker { grid-template-columns: repeat(4, minmax(0, 176px)); }
 }
 
@@ -4305,7 +4318,8 @@
 .cc-rev-note-icon { flex: 0 0 auto; padding-top: 1px; }
 .cc-rev-note-glyph { width: 14px; height: 14px; }
 
-@media (max-width: 1060px) {
+/* 1380 for the reason given at .cc-msg: 952 of columns, 423 of page. */
+@media (max-width: 1380px) {
 	.cc-rev { grid-template-columns: minmax(0, 1fr); }
 	.cc-rev-pay { max-width: 608px; }
 }
@@ -6023,6 +6037,131 @@
 .cc-bd-card.is-on { border-color: var(--cc-accent-default); box-shadow: 0 0 0 1px var(--cc-accent-default); }
 .cc-bd-card:has(input:checked) { border-color: var(--cc-accent-default); box-shadow: 0 0 0 1px var(--cc-accent-default); }
 
+/* --- single cards or a bulk order, and where a bulk order goes --- */
+
+.cc-bd-kind.cc-kind { margin: 0 0 var(--cc-space-24); max-width: 720px; }
+
+/* A fieldset arrives with a grooved border and padding of the browser's
+   own; the builder's fieldsets are groups of fields, not boxes. */
+fieldset.cc-bd-field { padding: 0; border: 0; min-width: 0; }
+
+/* On the page either way, so the step works with no script; shown with
+   "Bulk order" chosen. */
+.cc-bd-ship { display: none; max-width: 720px; padding: 0; border: 0; min-width: 0; }
+.cc-bd-ship.is-on { display: block; }
+.cc-bd-ship .cc-field { margin: 0 0 var(--cc-space-12); }
+.cc-bd-ship .cc-field label {
+	display: block;
+	margin: 0 0 6px;
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-secondary);
+}
+.cc-bd-ship .cc-field select {
+	width: 100%;
+	height: 40px;
+	padding: 0 30px 0 var(--cc-space-12);
+	text-overflow: ellipsis;
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-paper);
+	font-family: var(--cc-font-ui);
+	font-size: var(--cc-body-m-size);
+	color: var(--cc-text-primary);
+}
+.cc-bd-ship .cc-addr { margin-top: var(--cc-space-16); }
+
+/* --- several designs --- */
+
+.cc .cc-bd-mix-lead {
+	margin: 0 0 var(--cc-space-16);
+	max-width: 640px;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-secondary);
+}
+
+.cc-bd-cards.is-multi { align-items: start; }
+
+.cc-bd-pick { display: flex; flex-direction: column; gap: var(--cc-space-8); min-width: 0; }
+.cc-bd-pick.is-full { opacity: 0.5; }
+.cc-bd-pick.is-full .cc-bd-card { cursor: not-allowed; }
+
+.cc-bd-qty { display: none; align-items: center; justify-content: space-between; gap: var(--cc-space-8); }
+.cc-bd-pick.is-on .cc-bd-qty { display: flex; }
+
+.cc-bd-qty label {
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-secondary);
+}
+
+.cc-bd-qty input {
+	width: 76px;
+	height: 36px;
+	padding: 0 var(--cc-space-8);
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-paper);
+	font-family: var(--cc-font-ui);
+	font-size: var(--cc-body-s-size);
+	color: var(--cc-text-primary);
+	text-align: right;
+}
+
+.cc-bd-qty input:focus { outline: none; border-color: var(--cc-border-focus); box-shadow: var(--cc-focus-ring); }
+
+.cc .cc-bd-mix-status {
+	margin: 0 0 var(--cc-space-16);
+	min-height: 20px;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-secondary);
+}
+.cc .cc-bd-mix-status.is-wrong { color: var(--cc-danger-default, #9B2C2C); }
+
+.cc-bd-warn p + p { margin-top: var(--cc-space-8); }
+
+/* --- several messages --- */
+
+.cc-bd-more { padding-top: var(--cc-space-8); }
+
+.cc .cc-bd-more-head {
+	margin: 0;
+	font-size: var(--cc-body-s-size);
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary);
+}
+
+.cc-bd-more-one { margin-top: var(--cc-space-16); }
+
+.cc-bd-more-one label {
+	display: block;
+	margin: 0 0 var(--cc-space-8);
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-secondary);
+}
+
+.cc-bd-field.cc-bd-more textarea { min-height: 96px; }
+
+.cc-bd-more-add {
+	margin-top: var(--cc-space-12);
+	padding: var(--cc-space-8) var(--cc-space-14);
+	border: 1px dashed var(--cc-border-default);
+	border-radius: var(--cc-radius-md);
+	background: none;
+	font-family: var(--cc-font-ui);
+	font-size: var(--cc-body-s-size);
+	color: var(--cc-text-primary);
+	cursor: pointer;
+}
+.cc-bd-more-add:hover { border-color: var(--cc-accent-default); }
+
+@media (max-width: 620px) {
+	.cc-bd-ship .cc-addr-row { grid-template-columns: 1fr 1fr; }
+}
+
 /* --- the message --- */
 
 .cc-bd-starters { margin: 0 0 var(--cc-space-20); max-width: 640px; }
@@ -6124,6 +6263,11 @@
 	border-radius: var(--cc-radius-lg);
 	background: var(--cc-bg-subtle);
 }
+
+/* A campaign too large to post card by card: the panel that says so, on
+   the steps before the review and in place of the pay panel on it. */
+.cc-bd-refer { margin: 0 0 var(--cc-space-20); max-width: 720px; }
+.cc-bd-pay-refer .cc-referral { margin-top: var(--cc-space-12); }
 
 .cc-bd-pay-line {
 	display: flex;
@@ -7248,21 +7392,21 @@
 
 .cc-referral-say { min-width: 0; }
 
-.cc-referral-title {
+.cc .cc-referral-title {
 	margin: 0 0 4px;
 	font-size: var(--cc-body-size, 15px);
 	font-weight: 600;
 	color: var(--cc-text-strong, #15202B);
 }
 
-.cc-referral-body {
+.cc .cc-referral-body {
 	margin: 0 0 12px;
 	font-size: var(--cc-body-s-size, 14px);
 	line-height: 1.5;
 	color: var(--cc-text-muted, #5B6B7A);
 }
 
-.cc-referral-do {
+.cc .cc-referral-do {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 10px 14px;
@@ -7303,3 +7447,385 @@
 	.cc-referral { flex-direction: column; gap: 10px; }
 	.cc-referral-do .cc-btn { width: 100%; justify-content: center; }
 }
+
+/* --------------------------------------------------------------------------
+   Several designs on one order — step 3 when the order may carry more than
+   one. The same tiles as the single-card picker, ticked rather than chosen,
+   with a box under each ticked one for how many cards it is to have.
+   -------------------------------------------------------------------------- */
+
+.cc .cc-mix-lead {
+	margin: 0 0 16px;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-secondary);
+}
+
+.cc-mix-warn {
+	margin: 0 0 16px;
+	padding: 12px 14px;
+	border: 1px solid #E9C9A8;
+	border-radius: 8px;
+	background: #FDF6EE;
+	color: #7A4A12;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+}
+
+.cc-mix-warn p { margin: 0; }
+.cc-mix-warn p + p { margin-top: 6px; }
+
+/* [hidden] has to win over the grid's own display on a tile that is off
+   the open tab, and over the block display of the empty note. */
+.cc-card-picker.is-multi > .cc-card-pick[hidden],
+.cc-wz-empty[hidden] { display: none; }
+
+/* The tick is placed against its tile. Against the list item it landed on
+   the box below, once a ticked tile on a phone had one. */
+.cc-card-picker.is-multi .cc-card-pick-label { position: relative; }
+
+/* A tile beside a ticked one must not stretch to the height of its
+   neighbour's box, or whatever is pinned to its bottom edge drops out. */
+.cc-card-picker.is-multi { align-items: start; }
+
+.cc .cc-card-pick-qty {
+	display: none;
+	align-items: center;
+	justify-content: space-between;
+	gap: 8px;
+	margin: 8px 0 0;
+	padding: 0 2px;
+}
+
+.cc-card-picker.is-multi .cc-card-pick.is-on .cc-card-pick-qty { display: flex; }
+
+.cc-card-pick-qty label {
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-secondary);
+}
+
+.cc-card-pick-qty input {
+	width: 84px;
+	height: 34px;
+	padding: 0 8px;
+	border: 1px solid var(--cc-border-default);
+	border-radius: 6px;
+	background: var(--cc-surface-default);
+	font: inherit;
+	font-size: var(--cc-body-s-size);
+	color: var(--cc-text-primary);
+	text-align: right;
+}
+
+.cc-card-pick-qty input:focus-visible {
+	outline: 2px solid var(--cc-accent-default);
+	outline-offset: 1px;
+}
+
+.cc .cc-mix-help {
+	margin: 18px 0 0;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-tertiary);
+}
+
+.cc .cc-mix-status {
+	min-height: 20px;
+	margin: 8px 0 0;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc .cc-mix-status.is-wrong { color: #A3470B; }
+.cc .cc-mix-status.is-right { color: var(--cc-accent-default); }
+
+@media (max-width: 640px) {
+	.cc-card-pick-qty input { width: 72px; }
+}
+
+/* --------------------------------------------------------------------------
+   Step 1 — single cards or a bulk order. Two options under the occasion
+   tiles, in the same dress as the shipping choice on step 5, which is the
+   same decision asked earlier.
+   -------------------------------------------------------------------------- */
+
+.cc-kind {
+	margin: 28px 0 0;
+	padding: 0;
+	border: 0;
+	min-width: 0;
+}
+
+.cc-kind-legend {
+	margin: 0 0 12px;
+	padding: 0;
+	font-size: var(--cc-body-m-size);
+	line-height: 22px;
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary);
+}
+
+.cc-kind-list {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 16px;
+	max-width: 952px;
+}
+
+.cc-kind-one {
+	display: flex;
+	align-items: flex-start;
+	gap: 14px;
+	padding: 16px 20px;
+	background: var(--cc-surface-default);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: 12px;
+	cursor: pointer;
+}
+
+.cc-kind-one:hover { border-color: var(--cc-border-default); }
+
+.cc-kind-one.is-on {
+	background: var(--cc-green-100);
+	border-color: var(--cc-accent-default);
+	box-shadow: inset 0 0 0 1px var(--cc-accent-default);
+}
+
+/* Its own rule, not a second selector on the one above: a browser that
+   does not know :has() throws away the whole rule it appears in, and the
+   class would go with it. */
+.cc-kind-one:has(input:checked) {
+	background: var(--cc-green-100);
+	border-color: var(--cc-accent-default);
+	box-shadow: inset 0 0 0 1px var(--cc-accent-default);
+}
+
+.cc-kind-one input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+.cc-kind-dot {
+	flex: 0 0 auto;
+	width: 18px;
+	height: 18px;
+	margin-top: 2px;
+	border: 2px solid var(--cc-border-default);
+	border-radius: 50%;
+	background: var(--cc-surface-default);
+}
+
+.cc-kind-one.is-on .cc-kind-dot { border-color: var(--cc-accent-default); border-width: 5px; }
+.cc-kind-one:has(input:checked) .cc-kind-dot { border-color: var(--cc-accent-default); border-width: 5px; }
+
+.cc-kind-one input:focus-visible ~ .cc-kind-dot { outline: 2px solid var(--cc-accent-default); outline-offset: 2px; }
+
+.cc-kind-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+
+.cc-kind-head {
+	font-size: var(--cc-body-m-size);
+	line-height: 20px;
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+}
+
+.cc-kind-body {
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-secondary);
+}
+
+.cc-kind-small {
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-tertiary);
+}
+
+@media (max-width: 720px) {
+	.cc-kind-list { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+	.cc-kind-one { padding: 14px 16px; }
+}
+
+/* --------------------------------------------------------------------------
+   Step 4 — several messages, and a note for one person.
+   -------------------------------------------------------------------------- */
+
+.cc-mm,
+.cc-nt {
+	max-width: 1016px;
+	margin: 28px 0 0;
+	padding: 20px;
+	background: var(--cc-surface-default);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: 12px;
+}
+
+/* The heading and the line under it, with room before the list. */
+.cc-mm-head,
+.cc-nt-head { margin: 0; }
+
+.cc-mm-title,
+.cc-nt-title {
+	margin: 0;
+	font-size: var(--cc-body-m-size);
+	line-height: 22px;
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary);
+}
+
+.cc .cc-mm-sub,
+.cc .cc-nt-sub {
+	margin: 4px 0 0;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-tertiary);
+}
+
+.cc-mm-list {
+	list-style: none;
+	margin: 16px 0 0;
+	padding: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.cc-mm-one {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	min-height: 48px;
+	padding: 8px 12px;
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: 8px;
+}
+
+.cc-mm-one.is-on {
+	background: var(--cc-green-100);
+	border-color: var(--cc-accent-default);
+}
+
+.cc-mm-no {
+	flex: 0 0 auto;
+	display: grid;
+	place-items: center;
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	background: var(--cc-bg-muted);
+	font-size: var(--cc-caption-size);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-secondary);
+}
+
+.cc-mm-one.is-on .cc-mm-no { background: var(--cc-accent-default); color: #FFFFFF; }
+
+.cc-mm-open {
+	flex: 1 1 auto;
+	min-width: 0;
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-primary);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.cc-mm-acts {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	gap: 14px;
+}
+
+.cc-mm-drop { margin: 0; }
+
+.cc-mm-act {
+	padding: 0;
+	border: 0;
+	background: none;
+	font: inherit;
+	font-size: var(--cc-body-s-size);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-accent-default);
+	text-decoration: none;
+	cursor: pointer;
+}
+
+.cc-mm-act:hover { text-decoration: underline; }
+.cc-mm-act.is-quiet { color: var(--cc-text-tertiary); }
+.cc-mm-act.is-quiet:hover { color: #A3470B; }
+
+.cc-mm-add { margin-top: 14px; }
+
+.cc .cc-mm-full {
+	margin: 12px 0 0;
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-tertiary);
+}
+
+.cc-nt-list {
+	list-style: none;
+	margin: 16px 0 0;
+	padding: 0;
+	max-height: 420px;
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.cc-nt-one {
+	display: grid;
+	grid-template-columns: minmax(0, 200px) minmax(0, 1fr);
+	align-items: center;
+	gap: 12px;
+}
+
+.cc-nt-name {
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-text-primary);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.cc-nt-input {
+	width: 100%;
+	height: 38px;
+	padding: 0 10px;
+	border: 1px solid var(--cc-border-default);
+	border-radius: 6px;
+	background: var(--cc-surface-default);
+	font: inherit;
+	font-size: var(--cc-body-s-size);
+	color: var(--cc-text-primary);
+}
+
+.cc-nt-input:focus-visible {
+	outline: 2px solid var(--cc-accent-default);
+	outline-offset: 1px;
+}
+
+.cc .cc-nt-foot {
+	margin: 12px 0 0;
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-tertiary);
+}
+
+@media (max-width: 640px) {
+	.cc-mm,
+	.cc-nt { padding: 16px; }
+	.cc-mm-one { flex-wrap: wrap; }
+	.cc-mm-open { flex-basis: calc(100% - 40px); white-space: normal; }
+	.cc-mm-acts { margin-left: 36px; }
+	.cc-nt-one { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+}
+
+/* The line under "How one of them reads", when there are several messages. */
+.cc-bd-preview .cc-bd-hint { margin: 0 0 var(--cc-space-12); }

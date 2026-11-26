@@ -115,9 +115,7 @@ class CardsCo_Checkout {
 			return new WP_Error( 'cardsco_no_shop', __( 'The shop is not available right now. Try again shortly.', 'cardsco' ) );
 		}
 
-		$card_id = (int) $programme['card_id'];
-
-		if ( ! $card_id ) {
+		if ( ! CardsCo_Programme::designs( $programme ) ) {
 			return new WP_Error( 'cardsco_no_card', __( 'Pick a card before paying.', 'cardsco' ) );
 		}
 
@@ -145,26 +143,70 @@ class CardsCo_Checkout {
 			);
 		}
 
-		$product_id = CardsCo_Catalogue::product_for_card( $card_id );
-
 		/*
-		 * product_for_card() only reads the link; sync() is what makes one.
-		 * A card normally gets its product when it is saved, so this is the
-		 * card that was already in the catalogue before the shop existed,
-		 * or one whose product somebody deleted. Making it here beats
-		 * telling a customer with their card chosen that it cannot be
-		 * bought.
+		 * More designs than an order this size may carry, or a split that
+		 * no longer adds up. The card step refuses both, so this is the
+		 * same stale tab — but it is checked here too, because the basket
+		 * is the thing that takes money.
+		 *
+		 * Only before the occasion is running. A renewal is the same
+		 * occasion a year on, and people will have joined and left since
+		 * the numbers were typed; the cards are shared out in the same
+		 * proportions rather than the renewal being turned away over a
+		 * sum that was right when it was written.
 		 */
-		if ( ! $product_id ) {
-			$made = CardsCo_Catalogue::sync( $card_id );
+		$wrong = 'draft' === (string) $programme['status']
+			? CardsCo_Programme::mix_problems( $programme )
+			: array();
 
-			if ( ! is_wp_error( $made ) ) {
-				$product_id = (int) $made;
-			}
+		if ( $wrong ) {
+			return new WP_Error( 'cardsco_mix', $wrong[0] );
 		}
 
-		if ( ! $product_id ) {
-			return new WP_Error( 'cardsco_no_product', __( 'That card cannot be bought at the moment. Pick another, or tell us.', 'cardsco' ) );
+		/*
+		 * One basket line for each design, each for as many cards as that
+		 * design was given. An occasion with a single design is one line,
+		 * exactly as it always was.
+		 *
+		 * Every product is found before anything is added, so a design
+		 * that cannot be bought stops the order rather than leaving half
+		 * of it in the basket.
+		 */
+		$lines = array();
+
+		foreach ( CardsCo_Programme::order_lines( $programme, $quantity ) as $line ) {
+			$card_id    = (int) $line['card'];
+			/*
+			 * Made on the spot if it is missing, and put back on sale if it
+			 * had been withdrawn: a design offered on the card step is one
+			 * the customer can pay for. See product_for_order().
+			 */
+			$product_id = CardsCo_Catalogue::product_for_order( $card_id );
+
+			if ( ! $product_id ) {
+				/*
+				 * Which one. With one card on the order "that card" was
+				 * enough; with five designs it leaves somebody guessing
+				 * which of them to take off.
+				 */
+				return new WP_Error(
+					'cardsco_no_product',
+					sprintf(
+						/* translators: %s: the name of a card design. */
+						__( '“%s” cannot be bought at the moment. Pick another design in its place, or tell us.', 'cardsco' ),
+						get_the_title( $card_id )
+					)
+				);
+			}
+
+			$lines[] = array(
+				'product' => (int) $product_id,
+				'qty'     => (int) $line['qty'],
+			);
+		}
+
+		if ( ! $lines ) {
+			return new WP_Error( 'cardsco_no_card', __( 'Pick a card before paying.', 'cardsco' ) );
 		}
 
 		if ( is_null( WC()->cart ) ) {
@@ -172,35 +214,60 @@ class CardsCo_Checkout {
 		}
 
 		/*
-		 * Anything already in the basket for this same occasion is taken
-		 * out first. Otherwise somebody who goes to pay, comes back, and
-		 * goes to pay again is charged for two years of cards.
+		 * Anything already in the basket for an occasion is taken out
+		 * first — this one's, or it would be charged for twice by somebody
+		 * who goes to pay, comes back and goes again; and any other
+		 * occasion's too.
+		 *
+		 * A signed-in customer's basket is kept between visits. Somebody
+		 * who went to pay for one occasion, left the checkout, and came
+		 * back another day to pay for a different one arrived with both in
+		 * the basket and was charged for both — and an order turns on the
+		 * one occasion it is marked with, so the other was paid for and
+		 * never started. One occasion to a checkout; the other is still
+		 * there to be paid for from its own review step.
 		 */
-		self::forget( (int) $programme['id'] );
+		self::forget();
+
+		/*
+		 * And a campaign left there from an earlier visit. Somebody who
+		 * went to pay for a campaign, came away, and is now paying for an
+		 * occasion would otherwise find both on the bill.
+		 */
+		self::forget_campaign();
 
 		/*
 		 * Ours, so the shop's guard against buying a bare card lets it by.
 		 * Cleared straight after, whatever happens, so nothing later in the
 		 * request inherits the exemption.
 		 */
-		/* The cap is cleared here, for this product, at the moment it counts. */
-		CardsCo_Catalogue::ensure_uncapped( $product_id );
-
 		CardsCo_Shop::adding_ours( true );
 
 		try {
-			$added = WC()->cart->add_to_cart(
-				$product_id,
-				$quantity,
-				0,
-				array(),
-				array( self::PROGRAMME => (int) $programme['id'] )
-			);
+			foreach ( $lines as $line ) {
+				/* The cap is cleared here, for this product, at the moment it counts. */
+				CardsCo_Catalogue::ensure_uncapped( $line['product'] );
+
+				$added = WC()->cart->add_to_cart(
+					$line['product'],
+					$line['qty'],
+					0,
+					array(),
+					array( self::PROGRAMME => (int) $programme['id'] )
+				);
+
+				if ( ! $added ) {
+					break;
+				}
+			}
 		} finally {
 			CardsCo_Shop::adding_ours( false );
 		}
 
 		if ( ! $added ) {
+			/* Not half an order: what did go in comes back out. */
+			self::forget( (int) $programme['id'] );
+
 			return new WP_Error( 'cardsco_not_added', __( 'Those cards could not be added to the basket.', 'cardsco' ) );
 		}
 
@@ -307,17 +374,57 @@ class CardsCo_Checkout {
 			return new WP_Error( 'cardsco_no_people', __( 'There is nobody on this campaign yet.', 'cardsco' ) );
 		}
 
-		$product_id = CardsCo_Catalogue::product_for_card( $card_id );
+		/*
+		 * Twenty-five or more, posted to each person, is arranged with us
+		 * and not sold here. The review page does not offer the button;
+		 * this is for whoever arrives without it.
+		 */
+		if ( CardsCo_Campaign::needs_referral( $campaign, $quantity ) ) {
+			$cc_refer = CardsCo_Campaign::referral( $campaign );
 
-		if ( ! $product_id ) {
-			$made = CardsCo_Catalogue::sync( $card_id );
-
-			if ( ! is_wp_error( $made ) ) {
-				$product_id = (int) $made;
-			}
+			return new WP_Error( 'cardsco_referral', $cc_refer['title'] . '. ' . $cc_refer['body'] );
 		}
 
-		if ( ! $product_id ) {
+		/*
+		 * A design or a message more than this order may carry — a bulk
+		 * order's mix left on a campaign that has since become single
+		 * cards — is stopped here as well as on the steps themselves.
+		 */
+		$cc_wrong = CardsCo_Campaign::mix_problems( $campaign );
+
+		if ( $cc_wrong ) {
+			return new WP_Error( 'cardsco_mix', (string) reset( $cc_wrong ) );
+		}
+
+		if ( CardsCo_Campaign::one_address( $campaign ) && ! CardsCo_Campaign::address_ready( $campaign ) ) {
+			return new WP_Error( 'cardsco_no_address', __( 'Add the address the cards should be delivered to, on the first step.', 'cardsco' ) );
+		}
+
+		/*
+		 * A line for each design. Every product is found before anything
+		 * is added, so a design that cannot be bought stops the order
+		 * rather than leaving half of it in the basket.
+		 */
+		$lines = array();
+
+		foreach ( CardsCo_Campaign::order_lines( $campaign, $quantity ) as $line ) {
+			$product_id = CardsCo_Catalogue::product_for_order( (int) $line['card'] );
+
+			if ( ! $product_id ) {
+				return new WP_Error(
+					'cardsco_no_product',
+					sprintf(
+						/* translators: %s: the name of a card design. */
+						__( '“%s” cannot be bought at the moment. Pick another design in its place, or tell us.', 'cardsco' ),
+						get_the_title( (int) $line['card'] )
+					)
+				);
+			}
+
+			$lines[] = array( $product_id, (int) $line['qty'] );
+		}
+
+		if ( ! $lines ) {
 			return new WP_Error( 'cardsco_no_product', __( 'That card cannot be bought at the moment. Pick another, or tell us.', 'cardsco' ) );
 		}
 
@@ -326,31 +433,40 @@ class CardsCo_Checkout {
 		}
 
 		/*
-		 * Anything already in the basket for this same campaign goes first,
-		 * or somebody who goes to pay, comes back and goes again is charged
-		 * for the send twice.
+		 * Anything already in the basket for a campaign goes first — this
+		 * one's, or somebody who goes to pay, comes back and goes again is
+		 * charged for the send twice; and any other's, because an order
+		 * carries one campaign: two in one basket were both charged and
+		 * only one was scheduled.
 		 */
-		self::forget_campaign( (int) $campaign['id'] );
+		self::forget_campaign();
 
-		/* The cap is cleared here, for this product, at the moment it counts. */
-		CardsCo_Catalogue::ensure_uncapped( $product_id );
+		/* The same the other way round: an occasion left in the basket is not part of this. */
+		self::forget();
 
 		CardsCo_Shop::adding_ours( true );
 
 		try {
-			$added = WC()->cart->add_to_cart(
-				$product_id,
-				$quantity,
-				0,
-				array(),
-				array( self::CAMPAIGN => (int) $campaign['id'] )
-			);
+			foreach ( $lines as $line ) {
+				/* The cap is cleared here, for this product, at the moment it counts. */
+				CardsCo_Catalogue::ensure_uncapped( $line[0] );
+
+				$added = WC()->cart->add_to_cart(
+					$line[0],
+					$line[1],
+					0,
+					array(),
+					array( self::CAMPAIGN => (int) $campaign['id'] )
+				);
+
+				if ( ! $added ) {
+					self::forget_campaign();
+
+					return new WP_Error( 'cardsco_not_added', __( 'Those cards could not be added to the basket.', 'cardsco' ) );
+				}
+			}
 		} finally {
 			CardsCo_Shop::adding_ours( false );
-		}
-
-		if ( ! $added ) {
-			return new WP_Error( 'cardsco_not_added', __( 'Those cards could not be added to the basket.', 'cardsco' ) );
 		}
 
 		self::prefill_billing_for_company( (int) $campaign['company_id'] );
@@ -361,16 +477,16 @@ class CardsCo_Checkout {
 	/**
 	 * Take a campaign's cards back out of the basket.
 	 *
-	 * @param int $campaign_id The campaign.
+	 * @param int $campaign_id The campaign, or 0 for every campaign.
 	 * @return void
 	 */
-	public static function forget_campaign( $campaign_id ) {
+	public static function forget_campaign( $campaign_id = 0 ) {
 		if ( ! self::available() || is_null( WC()->cart ) ) {
 			return;
 		}
 
 		foreach ( WC()->cart->get_cart() as $key => $line ) {
-			if ( isset( $line[ self::CAMPAIGN ] ) && (int) $line[ self::CAMPAIGN ] === (int) $campaign_id ) {
+			if ( isset( $line[ self::CAMPAIGN ] ) && ( ! $campaign_id || (int) $line[ self::CAMPAIGN ] === (int) $campaign_id ) ) {
 				WC()->cart->remove_cart_item( $key );
 			}
 		}
@@ -564,16 +680,20 @@ class CardsCo_Checkout {
 	/**
 	 * Take an occasion's cards back out of the basket.
 	 *
-	 * @param int $programme_id Programme.
+	 * @param int $programme_id Programme, or nought for every occasion's.
 	 * @return void
 	 */
-	public static function forget( $programme_id ) {
+	public static function forget( $programme_id = 0 ) {
 		if ( ! self::available() || is_null( WC()->cart ) ) {
 			return;
 		}
 
 		foreach ( WC()->cart->get_cart() as $key => $line ) {
-			if ( isset( $line[ self::PROGRAMME ] ) && (int) $line[ self::PROGRAMME ] === (int) $programme_id ) {
+			if ( ! isset( $line[ self::PROGRAMME ] ) ) {
+				continue;
+			}
+
+			if ( ! $programme_id || (int) $line[ self::PROGRAMME ] === (int) $programme_id ) {
 				WC()->cart->remove_cart_item( $key );
 			}
 		}
@@ -598,6 +718,33 @@ class CardsCo_Checkout {
 			return;
 		}
 
+		/*
+		 * How many cards each occasion has in the basket altogether.
+		 *
+		 * An occasion with several designs is several lines, and the rate
+		 * belongs to the order, not to the line: ten of one design and
+		 * twenty-four of another are thirty-four cards at the bulk rate.
+		 * Priced line by line they would be two small orders at the
+		 * single rate — more designs quietly costing more, which is the
+		 * one thing they must not do.
+		 */
+		$together = array();
+
+		$as_one = array();
+
+		foreach ( $cart->get_cart() as $line ) {
+			if ( isset( $line[ self::PROGRAMME ] ) ) {
+				$of              = (int) $line[ self::PROGRAMME ];
+				$together[ $of ] = ( $together[ $of ] ?? 0 ) + (int) $line['quantity'];
+			}
+
+			/* A campaign's designs are one order too. */
+			if ( isset( $line[ self::CAMPAIGN ] ) ) {
+				$of            = (int) $line[ self::CAMPAIGN ];
+				$as_one[ $of ] = ( $as_one[ $of ] ?? 0 ) + (int) $line['quantity'];
+			}
+		}
+
 		foreach ( $cart->get_cart() as $line ) {
 			if ( empty( $line['data'] ) || ! is_object( $line['data'] ) ) {
 				continue;
@@ -619,11 +766,25 @@ class CardsCo_Checkout {
 				? CardsCo_Programme::get( (int) $line[ self::PROGRAMME ] )
 				: null;
 
+			$order_size = isset( $line[ self::PROGRAMME ] )
+				? (int) $together[ (int) $line[ self::PROGRAMME ] ]
+				: ( isset( $line[ self::CAMPAIGN ] ) ? (int) $as_one[ (int) $line[ self::CAMPAIGN ] ] : (int) $line['quantity'] );
+
+			/*
+			 * A campaign's line is priced with the campaign's company, the
+			 * same sum its review page shows. The company used to be left
+			 * out here, so a company on its own price list saw its own rate
+			 * on the review and paid the standard one at the till.
+			 */
+			$campaign = isset( $line[ self::CAMPAIGN ] )
+				? CardsCo_Campaign::get( (int) $line[ self::CAMPAIGN ] )
+				: null;
+
 			$line['data']->set_price(
 				CardsCo_Card::price_for(
 					$card_id,
-					(int) $line['quantity'],
-					$programme ? (int) $programme['company_id'] : 0
+					$order_size,
+					$programme ? (int) $programme['company_id'] : ( $campaign ? (int) $campaign['company_id'] : 0 )
 				)
 			);
 		}
@@ -800,8 +961,17 @@ class CardsCo_Checkout {
 		 * which would have taken a renewal payment and moved the renewal
 		 * date not one day.
 		 */
+		/*
+		 * What one card cost on this payment, kept so the next renewal can
+		 * say truthfully whether the price has moved. Worked out the way
+		 * the till worked it out a moment ago, before anything below
+		 * changes the occasion.
+		 */
+		$paid_rate = CardsCo_Programme::rate( $programme, self::quantity( $programme ) );
+
 		if ( in_array( (string) $programme['status'], array( 'active', 'paused' ), true ) ) {
 			CardsCo_Renewal::paid( $programme_id );
+			CardsCo_Programme::update( $programme_id, array( 'paid_rate' => $paid_rate ) );
 
 			$order->update_meta_data( self::ACTIVATED, 1 );
 			$order->add_order_note( __( 'CardsCo: renewed for another year.', 'cardsco' ) );
@@ -845,6 +1015,19 @@ class CardsCo_Checkout {
 
 		/* The first payment is what starts the year running. */
 		CardsCo_Renewal::paid( $programme_id );
+		CardsCo_Programme::update( $programme_id, array( 'paid_rate' => $paid_rate ) );
+
+		/*
+		 * Who gets which design and which message, settled now that it is
+		 * paid for. It would be settled anyway the first time a box is
+		 * filled; doing it here means it is already true by the time
+		 * anybody looks.
+		 */
+		$running = CardsCo_Programme::get( $programme_id );
+
+		if ( $running ) {
+			CardsCo_Programme::assign( $running );
+		}
 
 		$order->update_meta_data( self::ACTIVATED, 1 );
 		$order->add_order_note( __( 'CardsCo: the occasion is now running.', 'cardsco' ) );

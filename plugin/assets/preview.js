@@ -97,7 +97,6 @@ window.CardsCo.add( function () {
 		occasions:  document.getElementById( 'cc-pv-occasions' ),
 		count:      document.getElementById( 'cc-pv-count' ),
 		use:        document.getElementById( 'cc-pv-use' ),
-		more:       document.getElementById( 'cc-pv-more' ),
 		pick:       document.getElementById( 'cc-pv-pick' )
 	};
 
@@ -167,8 +166,7 @@ window.CardsCo.add( function () {
 		 * nothing — the same dead control as a link that points at the page
 		 * it is already on.
 		 */
-		if ( el.use )  { point( el.use, card.use ); }
-		if ( el.more ) { point( el.more, card.url ); }
+		if ( el.use ) { point( el.use, card.use ); }
 	}
 
 	function open( id ) {

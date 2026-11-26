@@ -739,9 +739,13 @@ class CardsCo_Card {
 	 * That is how a volume discount of this shape behaves; it is not a bug
 	 * to be smoothed away, and smoothing it would break the terms.
 	 *
-	 * A card with its own price keeps it, at every quantity. A price set
-	 * on the card itself is somebody overriding the list deliberately, and
-	 * a quantity should not quietly undo that.
+	 * A card's own price is its single price, and nothing more. It used
+	 * to hold at every quantity, on the reasoning that a price set on the
+	 * card was somebody overriding the list deliberately — which meant a
+	 * card priced at £3.60 on its own screen never reached the bulk rate
+	 * at all, and every card in the catalogue has a price on its own
+	 * screen. The rule is the one on the pricing page: any card, £3.60 on
+	 * its own or whatever it is marked at, and £1.99 from twenty-five.
 	 *
 	 * @param int $post_id    Post ID.
 	 * @param int $quantity   How many are being bought together.
@@ -758,12 +762,7 @@ class CardsCo_Card {
 			return $money( 0 );
 		}
 
-		$own = get_post_meta( $post_id, '_cardsco_price', true );
-
-		if ( '' !== $own && null !== $own ) {
-			return $money( (float) $own * $quantity );
-		}
-
+		/* The card's own price where it has one, the list price where not. */
 		$standard = (float) self::price( $post_id, $company_id );
 		$bulk     = (float) CardsCo_Settings::get( 'price_bulk', null, $company_id );
 

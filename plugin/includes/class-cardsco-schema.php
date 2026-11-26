@@ -16,7 +16,7 @@ class CardsCo_Schema {
 	/**
 	 * Schema version. Bump on any change to the statements in this class.
 	 */
-	const DB_VERSION = '1.4.0';
+	const DB_VERSION = '1.6.0';
 
 	/**
 	 * Option that stores the installed schema version.
@@ -380,6 +380,12 @@ class CardsCo_Schema {
 			created_by bigint(20) unsigned NOT NULL DEFAULT 0,
 			created_at datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
 			updated_at datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
+			shipping_mode varchar(20) NOT NULL DEFAULT 'individual',
+			ship_address text NULL,
+			ship_postcode varchar(20) NOT NULL DEFAULT '',
+			ship_country char(2) NOT NULL DEFAULT 'GB',
+			designs longtext NULL,
+			messages longtext NULL,
 			PRIMARY KEY  (id),
 			KEY company_status (company_id,status),
 			KEY send_date (send_date),
@@ -471,6 +477,11 @@ class CardsCo_Schema {
 		 * rhythm. Built through the seven step setup and then left running.
 		 *
 		 * Distinct from a campaign, which is a single send decided on the day.
+		 *
+		 * unit_price is the list price on the day the row was made.
+		 * paid_rate is what one card actually cost the last time this was
+		 * paid for — the bulk rate, for an order big enough to earn it —
+		 * and is what a renewal compares itself against.
 		 */
 		$table = self::table( 'programmes' );
 		$sql[] = "CREATE TABLE {$table} (
@@ -480,8 +491,10 @@ class CardsCo_Schema {
 			occasion_type_id bigint(20) unsigned NOT NULL DEFAULT 0,
 			name varchar(191) NOT NULL DEFAULT '',
 			card_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			designs longtext NULL,
 			message_id bigint(20) unsigned NOT NULL DEFAULT 0,
 			message_override text NULL,
+			messages longtext NULL,
 			handwriting varchar(60) NOT NULL DEFAULT '',
 			ink varchar(40) NOT NULL DEFAULT '',
 			signature varchar(191) NOT NULL DEFAULT '',
@@ -501,6 +514,7 @@ class CardsCo_Schema {
 			status varchar(20) NOT NULL DEFAULT 'draft',
 			setup_step tinyint(2) unsigned NOT NULL DEFAULT 1,
 			unit_price decimal(10,2) NULL DEFAULT NULL,
+			paid_rate decimal(10,2) NULL DEFAULT NULL,
 			currency char(3) NOT NULL DEFAULT 'GBP',
 			created_by bigint(20) unsigned NOT NULL DEFAULT 0,
 			created_at datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
@@ -513,6 +527,13 @@ class CardsCo_Schema {
 
 		/*
 		 * Who is in a programme. A person can be in several.
+		 *
+		 * card_id and message_no are which of the occasion's designs and
+		 * which of its messages this person's card carries, once an
+		 * occasion has more than one of either — see
+		 * CardsCo_Programme::assign(). Nought means not decided yet.
+		 * note is a line the customer adds for this one person, written
+		 * after whichever message they get.
 		 */
 		$table = self::table( 'programme_recipients' );
 		$sql[] = "CREATE TABLE {$table} (
@@ -520,6 +541,9 @@ class CardsCo_Schema {
 			programme_id bigint(20) unsigned NOT NULL DEFAULT 0,
 			company_id bigint(20) unsigned NOT NULL DEFAULT 0,
 			recipient_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			card_id bigint(20) unsigned NOT NULL DEFAULT 0,
+			message_no tinyint(3) unsigned NOT NULL DEFAULT 0,
+			note varchar(255) NOT NULL DEFAULT '',
 			created_at datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
 			PRIMARY KEY  (id),
 			UNIQUE KEY programme_recipient (programme_id,recipient_id),

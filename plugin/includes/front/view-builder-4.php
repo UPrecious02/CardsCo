@@ -71,6 +71,66 @@ $cc_max = $cc_max > 0 ? $cc_max : 400;
 		</p>
 	</div>
 
+	<?php
+	/*
+	 * A bulk order can carry several messages, shared out between the
+	 * cards in turn and matched to the designs at random. The first box is
+	 * the one that was always here; the rest sit under it. One empty box
+	 * is always on offer while there is room for another, so the step
+	 * works with no script at all.
+	 */
+	$cc_room  = CardsCo_Campaign::message_limit( $campaign );
+	$cc_all   = CardsCo_Campaign::messages( $campaign );
+	$cc_more  = array_slice( $cc_all, 1 );
+	$cc_wrong = CardsCo_Campaign::mix_problems( $campaign, 'messages' );
+	?>
+	<?php if ( $cc_room > 1 || $cc_more ) : ?>
+		<input type="hidden" name="cc_messages" value="1" />
+
+		<?php if ( $cc_wrong ) : ?>
+			<div class="cc-bd-warn" role="alert">
+				<?php foreach ( $cc_wrong as $cc_w ) : ?>
+					<p><?php echo esc_html( $cc_w ); ?></p>
+				<?php endforeach; ?>
+			</div>
+		<?php endif; ?>
+
+		<div class="cc-bd-field cc-bd-more" data-cc-bd-more data-cc-limit="<?php echo esc_attr( max( 1, (int) $cc_room ) ); ?>">
+			<p class="cc-bd-more-head"><?php esc_html_e( 'More messages', 'cardsco' ); ?></p>
+			<p class="cc-bd-hint">
+				<?php
+				printf(
+					/* translators: %d: the most messages the order can carry. */
+					esc_html__( 'Optional. Write up to %d in all and we share them out between the cards in turn, matched to your designs at random. Leave a box empty and it is ignored.', 'cardsco' ),
+					(int) max( 1, $cc_room )
+				);
+				?>
+			</p>
+
+			<?php
+			$cc_boxes = $cc_more;
+
+			if ( count( $cc_all ) < $cc_room || ! $cc_all ) {
+				$cc_boxes[] = '';
+			}
+			?>
+			<?php foreach ( $cc_boxes as $cc_i => $cc_one ) : ?>
+				<div class="cc-bd-more-one">
+					<label for="cc-bd-more-<?php echo esc_attr( (int) $cc_i ); ?>">
+						<?php
+						/* translators: %d: which message this is, counting the first box as 1. */
+						printf( esc_html__( 'Message %d', 'cardsco' ), (int) $cc_i + 2 );
+						?>
+					</label>
+					<textarea id="cc-bd-more-<?php echo esc_attr( (int) $cc_i ); ?>" name="more_messages[]" rows="4"
+						maxlength="<?php echo esc_attr( $cc_max ); ?>" data-cc-text><?php echo esc_textarea( $cc_one ); ?></textarea>
+				</div>
+			<?php endforeach; ?>
+
+			<button type="button" class="cc-bd-more-add" data-cc-bd-more-add hidden><?php esc_html_e( 'Add another message', 'cardsco' ); ?></button>
+		</div>
+	<?php endif; ?>
+
 	<?php if ( $fields ) : ?>
 		<div class="cc-bd-merge">
 			<?php /* Not "tap": most of these campaigns are built at a desk. */ ?>

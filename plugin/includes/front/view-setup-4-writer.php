@@ -45,6 +45,8 @@ $cc_has = '' !== trim( (string) $writer['text'] );
 	<?php wp_nonce_field( 'cardsco_setup', '_cardsco_nonce' ); ?>
 	<input type="hidden" name="cardsco_setup_action" value="write_message" />
 	<input type="hidden" name="programme_id" value="<?php echo esc_attr( (int) $programme['id'] ); ?>" />
+	<?php /* Which of the occasion's messages this is — the first, on an occasion with one. */ ?>
+	<input type="hidden" name="slot" value="<?php echo esc_attr( (int) $writer['slot'] ); ?>" />
 
 	<div class="cc-wr-top">
 		<p class="cc-wr-to">
@@ -59,6 +61,22 @@ $cc_has = '' !== trim( (string) $writer['text'] );
 				?>
 			</span>
 			<span class="cc-wr-chip"><?php echo esc_html( $writer['noun'] ); ?></span>
+			<?php if ( $writer['several'] ) : ?>
+				<span class="cc-wr-chip">
+					<?php
+					if ( $writer['is_new'] ) {
+						esc_html_e( 'A new message', 'cardsco' );
+					} else {
+						printf(
+							/* translators: 1: which message, 2: how many there are. */
+							esc_html__( 'Message %1$s of %2$s', 'cardsco' ),
+							esc_html( number_format_i18n( (int) $writer['slot'] ) ),
+							esc_html( number_format_i18n( (int) $writer['of'] ) )
+						);
+					}
+					?>
+				</span>
+			<?php endif; ?>
 			<?php if ( $writer['hand'] && '—' !== $writer['hand'] ) : ?>
 				<span class="cc-wr-chip"><?php echo esc_html( $writer['hand'] ); ?></span>
 			<?php endif; ?>

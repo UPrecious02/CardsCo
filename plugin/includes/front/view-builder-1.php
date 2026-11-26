@@ -66,5 +66,68 @@ defined( 'ABSPATH' ) || exit;
 		<?php endif; ?>
 	</fieldset>
 
+	<?php
+	/*
+	 * Single cards or a bulk order, asked at the start because everything
+	 * after it depends on the answer: what a card costs, how many designs
+	 * and messages the order can carry, and whether anybody's own address
+	 * is needed at all. The same choice, in the same words and from the
+	 * same function, as the first step of an occasion.
+	 */
+	$cc_order = CardsCo_Dashboard::setup_order( $campaign );
+	$cc_bulk  = CardsCo_Campaign::one_address( $campaign );
+	$cc_co    = CardsCo_Company::get( (int) $campaign['company_id'] );
+	$cc_block = (string) ( $campaign['ship_address'] ?? '' );
+
+	/* Nothing typed yet: start from the address on the company's profile. */
+	if ( '' === trim( $cc_block ) && $cc_co && ! empty( $cc_co['billing_address'] ) ) {
+		$cc_block = (string) $cc_co['billing_address'];
+	}
+	?>
+	<fieldset class="cc-kind cc-bd-kind">
+		<legend class="cc-kind-legend"><?php esc_html_e( 'Single cards or a bulk order?', 'cardsco' ); ?></legend>
+
+		<div class="cc-kind-list">
+			<?php foreach ( $cc_order['options'] as $cc_opt ) : ?>
+				<?php $cc_on = ( 'bulk' === $cc_opt['value'] ) === $cc_bulk; ?>
+				<label class="cc-kind-one<?php echo $cc_on ? ' is-on' : ''; ?>">
+					<input type="radio" name="order_type" value="<?php echo esc_attr( $cc_opt['value'] ); ?>"
+						data-cc-kind <?php checked( $cc_on ); ?> />
+					<span class="cc-kind-dot" aria-hidden="true"></span>
+					<span class="cc-kind-text">
+						<span class="cc-kind-head"><?php echo esc_html( $cc_opt['head'] ); ?></span>
+						<span class="cc-kind-body"><?php echo esc_html( $cc_opt['body'] ); ?></span>
+						<span class="cc-kind-small"><?php echo esc_html( $cc_opt['small'] ); ?></span>
+					</span>
+				</label>
+			<?php endforeach; ?>
+		</div>
+	</fieldset>
+
+	<?php
+	/*
+	 * Where a bulk order is delivered. On the page either way, so the step
+	 * works without script; shown only with "Bulk order" chosen. The
+	 * fields are the same seven every other address in the portal has.
+	 */
+	?>
+	<fieldset class="cc-bd-field cc-bd-ship<?php echo $cc_bulk ? ' is-on' : ''; ?>" data-cc-kind-ship>
+		<legend><?php esc_html_e( 'Where should the cards be delivered?', 'cardsco' ); ?></legend>
+		<p class="cc-bd-hint"><?php esc_html_e( 'Every card on a bulk order arrives together at this one address, for you to hand out.', 'cardsco' ); ?></p>
+
+		<?php
+		$address = array(
+			'id'       => 'cc-bd-ship',
+			'name'     => 'ship_line',
+			'pc_name'  => 'ship_postcode',
+			'cy_name'  => 'ship_country',
+			'lines'    => CardsCo_Dashboard::address_lines( $cc_block ),
+			'postcode' => (string) ( $campaign['ship_postcode'] ?? '' ),
+			'country'  => (string) ( $campaign['ship_country'] ?? '' ) ? (string) $campaign['ship_country'] : 'GB',
+		);
+		require CARDSCO_PATH . 'includes/front/partial-address.php';
+		?>
+	</fieldset>
+
 	<?php include CARDSCO_PATH . 'includes/front/view-builder-foot.php'; ?>
 </form>

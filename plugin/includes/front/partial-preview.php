@@ -72,14 +72,18 @@ $cc_pv_mode = isset( $cc_pv_mode ) && 'pick' === $cc_pv_mode ? 'pick' : 'shop';
 					<?php
 					/*
 					 * No href and hidden until a card is chosen: preview.js
-					 * points these at the card being shown, and already
-					 * hides either one that has nowhere to go. Starting
-					 * them as href="" meant the template shipped two links
-					 * to the current page, which is what an empty href is.
+					 * points it at the card being shown, and hides it for a
+					 * card with nowhere to go. Starting it as href="" meant
+					 * the template shipped a link to the current page, which
+					 * is what an empty href is.
+					 *
+					 * There was a second link here, "See full details". A
+					 * card has no page of its own for it to open, so it went
+					 * wherever the card's address happened to point — the
+					 * send-a-card page — and it is gone.
 					 */
 					?>
 					<a class="cc-pv-use" id="cc-pv-use" hidden><?php esc_html_e( 'Use this card', 'cardsco' ); ?></a>
-					<a class="cc-pv-more" id="cc-pv-more" hidden><?php esc_html_e( 'See full details', 'cardsco' ); ?></a>
 				<?php endif; ?>
 			</div>
 		</div>

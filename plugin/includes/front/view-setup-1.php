@@ -10,6 +10,7 @@
  * @package CardsCo
  *
  * @var array[] $choices
+ * @var array   $order     From CardsCo_Dashboard::setup_order().
  * @var array   $programme
  * @var array   $links
  */
@@ -108,6 +109,37 @@ defined( 'ABSPATH' ) || exit;
 
 	<?php if ( $note ) : ?>
 		<p class="cc-wz-note"><?php echo esc_html( $note ); ?></p>
+	<?php endif; ?>
+
+	<?php if ( ! empty( $order['options'] ) ) : ?>
+		<?php
+		/*
+		 * Single or bulk, asked here because the rest of the set-up
+		 * follows from it — where the cards go, what each costs, and
+		 * whether the order may mix designs. One of the two is always
+		 * marked, so pressing Continue without touching it is an answer
+		 * rather than an omission.
+		 */
+		?>
+		<fieldset class="cc-kind">
+			<legend class="cc-kind-legend"><?php esc_html_e( 'Single cards or a bulk order?', 'cardsco' ); ?></legend>
+
+			<div class="cc-kind-list">
+				<?php foreach ( $order['options'] as $cc_opt ) : ?>
+					<label class="cc-kind-one<?php echo $cc_opt['on'] ? ' is-on' : ''; ?>">
+						<input type="radio" name="order_type"
+							value="<?php echo esc_attr( $cc_opt['value'] ); ?>"
+							<?php checked( $cc_opt['on'] ); ?> />
+						<span class="cc-kind-dot" aria-hidden="true"></span>
+						<span class="cc-kind-text">
+							<span class="cc-kind-head"><?php echo esc_html( $cc_opt['head'] ); ?></span>
+							<span class="cc-kind-body"><?php echo esc_html( $cc_opt['body'] ); ?></span>
+							<span class="cc-kind-small"><?php echo esc_html( $cc_opt['small'] ); ?></span>
+						</span>
+					</label>
+				<?php endforeach; ?>
+			</div>
+		</fieldset>
 	<?php endif; ?>
 </form>
 
