@@ -40,6 +40,7 @@ class CardsCo_Queue {
 	public static function hold_reasons() {
 		return array(
 			'no_address'      => __( 'Address incomplete', 'cardsco' ),
+			'no_office_address' => __( 'Delivery address incomplete', 'cardsco' ),
 			'message_gaps'    => __( 'Message has gaps', 'cardsco' ),
 			'no_card'         => __( 'No card chosen', 'cardsco' ),
 			'no_message'      => __( 'No message chosen', 'cardsco' ),

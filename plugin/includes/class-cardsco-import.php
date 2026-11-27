@@ -124,6 +124,135 @@ class CardsCo_Import {
 	 * Batch lifecycle
 	 * ------------------------------------------------------------------ */
 
+	/** The largest list that will be read: far more rows than any order, far less than a way to fill the disk. */
+	const MAX_LIST_BYTES = 2097152;
+
+	/**
+	 * Whether an uploaded list is the kind of file it claims to be.
+	 *
+	 * Every place a list comes in asks here — the admin importer, an
+	 * occasion, a campaign and the public send page — so there is one set
+	 * of rules and not four that drift apart.
+	 *
+	 * A list is plain text in rows. So: it came up in this request and
+	 * nowhere else; it is named .csv, .tsv or .txt; it is no bigger than a
+	 * list has any reason to be; and it is text all the way through — no
+	 * program, picture, archive or spreadsheet with its name changed, and
+	 * nothing in it that a server or a browser would run. Whatever passes
+	 * is then only ever read as rows of words: it is kept under a name of
+	 * our choosing ending .csv, in a folder the web server refuses to
+	 * serve, and removed once read.
+	 *
+	 * @param array $file One entry from $_FILES.
+	 * @return true|WP_Error
+	 */
+	public static function accept_list( array $file ) {
+		if ( ! empty( $file['error'] ) && UPLOAD_ERR_OK !== (int) $file['error'] ) {
+			return new WP_Error( 'cardsco_import_error', self::upload_error_message( (int) $file['error'] ) );
+		}
+
+		$tmp = isset( $file['tmp_name'] ) && is_string( $file['tmp_name'] ) ? $file['tmp_name'] : '';
+
+		if ( '' === $tmp || ! is_uploaded_file( $tmp ) ) {
+			return new WP_Error( 'cardsco_import_upload', __( 'No file was uploaded.', 'cardsco' ) );
+		}
+
+		return self::check_list( $tmp, isset( $file['name'] ) && is_string( $file['name'] ) ? $file['name'] : '' );
+	}
+
+	/**
+	 * The checks themselves, on a file already on disk.
+	 *
+	 * @param string $path Where the file is.
+	 * @param string $name What whoever sent it called it.
+	 * @return true|WP_Error
+	 */
+	public static function check_list( $path, $name ) {
+		$not_csv = __( 'Only CSV files can be read. In Excel or Google Sheets choose File, then Download or Save As, and pick CSV.', 'cardsco' );
+
+		/*
+		 * The whole name, not just its ending: "list.php.csv" ends in
+		 * .csv and is still somebody trying something. The file is never
+		 * kept under this name, so this costs an honest person nothing
+		 * they would notice.
+		 */
+		$name  = strtolower( trim( (string) $name ) );
+		$parts = explode( '.', $name );
+
+		if ( count( $parts ) < 2 || ! in_array( end( $parts ), array( 'csv', 'txt', 'tsv' ), true ) ) {
+			return new WP_Error( 'cardsco_import_type', $not_csv );
+		}
+
+		foreach ( array_slice( $parts, 1, -1 ) as $middle ) {
+			if ( preg_match( '/^(php\d?|phtml|phar|pht|cgi|pl|py|sh|asp|aspx|jsp|exe|js|htm|html|shtml|svg|htaccess)$/', $middle ) ) {
+				return new WP_Error( 'cardsco_import_type', $not_csv );
+			}
+		}
+
+		if ( ! is_file( $path ) || ! is_readable( $path ) ) {
+			return new WP_Error( 'cardsco_import_upload', __( 'No file was uploaded.', 'cardsco' ) );
+		}
+
+		$size = (int) filesize( $path );
+		$max  = (int) apply_filters( 'cardsco_list_max_bytes', self::MAX_LIST_BYTES );
+
+		if ( $size < 1 ) {
+			return new WP_Error( 'cardsco_csv_empty', __( 'That file is empty.', 'cardsco' ) );
+		}
+
+		if ( $size > $max ) {
+			return new WP_Error(
+				'cardsco_import_size',
+				sprintf(
+					/* translators: %s: a file size, such as 2 MB. */
+					__( 'That file is too large. A list can be up to %s — split it and upload it in parts.', 'cardsco' ),
+					size_format( $max )
+				)
+			);
+		}
+
+		$handle = fopen( $path, 'rb' ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+
+		if ( ! $handle ) {
+			return new WP_Error( 'cardsco_import_upload', __( 'That file could not be read.', 'cardsco' ) );
+		}
+
+		/*
+		 * Read through once. A zero byte never occurs in a text list and
+		 * always occurs in a program, a picture, a zip or an Excel
+		 * workbook, so it sorts the two without trusting what the browser
+		 * said the file was. Code is looked for across the joins between
+		 * chunks as well, so it cannot hide by straddling one.
+		 */
+		$tail = '';
+		$bad  = false;
+
+		while ( ! feof( $handle ) ) {
+			$chunk = fread( $handle, 65536 ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+
+			if ( false === $chunk || '' === $chunk ) {
+				break;
+			}
+
+			$look = $tail . $chunk;
+
+			if ( false !== strpos( $chunk, "\0" ) || preg_match( '/<\?(php|=)|<\s*(script|iframe|object|embed)\b/i', $look ) ) {
+				$bad = true;
+				break;
+			}
+
+			$tail = substr( $look, -16 );
+		}
+
+		fclose( $handle ); // phpcs:ignore WordPress.WP.AlternativeFunctions
+
+		if ( $bad ) {
+			return new WP_Error( 'cardsco_import_type', $not_csv );
+		}
+
+		return true;
+	}
+
 	/**
 	 * Accept an uploaded file and open a batch.
 	 *
@@ -145,23 +274,13 @@ class CardsCo_Import {
 		// auto-mapping are the ones the batch is actually stored with.
 		$recipient_type = in_array( $recipient_type, array( 'customer', 'employee' ), true ) ? $recipient_type : 'customer';
 
-		if ( empty( $file['tmp_name'] ) || ! is_uploaded_file( $file['tmp_name'] ) ) {
-			return new WP_Error( 'cardsco_import_upload', __( 'No file was uploaded.', 'cardsco' ) );
+		$allowed = self::accept_list( $file );
+
+		if ( is_wp_error( $allowed ) ) {
+			return $allowed;
 		}
 
-		if ( ! empty( $file['error'] ) ) {
-			return new WP_Error( 'cardsco_import_error', self::upload_error_message( (int) $file['error'] ) );
-		}
-
-		$name      = sanitize_file_name( $file['name'] );
-		$extension = strtolower( pathinfo( $name, PATHINFO_EXTENSION ) );
-
-		if ( ! in_array( $extension, array( 'csv', 'txt', 'tsv' ), true ) ) {
-			return new WP_Error(
-				'cardsco_import_type',
-				__( 'Only CSV files can be imported. In Excel or Google Sheets choose File, then Download or Save As, and pick CSV.', 'cardsco' )
-			);
-		}
+		$name = sanitize_file_name( $file['name'] );
 
 		$destination = self::storage_dir();
 

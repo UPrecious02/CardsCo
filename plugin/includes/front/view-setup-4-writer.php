@@ -40,9 +40,22 @@ $cc_has = '' !== trim( (string) $writer['text'] );
 <form method="post" id="ccWriter" class="cc-wr" action="<?php echo esc_url( $links['here'] ); ?>"
 	data-cc-max="<?php echo esc_attr( (int) $writer['max'] ); ?>"
 	data-cc-blanks="<?php echo esc_attr( wp_json_encode( array_map( 'cardsco_tag_label', (array) $writer['blanks'] ) ) ); ?>"
-	data-cc-sample="<?php echo esc_attr( wp_json_encode( (array) $writer['sample'] ) ); ?>">
+	<?php
+	/*
+	 * data-cc-preview-for, and not data-cc-sample, which is what it was.
+	 *
+	 * The site's own "Request a free sample" popup opens on a click on
+	 * anything matching [data-cc-sample], and it is on every page. This
+	 * form carried that attribute for its own reasons — the example
+	 * values the preview is filled in with — so every click anywhere in
+	 * the writer opened the popup: choosing a starter message, clicking
+	 * into the box to type, and the Save button, whose own action the
+	 * popup's script also cancelled.
+	 */
+	?>
+	data-cc-preview-for="<?php echo esc_attr( wp_json_encode( (array) $writer['sample'] ) ); ?>">
 
-	<?php wp_nonce_field( 'cardsco_setup', '_cardsco_nonce' ); ?>
+	<?php cardsco_nonce_field( 'cardsco_setup' ); ?>
 	<input type="hidden" name="cardsco_setup_action" value="write_message" />
 	<input type="hidden" name="programme_id" value="<?php echo esc_attr( (int) $programme['id'] ); ?>" />
 	<?php /* Which of the occasion's messages this is — the first, on an occasion with one. */ ?>

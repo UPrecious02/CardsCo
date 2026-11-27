@@ -46,6 +46,209 @@ class CardsCo_Shortcodes {
 		 * a page cache before it decides to store the response.
 		 */
 		add_action( 'template_redirect', array( $this, 'never_cache' ), 0 );
+		add_action( 'template_redirect', array( __CLASS__, 'fix_held' ), 5 );
+	}
+
+	/**
+	 * A held card the signed-in company may put right, or null.
+	 *
+	 * Only a card of their own, only while it is held, and only when what
+	 * holds it is the person's address — the one thing that can be fixed
+	 * from the dashboard without opening the occasion or campaign it came
+	 * from.
+	 *
+	 * @param int $queue_id The card.
+	 * @return array|null The card's row with the person's row under 'person'.
+	 */
+	public static function held_card( $queue_id ) {
+		$company_id = CardsCo_Access::company_id();
+		$card       = $queue_id ? CardsCo_Queue::get( absint( $queue_id ) ) : null;
+
+		if ( ! $company_id || ! $card || (int) $card['company_id'] !== (int) $company_id ) {
+			return null;
+		}
+
+		if ( 'on_hold' !== $card['status'] ) {
+			return null;
+		}
+
+		/*
+		 * A message with gaps is fixed on the card itself. The wording was
+		 * fixed when the card was queued, and a campaign cannot be edited
+		 * once it is paid for, so sending somebody to the message step
+		 * would show them a screen that changes nothing about this card.
+		 * What is held is this one card's wording, and that is what opens.
+		 */
+		if ( 'message_gaps' === $card['hold_reason'] ) {
+			$card['kind'] = 'message';
+
+			return $card;
+		}
+
+		if ( 'no_address' !== $card['hold_reason'] || empty( $card['recipient_id'] ) ) {
+			return null;
+		}
+
+		$person = CardsCo_Recipient::get( (int) $card['recipient_id'] );
+
+		if ( ! $person || (int) $person['company_id'] !== (int) $company_id ) {
+			return null;
+		}
+
+		$card['kind']   = 'address';
+		$card['person'] = $person;
+
+		return $card;
+	}
+
+	/**
+	 * What is wrong with wording typed for one held card, if anything.
+	 *
+	 * @param string $text       The wording.
+	 * @param int    $company_id The company, for its limits.
+	 * @return string '' when it can go on a card, otherwise 'empty', 'gaps' or 'long'.
+	 */
+	public static function held_message_problem( $text, $company_id ) {
+		$text = trim( (string) $text );
+
+		if ( '' === $text ) {
+			return 'empty';
+		}
+
+		/* Anything still in braces would be written on the card exactly as it stands. */
+		if ( preg_match( '/\{[^{}]*\}/', $text ) ) {
+			return 'gaps';
+		}
+
+		$most = (int) CardsCo_Settings::get( 'card_max_chars', null, (int) $company_id );
+
+		if ( $most > 0 && mb_strlen( $text ) > $most ) {
+			return 'long';
+		}
+
+		return '';
+	}
+
+	/**
+	 * Save the address typed into the dashboard's "needs your attention"
+	 * panel, and put the card back in the queue.
+	 *
+	 * @return void
+	 */
+	public static function fix_held() {
+		$doing = 'POST' === ( $_SERVER['REQUEST_METHOD'] ?? '' ) ? sanitize_key( wp_unslash( $_POST['cardsco_held_action'] ?? '' ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Missing -- checked next.
+
+		if ( 'address' !== $doing && 'message' !== $doing ) {
+			return;
+		}
+
+		check_admin_referer( 'cardsco_held', '_cardsco_nonce' );
+
+		$back = remove_query_arg( array( 'cc_fix', 'cc_fixed', 'cc_fix_error', 'cc_how' ) );
+
+		if ( CardsCo_Access::refusal() ) {
+			wp_safe_redirect( $back );
+			exit;
+		}
+
+		$queue_id = absint( $_POST['card'] ?? 0 );
+		$card     = self::held_card( $queue_id );
+
+		/*
+		 * Not theirs, or no longer held, or held for something this form
+		 * does not mend: nothing to do, and nothing to say about somebody
+		 * else's card.
+		 */
+		if ( ! $card || $card['kind'] !== $doing ) {
+			wp_safe_redirect( $back );
+			exit;
+		}
+
+		if ( 'message' === $doing ) {
+			$text  = trim( sanitize_textarea_field( wp_unslash( (string) ( $_POST['fix_message'] ?? '' ) ) ) );
+			$wrong = self::held_message_problem( $text, (int) $card['company_id'] );
+
+			if ( '' !== $wrong ) {
+				wp_safe_redirect( add_query_arg( array( 'cc_fix' => $queue_id, 'cc_fix_error' => $wrong ), $back ) . '#cc-fix' );
+				exit;
+			}
+
+			global $wpdb;
+
+			$wpdb->update(
+				cardsco_table( 'card_queue' ),
+				array(
+					'message_final' => $text,
+					'status'        => 'queued',
+					'hold_reason'   => '',
+					'updated_at'    => cardsco_now(),
+				),
+				array( 'id' => $queue_id ),
+				array( '%s', '%s', '%s', '%s' ),
+				array( '%d' )
+			);
+
+			wp_safe_redirect( add_query_arg( array( 'cc_fixed' => $queue_id, 'cc_how' => 'message' ), $back ) );
+			exit;
+		}
+
+		$parts = array_map(
+			static function ( $one ) {
+				return sanitize_text_field( wp_unslash( (string) $one ) );
+			},
+			array_slice( array_pad( (array) ( $_POST['fix_line'] ?? array() ), CardsCo_Dashboard::ADDRESS_PARTS, '' ), 0, CardsCo_Dashboard::ADDRESS_PARTS )
+		);
+
+		$address  = CardsCo_Dashboard::address_block( $parts );
+		$postcode = strtoupper( sanitize_text_field( wp_unslash( (string) ( $_POST['fix_postcode'] ?? '' ) ) ) );
+		$country  = strtoupper( substr( sanitize_text_field( wp_unslash( (string) ( $_POST['fix_country'] ?? '' ) ) ), 0, 2 ) );
+
+		/*
+		 * It has to be an address a card can be posted to, or saving it
+		 * would leave the card exactly where it was with no word as to why.
+		 */
+		if ( 'complete' !== cardsco_address_status( $address, $postcode ) ) {
+			wp_safe_redirect( add_query_arg( array( 'cc_fix' => $queue_id, 'cc_fix_error' => 1 ), $back ) . '#cc-fix' );
+			exit;
+		}
+
+		$data = array(
+			'address'  => $address,
+			'postcode' => $postcode,
+		);
+
+		if ( '' !== $country ) {
+			$data['country'] = $country;
+		}
+
+		$saved = CardsCo_Recipient::update( (int) $card['recipient_id'], $data );
+
+		if ( is_wp_error( $saved ) ) {
+			wp_safe_redirect( add_query_arg( array( 'cc_fix' => $queue_id, 'cc_fix_error' => 1 ), $back ) . '#cc-fix' );
+			exit;
+		}
+
+		/*
+		 * Every card held for this person, not only the one clicked: the
+		 * address was what held them all, and somebody with a birthday card
+		 * and a campaign card waiting should not have to type it twice.
+		 */
+		global $wpdb;
+
+		$theirs = $wpdb->get_col(
+			$wpdb->prepare(
+				'SELECT id FROM ' . cardsco_table( 'card_queue' ) . " WHERE company_id = %d AND recipient_id = %d AND status = 'on_hold' AND hold_reason = 'no_address'", // phpcs:ignore WordPress.DB.PreparedSQL
+				(int) $card['company_id'],
+				(int) $card['recipient_id']
+			)
+		);
+
+		foreach ( (array) $theirs as $one ) {
+			CardsCo_Queue::recheck( (int) $one );
+		}
+
+		wp_safe_redirect( add_query_arg( 'cc_fixed', $queue_id, $back ) );
+		exit;
 	}
 
 	/**
@@ -264,7 +467,37 @@ class CardsCo_Shortcodes {
 		$base = remove_query_arg( array( 'view', 'sort', 'occasion' ) );
 
 		$summary   = CardsCo_Dashboard::summary();
-		$held      = CardsCo_Dashboard::held( 5 );
+		/*
+		 * The first few, with the true number in the heading. It used to
+		 * list five and count the five it listed, so a company with thirty
+		 * held cards was told it had five.
+		 */
+		$held       = CardsCo_Dashboard::held( 8 );
+		$held_total = CardsCo_Dashboard::held_count();
+
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only view state.
+		$fix       = isset( $_GET['cc_fix'] ) ? self::held_card( absint( $_GET['cc_fix'] ) ) : null;
+		$fix_error = ( $fix && ! empty( $_GET['cc_fix_error'] ) ) ? sanitize_key( wp_unslash( $_GET['cc_fix_error'] ) ) : '';
+		$fixed_how = ( isset( $_GET['cc_how'] ) && 'message' === sanitize_key( wp_unslash( $_GET['cc_how'] ) ) ) ? 'message' : 'address';
+		$fixed     = '';
+
+		if ( ! empty( $_GET['cc_fixed'] ) ) {
+			/* Named only if the card is this company's; the id in the address is not trusted further than that. */
+			$done = CardsCo_Queue::get( absint( $_GET['cc_fixed'] ) );
+
+			if ( $done && (int) $done['company_id'] === (int) CardsCo_Access::company_id() && 'on_hold' !== $done['status'] ) {
+				$fixed = trim( (string) $done['recipient_name'] );
+				$fixed = '' !== $fixed ? $fixed : __( 'That person', 'cardsco' );
+			}
+		}
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+		$fix_here = remove_query_arg( array( 'cc_fix', 'cc_fixed', 'cc_fix_error', 'cc_how' ) );
+
+		/* The card being put right is always on the list, even when it was further down than the list goes. */
+		if ( $fix && ! in_array( (int) $fix['id'], array_map( 'intval', wp_list_pluck( $held, 'id' ) ), true ) ) {
+			array_unshift( $held, $fix );
+		}
 		$sent_year = CardsCo_Dashboard::sent_this_year();
 		$occasions = CardsCo_Dashboard::card_occasions();
 		$counts    = CardsCo_Dashboard::view_counts();
@@ -358,14 +591,30 @@ class CardsCo_Shortcodes {
 		$refusal = CardsCo_Access::refusal();
 
 		if ( $refusal ) {
-			return $refusal;
+			/* In the same panel every other screen uses; this one printed the sentence bare. */
+			return self::locked( $refusal );
 		}
 
 		$atts = shortcode_atts( array( 'logo' => '' ), $atts, 'cardsco_settings' );
 
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only view state.
 		$tab    = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'profile';
-		$notice = isset( $_GET['cardsco_saved'] ) ? __( 'Saved.', 'cardsco' ) : '';
+		$notice = '';
+
+		if ( isset( $_GET['cardsco_saved'] ) ) {
+			$what   = sanitize_key( wp_unslash( $_GET['cardsco_saved'] ) );
+			$notice = __( 'Saved.', 'cardsco' );
+
+			if ( 'password' === $what ) {
+				$notice = __( 'Your password is changed. Anywhere else you were signed in has been signed out.', 'cardsco' );
+			} elseif ( 'reset_link' === $what ) {
+				$notice = sprintf(
+					/* translators: %s: the email address on the account. */
+					__( 'We have emailed a link to %s. Open it to set a new password — it works for one hour.', 'cardsco' ),
+					wp_get_current_user()->user_email
+				);
+			}
+		}
 		$error  = isset( $_GET['cardsco_error'] ) ? sanitize_text_field( wp_unslash( $_GET['cardsco_error'] ) ) : '';
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
@@ -550,6 +799,56 @@ class CardsCo_Shortcodes {
 		if ( ! isset( $_POST['_cardsco_nonce'] )
 			|| ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['_cardsco_nonce'] ) ), 'cardsco_settings' ) ) {
 			return;
+		}
+
+		/*
+		 * A person's own password, before anything about the company.
+		 *
+		 * It is theirs whatever their role, so it is handled ahead of the
+		 * checks below, which are about who may change the company's
+		 * details. The passwords are read as typed — trimming or tidying
+		 * one would change it — and never put anywhere but the check.
+		 */
+		if ( 'password_email' === sanitize_key( wp_unslash( $_POST['cardsco_settings_action'] ) ) ) {
+			$to = add_query_arg( 'tab', 'account', remove_query_arg( array( 'cardsco_saved', 'cardsco_error', 'tab' ) ) );
+
+			if ( ! is_user_logged_in() || ! CardsCo_Access::company_id() ) {
+				return;
+			}
+
+			/* To the address on their own account. Nothing in the request says where to send it. */
+			$sent = CardsCo_Auth::email_reset_link( get_current_user_id() );
+
+			wp_safe_redirect(
+				is_wp_error( $sent )
+					? add_query_arg( 'cardsco_error', rawurlencode( $sent->get_error_message() ), $to )
+					: add_query_arg( 'cardsco_saved', 'reset_link', $to )
+			);
+			exit;
+		}
+
+		if ( 'password' === sanitize_key( wp_unslash( $_POST['cardsco_settings_action'] ) ) ) {
+			$to = add_query_arg( 'tab', 'account', remove_query_arg( array( 'cardsco_saved', 'cardsco_error', 'tab' ) ) );
+
+			if ( ! is_user_logged_in() || ! CardsCo_Access::company_id() ) {
+				return;
+			}
+
+			// phpcs:disable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- passwords are compared exactly as typed.
+			$changed = CardsCo_Auth::change_password(
+				get_current_user_id(),
+				(string) wp_unslash( $_POST['current_password'] ?? '' ),
+				(string) wp_unslash( $_POST['new_password'] ?? '' ),
+				(string) wp_unslash( $_POST['confirm_password'] ?? '' )
+			);
+			// phpcs:enable WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
+
+			wp_safe_redirect(
+				is_wp_error( $changed )
+					? add_query_arg( 'cardsco_error', rawurlencode( $changed->get_error_message() ), $to )
+					: add_query_arg( 'cardsco_saved', 'password', $to )
+			);
+			exit;
 		}
 
 		if ( ! current_user_can( 'cardsco_manage_company' ) ) {
@@ -896,6 +1195,21 @@ class CardsCo_Shortcodes {
 					// frames; the rail would halve the card preview.
 					$rail['hide_rail']     = true;
 					$rail['hide_continue'] = true;
+
+					/*
+					 * The footer's own way on. Continue is hidden here, because
+					 * it belongs to the step's form and this screen is the
+					 * writer's — which left the footer with Back and nothing
+					 * else, and the only way to save a small tick inside the
+					 * message box. Somebody who had written their card looked
+					 * at the bottom of the page for the button that carries on
+					 * and found none.
+					 *
+					 * It saves and comes back to the step, where the message is
+					 * shown as it will be written, each person's own note can
+					 * be added, and Continue is waiting.
+					 */
+					$rail['writer_save'] = __( 'Save message', 'cardsco' );
 					$rail['heading']       = __( 'Write the card', 'cardsco' );
 					$rail['blurb']         = $writer['several']
 						? __( 'One of the messages for this occasion. Each card carries one of them, with that person’s name written in.', 'cardsco' )
@@ -1483,7 +1797,7 @@ class CardsCo_Shortcodes {
 		?>
 		<div class="cc cc-wz cc-bd cc-bd-begin">
 			<form method="post" action="<?php echo esc_url( $here ); ?>" id="ccBdStart">
-				<?php wp_nonce_field( 'cardsco_builder', '_cardsco_nonce' ); ?>
+				<?php cardsco_nonce_field( 'cardsco_builder' ); ?>
 				<input type="hidden" name="cardsco_builder_action" value="start" />
 				<?php if ( $type_id ) : ?>
 					<input type="hidden" name="occasion_type_id" value="<?php echo esc_attr( (int) $type_id ); ?>" />
@@ -1573,8 +1887,17 @@ class CardsCo_Shortcodes {
 		$referral = CardsCo_Campaign::needs_referral( $campaign ) ? CardsCo_Campaign::referral( $campaign ) : null;
 		$audience = CardsCo_Campaign::audience( $campaign );
 		$picked   = CardsCo_Campaign::clean_audience( $campaign['audience'] );
-		$found    = CardsCo_Recipient::query( array( 'company_id' => $company_id, 'limit' => 200 ) );
+		/*
+		 * Everybody, not the first page of them. This asked for 'limit',
+		 * which the query does not know, so it got the default of 25:
+		 * somebody uploading a list to a company that already had 25
+		 * people saw the page come back looking exactly as it had, with
+		 * the new names saved but nowhere on it — and anybody ticked but
+		 * not on screen was dropped the next time the step was saved.
+		 */
+		$found    = CardsCo_Recipient::query( array( 'company_id' => $company_id, 'per_page' => -1 ) );
 		$people   = isset( $found['items'] ) ? (array) $found['items'] : array();
+		$did      = 2 === (int) $step ? self::builder_report( $people ) : '';
 		$preview  = CardsCo_Campaign::preview( $campaign );
 		$ready    = CardsCo_Campaign::can_schedule( $campaign );
 		$warning  = CardsCo_Campaign::offer_warning( $campaign );
@@ -1606,6 +1929,71 @@ class CardsCo_Shortcodes {
 		include CARDSCO_PATH . 'includes/front/view-builder.php';
 
 		return (string) ob_get_clean();
+	}
+
+	/**
+	 * What adding people on the campaign's second step just did, in a sentence.
+	 *
+	 * Read off the redirect. The page coming back with nothing said is
+	 * indistinguishable from the upload not having worked.
+	 *
+	 * @param array $people Everybody in the company, to name the one just added.
+	 * @return string Empty when nothing has just been added.
+	 */
+	protected static function builder_report( array $people ) {
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- display of a completed action.
+		if ( isset( $_GET['cc_added'] ) ) {
+			$id = absint( $_GET['cc_added'] );
+
+			foreach ( $people as $person ) {
+				if ( (int) $person['id'] === $id ) {
+					return sprintf(
+						/* translators: %s: somebody's name. */
+						__( '%s is added and selected for this campaign.', 'cardsco' ),
+						trim( $person['first_name'] . ' ' . $person['last_name'] )
+					);
+				}
+			}
+
+			return '';
+		}
+
+		if ( ! isset( $_GET['cc_up_added'] ) ) {
+			return '';
+		}
+
+		$added = absint( $_GET['cc_up_added'] );
+		$on    = absint( $_GET['cc_up_on'] ?? 0 );
+		$bad   = absint( $_GET['cc_up_bad'] ?? 0 );
+		// phpcs:enable WordPress.Security.NonceVerification.Recommended
+
+		$bits = array();
+
+		$bits[] = $on
+			? sprintf(
+				/* translators: %s: how many people. */
+				_n( 'File uploaded: %s person from it is selected for this campaign', 'File uploaded: %s people from it are selected for this campaign', $on, 'cardsco' ),
+				number_format_i18n( $on )
+			)
+			: __( 'File uploaded, but nobody could be read from it', 'cardsco' );
+
+		if ( $added ) {
+			$bits[] = sprintf(
+				/* translators: %s: how many people. */
+				_n( '%s is new to your people', '%s are new to your people', $added, 'cardsco' ),
+				number_format_i18n( $added )
+			);
+		}
+
+		if ( $bad ) {
+			$bits[] = sprintf(
+				/* translators: %s: how many rows. */
+				_n( '%s row could not be read', '%s rows could not be read', $bad, 'cardsco' ),
+				number_format_i18n( $bad )
+			);
+		}
+
+		return implode( ' · ', $bits );
 	}
 
 	/**
@@ -2547,7 +2935,17 @@ class CardsCo_Shortcodes {
 	 * @return string
 	 */
 	public static function locked( $message ) {
-		return '<div class="cc cc-locked"><p>' . esc_html( $message ) . '</p></div>';
+		/*
+		 * Somebody who is told to sign in is given the way to. The panel
+		 * used to say "Please sign in" and stop, on a page with no link to
+		 * the sign-in page anywhere on it.
+		 */
+		$login = is_user_logged_in() ? '' : (string) self::page_for( 'cardsco_login' );
+		$way   = '' !== $login
+			? '<p class="cc-locked-go"><a class="cc-btn cc-btn-primary" href="' . esc_url( $login ) . '">' . esc_html__( 'Sign in', 'cardsco' ) . '</a></p>'
+			: '';
+
+		return '<div class="cc cc-locked"><p>' . esc_html( $message ) . '</p>' . $way . '</div>';
 	}
 
 	/**

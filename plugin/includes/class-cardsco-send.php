@@ -1560,6 +1560,18 @@ class CardsCo_Send {
 			self::go( array( 'step' => 1, 'cardsco_error' => __( 'That file did not arrive. Try again.', 'cardsco' ) ) );
 		}
 
+		/*
+		 * This page is open to anybody, signed in or not, so it is the
+		 * upload most worth being strict about. The same rules as a
+		 * company's own list; the file is read where PHP put it and never
+		 * kept.
+		 */
+		$allowed = CardsCo_Import::accept_list( (array) $_FILES['people_file'] ); // phpcs:ignore WordPress.Security.NonceVerification.Missing, WordPress.Security.ValidatedSanitizedInput -- checked by accept_list().
+
+		if ( is_wp_error( $allowed ) ) {
+			self::go( array( 'step' => 1, 'cardsco_error' => $allowed->get_error_message() ) );
+		}
+
 		$read = self::read_people( $tmp );
 
 		if ( is_wp_error( $read ) ) {

@@ -12,6 +12,9 @@
  * @var array   $summary
  * @var array[] $cards
  * @var array[] $held
+ * @var int     $held_total Every held card, listed or not.
+ * @var string  $fix_error  '' or which check the last save failed.
+ * @var string  $fixed_how  'address' or 'message'.
  * @var string[] $occasions
  * @var array   $toolbar
  * @var int     $sent_year
@@ -81,6 +84,22 @@ $cc = 'CardsCo_Shortcodes';
 		</p>
 	</header>
 
+	<?php if ( ! empty( $fixed ) ) : ?>
+		<div class="cc-notice cc-notice-done" role="status">
+			<p class="cc-notice-title">
+				<?php
+				if ( 'message' === $fixed_how ) {
+					/* translators: %s: a person's name. */
+					printf( esc_html__( '%s’s message is saved, and their card is back in the queue.', 'cardsco' ), esc_html( $fixed ) );
+				} else {
+					/* translators: %s: a person's name. */
+					printf( esc_html__( '%s’s address is saved, and their card is back in the queue.', 'cardsco' ), esc_html( $fixed ) );
+				}
+				?>
+			</p>
+		</div>
+	<?php endif; ?>
+
 	<?php if ( $held ) : ?>
 		<?php
 		/*
@@ -94,8 +113,8 @@ $cc = 'CardsCo_Shortcodes';
 				<?php
 				printf(
 					/* translators: %d: number of cards. */
-					esc_html( _n( '%d card needs your attention', '%d cards need your attention', count( $held ), 'cardsco' ) ),
-					count( $held )
+					esc_html( _n( '%d card needs your attention', '%d cards need your attention', max( (int) $held_total, count( $held ) ), 'cardsco' ) ),
+					max( (int) $held_total, count( $held ) )
 				);
 				?>
 			</p>
@@ -128,12 +147,137 @@ $cc = 'CardsCo_Shortcodes';
 						$cc_who = sprintf( __( 'Card %d', 'cardsco' ), (int) $cc_card['id'] );
 					}
 					?>
-					<li>
-						<span class="cc-notice-who"><?php echo esc_html( $cc_who ); ?></span>
-						<span class="cc-notice-why"><?php echo esc_html( call_user_func( array( $cc, 'hold_reason' ), $cc_card['hold_reason'] ) ); ?></span>
+					<?php
+					/*
+					 * A row somebody can act on is a link to the place it is
+					 * acted on. A missing address is fixed right here: the
+					 * row opens the address form under itself, and saving it
+					 * puts the card back in the queue. The panel used to
+					 * name the problem and offer nothing to press.
+					 */
+					$cc_kind = 'message_gaps' === $cc_card['hold_reason']
+						? 'message'
+						: ( ( 'no_address' === $cc_card['hold_reason'] && ! empty( $cc_card['recipient_id'] ) ) ? 'address' : '' );
+					$cc_can  = '' !== $cc_kind;
+					$cc_open = $cc_can && ! empty( $fix ) && (int) $fix['id'] === (int) $cc_card['id'];
+					$cc_why  = call_user_func( array( $cc, 'hold_reason' ), $cc_card['hold_reason'] );
+
+					/*
+					 * Anything else was put on hold by us, for a reason only
+					 * we know, so the row goes to us: an email that already
+					 * says which card it is about.
+					 */
+					$cc_mail = '';
+
+					if ( ! $cc_can ) {
+						$cc_to   = (string) CardsCo_Settings::get( 'support_email', 'hello@cardsco.uk' );
+						$cc_mail = 'mailto:' . rawurlencode( $cc_to ) . '?subject=' . rawurlencode(
+							sprintf(
+								/* translators: 1: the card's number, 2: who it is for. */
+								__( 'Card %1$d on hold — %2$s', 'cardsco' ),
+								(int) $cc_card['id'],
+								$cc_who
+							)
+						);
+					}
+					?>
+					<li class="cc-notice-item<?php echo $cc_open ? ' is-open' : ''; ?>"<?php echo $cc_open ? ' id="cc-fix"' : ''; ?>>
+						<?php if ( $cc_can && ! $cc_open ) : ?>
+							<a class="cc-notice-row" href="<?php echo esc_url( add_query_arg( 'cc_fix', (int) $cc_card['id'], $fix_here ) . '#cc-fix' ); ?>">
+								<span class="cc-notice-who"><?php echo esc_html( $cc_who ); ?></span>
+								<span class="cc-notice-why"><?php echo esc_html( $cc_why ); ?></span>
+								<span class="cc-notice-do"><?php echo esc_html( 'message' === $cc_kind ? __( 'Finish the message', 'cardsco' ) : __( 'Add the address', 'cardsco' ) ); ?> <span aria-hidden="true">&rarr;</span></span>
+							</a>
+						<?php elseif ( '' !== $cc_mail ) : ?>
+							<a class="cc-notice-row" href="<?php echo esc_attr( $cc_mail ); ?>">
+								<span class="cc-notice-who"><?php echo esc_html( $cc_who ); ?></span>
+								<span class="cc-notice-why"><?php echo esc_html( $cc_why ); ?></span>
+								<span class="cc-notice-do"><?php esc_html_e( 'Email us about it', 'cardsco' ); ?> <span aria-hidden="true">&rarr;</span></span>
+							</a>
+						<?php else : ?>
+							<span class="cc-notice-row">
+								<span class="cc-notice-who"><?php echo esc_html( $cc_who ); ?></span>
+								<span class="cc-notice-why"><?php echo esc_html( $cc_why ); ?></span>
+							</span>
+						<?php endif; ?>
+
+						<?php if ( $cc_open && 'message' === $cc_kind ) : ?>
+							<?php
+							$cc_most = (int) CardsCo_Settings::get( 'card_max_chars', null, (int) $fix['company_id'] );
+							$cc_says = array(
+								'empty' => __( 'The message is empty. Write what the card should say.', 'cardsco' ),
+								'gaps'  => __( 'There is still something in curly brackets. Replace it with the words you want on the card, or take it out.', 'cardsco' ),
+								/* translators: %d: the longest a message may be. */
+								'long'  => sprintf( __( 'That is too long to fit on the card. Keep it to %d characters.', 'cardsco' ), $cc_most ),
+							);
+							?>
+							<form class="cc-notice-fix" method="post" action="<?php echo esc_url( $fix_here ); ?>">
+								<?php cardsco_nonce_field( 'cardsco_held' ); ?>
+								<input type="hidden" name="cardsco_held_action" value="message" />
+								<input type="hidden" name="card" value="<?php echo esc_attr( (int) $cc_card['id'] ); ?>" />
+
+								<?php if ( ! empty( $fix_error ) ) : ?>
+									<p class="cc-notice-fix-error" role="alert"><?php echo esc_html( $cc_says[ $fix_error ] ?? $cc_says['gaps'] ); ?></p>
+								<?php endif; ?>
+
+								<p class="cc-field">
+									<label for="cc-fix-msg"><?php esc_html_e( 'What this card should say', 'cardsco' ); ?></label>
+									<textarea id="cc-fix-msg" name="fix_message" rows="5"<?php echo $cc_most > 0 ? ' maxlength="' . esc_attr( $cc_most ) . '"' : ''; ?> required><?php echo esc_textarea( (string) $fix['message_final'] ); ?></textarea>
+								</p>
+								<p class="cc-notice-fix-hint">
+									<?php esc_html_e( 'Anything in {curly brackets} is a detail we do not have for this person. Replace it with the words you want, or take it out. This changes this one card only.', 'cardsco' ); ?>
+								</p>
+
+								<p class="cc-notice-fix-go">
+									<button type="submit" class="cc-btn cc-btn-primary"><?php esc_html_e( 'Save message', 'cardsco' ); ?></button>
+									<a class="cc-btn cc-btn-quiet" href="<?php echo esc_url( $fix_here ); ?>"><?php esc_html_e( 'Cancel', 'cardsco' ); ?></a>
+								</p>
+							</form>
+						<?php elseif ( $cc_open ) : ?>
+							<form class="cc-notice-fix" method="post" action="<?php echo esc_url( $fix_here ); ?>">
+								<?php cardsco_nonce_field( 'cardsco_held' ); ?>
+								<input type="hidden" name="cardsco_held_action" value="address" />
+								<input type="hidden" name="card" value="<?php echo esc_attr( (int) $cc_card['id'] ); ?>" />
+
+								<?php if ( ! empty( $fix_error ) ) : ?>
+									<p class="cc-notice-fix-error" role="alert">
+										<?php esc_html_e( 'That is not enough to post a card to. Add at least the first line of the address, the town and the postcode.', 'cardsco' ); ?>
+									</p>
+								<?php endif; ?>
+
+								<?php
+								$address = array(
+									'id'       => 'cc-fix-addr',
+									'name'     => 'fix_line',
+									'pc_name'  => 'fix_postcode',
+									'cy_name'  => 'fix_country',
+									'lines'    => CardsCo_Dashboard::address_lines( (string) $fix['person']['address'] ),
+									'postcode' => (string) $fix['person']['postcode'],
+									'country'  => (string) $fix['person']['country'] ? (string) $fix['person']['country'] : 'GB',
+								);
+								require CARDSCO_PATH . 'includes/front/partial-address.php';
+								?>
+
+								<p class="cc-notice-fix-go">
+									<button type="submit" class="cc-btn cc-btn-primary"><?php esc_html_e( 'Save address', 'cardsco' ); ?></button>
+									<a class="cc-btn cc-btn-quiet" href="<?php echo esc_url( $fix_here ); ?>"><?php esc_html_e( 'Cancel', 'cardsco' ); ?></a>
+								</p>
+							</form>
+						<?php endif; ?>
 					</li>
 				<?php endforeach; ?>
 			</ul>
+			<?php if ( (int) $held_total > count( $held ) ) : ?>
+				<p class="cc-notice-more">
+					<?php
+					printf(
+						/* translators: %d: how many more cards. */
+						esc_html( _n( 'And %d more. It will show here as these are sorted.', 'And %d more. They will show here as these are sorted.', (int) $held_total - count( $held ), 'cardsco' ) ),
+						(int) $held_total - count( $held )
+					);
+					?>
+				</p>
+			<?php endif; ?>
 		</div>
 	<?php endif; ?>
 

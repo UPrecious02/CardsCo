@@ -35,7 +35,7 @@ $cc_privacy = $links['privacy'] ? $links['privacy'] : home_url( '/privacy/' );
 					<?php endif; ?>
 
 					<form class="cc-auth-fields" method="post" action="<?php echo esc_url( $action ); ?>">
-						<?php wp_nonce_field( CardsCo_Auth::NONCE_SIGNUP, '_cardsco_nonce' ); ?>
+						<?php cardsco_nonce_field( CardsCo_Auth::NONCE_SIGNUP ); ?>
 						<input type="hidden" name="cardsco_auth_action" value="signup" />
 						<?php if ( ! empty( $links['dashboard'] ) ) : ?>
 							<input type="hidden" name="redirect_to" value="<?php echo esc_url( $links['dashboard'] ); ?>" />

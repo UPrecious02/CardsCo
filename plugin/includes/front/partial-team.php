@@ -22,7 +22,7 @@ defined( 'ABSPATH' ) || exit;
 $cc_team = $settings['team'];
 ?>
 <form class="cc-set-form" method="post" action="<?php echo esc_url( $cc_base ); ?>">
-	<?php wp_nonce_field( 'cardsco_settings', '_cardsco_nonce' ); ?>
+	<?php cardsco_nonce_field( 'cardsco_settings' ); ?>
 	<input type="hidden" name="cardsco_settings_action" value="team" />
 
 	<section class="cc-set-sec">

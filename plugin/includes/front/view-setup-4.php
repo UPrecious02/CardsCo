@@ -47,7 +47,7 @@ $cc_show = static function ( $no ) use ( $links ) {
 };
 ?>
 <form method="post" id="ccWizForm" class="cc-wz-form" action="<?php echo esc_url( $links['here'] ); ?>">
-	<?php wp_nonce_field( 'cardsco_setup', '_cardsco_nonce' ); ?>
+	<?php cardsco_nonce_field( 'cardsco_setup' ); ?>
 	<input type="hidden" name="cardsco_setup_action" value="step" />
 	<input type="hidden" name="step" value="4" />
 	<input type="hidden" name="programme_id" value="<?php echo esc_attr( (int) $programme['id'] ); ?>" />
@@ -199,7 +199,7 @@ $cc_show = static function ( $no ) use ( $links ) {
 						</a>
 						<?php if ( $cc_several ) : ?>
 							<form method="post" class="cc-mm-drop" action="<?php echo esc_url( $links['here_step'] ); ?>">
-								<?php wp_nonce_field( 'cardsco_setup', '_cardsco_nonce' ); ?>
+								<?php cardsco_nonce_field( 'cardsco_setup' ); ?>
 								<input type="hidden" name="cardsco_setup_action" value="remove_message" />
 								<input type="hidden" name="programme_id" value="<?php echo esc_attr( (int) $programme['id'] ); ?>" />
 								<input type="hidden" name="slot" value="<?php echo esc_attr( (int) $cc_one['no'] ); ?>" />

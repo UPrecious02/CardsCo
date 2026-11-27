@@ -103,7 +103,7 @@ defined( 'ABSPATH' ) || exit;
 					</td>
 					<td><?php echo $cardsco_card ? esc_html( $cardsco_card->post_title ) : '&mdash;'; ?></td>
 					<td>
-						<?php if ( 'monthly_box' === $cardsco_p['timing_mode'] ) : ?>
+						<?php if ( 'monthly_box' === CardsCo_Programme::timing_mode( $cardsco_p ) ) : ?>
 							<?php
 							printf(
 								/* translators: %d: day of the month. */

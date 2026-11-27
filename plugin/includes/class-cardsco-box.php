@@ -902,7 +902,7 @@ class CardsCo_Box {
 		foreach ( $programmes as $programme ) {
 			$summary['programmes']++;
 
-			if ( 'monthly_box' !== $programme['timing_mode'] ) {
+			if ( 'monthly_box' !== CardsCo_Programme::timing_mode( $programme ) ) {
 				self::tally( $summary, self::post_individually( $programme, $today, (bool) $args['dry_run'] ) );
 				continue;
 			}

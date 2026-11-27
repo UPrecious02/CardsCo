@@ -262,6 +262,17 @@
 	font: 400 13px/18px var(--cc-font-ui);
 }
 
+/* The way back in for somebody who has forgotten their password. It was
+   the same grey as a caption and was not seen; it is a link, and looks
+   like one. */
+.cc-field-row .cc-forgot {
+	font-weight: 600;
+	color: var(--cc-green-600);
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+.cc-field-row .cc-forgot:hover { color: var(--cc-green-700); }
+
 .cc-label {
 	font: 500 13px/18px var(--cc-font-ui);
 	color: var(--cc-ink);

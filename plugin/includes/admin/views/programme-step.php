@@ -631,8 +631,8 @@ $cardsco_step_url = static function ( $n ) use ( $cardsco_pid ) {
 							array(
 								6,
 								__( 'Timing', 'cardsco' ),
-								'monthly_box' === $programme['timing_mode'] ? __( 'One box a month', 'cardsco' ) : __( 'A few days before each date', 'cardsco' ),
-								'monthly_box' === $programme['timing_mode']
+								'monthly_box' === CardsCo_Programme::timing_mode( $programme ) ? __( 'One box a month', 'cardsco' ) : __( 'A few days before each date', 'cardsco' ),
+								'monthly_box' === CardsCo_Programme::timing_mode( $programme )
 									? sprintf(
 										/* translators: %d: day of the month. */
 										__( 'Arrives by the %d of the month before', 'cardsco' ),
@@ -761,7 +761,7 @@ $cardsco_step_url = static function ( $n ) use ( $cardsco_pid ) {
 						break;
 					case 6:
 						$cardsco_val = $programme['starts_on']
-							? ( 'monthly_box' === $programme['timing_mode'] ? __( 'One box a month', 'cardsco' ) : __( 'Days before', 'cardsco' ) )
+							? ( 'monthly_box' === CardsCo_Programme::timing_mode( $programme ) ? __( 'One box a month', 'cardsco' ) : __( 'Days before', 'cardsco' ) )
 							: '';
 						break;
 					case 7:

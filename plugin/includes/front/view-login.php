@@ -29,7 +29,7 @@ defined( 'ABSPATH' ) || exit;
 					<?php endif; ?>
 
 					<form class="cc-auth-fields" method="post" action="<?php echo esc_url( $action ); ?>">
-						<?php wp_nonce_field( CardsCo_Auth::NONCE_LOGIN, '_cardsco_nonce' ); ?>
+						<?php cardsco_nonce_field( CardsCo_Auth::NONCE_LOGIN ); ?>
 						<input type="hidden" name="cardsco_auth_action" value="login" />
 						<?php if ( ! empty( $links['dashboard'] ) ) : ?>
 							<input type="hidden" name="redirect_to" value="<?php echo esc_url( $links['dashboard'] ); ?>" />
@@ -46,7 +46,7 @@ defined( 'ABSPATH' ) || exit;
 							<div class="cc-field-row">
 								<label class="cc-label" for="cc-password"><?php esc_html_e( 'Password', 'cardsco' ); ?></label>
 								<?php if ( ! empty( $links['reset'] ) ) : ?>
-									<a href="<?php echo esc_url( $links['reset'] ); ?>"><?php esc_html_e( 'Forgotten it?', 'cardsco' ); ?></a>
+									<a class="cc-forgot" href="<?php echo esc_url( $links['reset'] ); ?>"><?php esc_html_e( 'Forgot password?', 'cardsco' ); ?></a>
 								<?php endif; ?>
 							</div>
 							<div class="cc-password">

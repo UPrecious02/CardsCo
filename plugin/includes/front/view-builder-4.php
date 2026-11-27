@@ -21,7 +21,7 @@ $cc_max = (int) CardsCo_Settings::get( 'message_max', null, (int) $campaign['com
 $cc_max = $cc_max > 0 ? $cc_max : 400;
 ?>
 <form method="post" id="ccBdForm" class="cc-wz-form" action="<?php echo esc_url( $links['here'] ); ?>">
-	<?php wp_nonce_field( 'cardsco_builder', '_cardsco_nonce' ); ?>
+	<?php cardsco_nonce_field( 'cardsco_builder' ); ?>
 	<input type="hidden" name="cardsco_builder_action" value="step" />
 	<input type="hidden" name="step" value="4" />
 	<input type="hidden" name="campaign" value="<?php echo esc_attr( (int) $campaign['id'] ); ?>" />

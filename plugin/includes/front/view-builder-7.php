@@ -111,7 +111,7 @@ $cc_money = static function ( $amount ) use ( $campaign, $cc ) {
 		<?php endif; ?>
 
 		<form method="post" action="<?php echo esc_url( $links['here'] ); ?>">
-			<?php wp_nonce_field( 'cardsco_builder', '_cardsco_nonce' ); ?>
+			<?php cardsco_nonce_field( 'cardsco_builder' ); ?>
 			<input type="hidden" name="cardsco_builder_action" value="pay" />
 			<input type="hidden" name="campaign" value="<?php echo esc_attr( (int) $campaign['id'] ); ?>" />
 			<button type="submit" class="cc-btn cc-btn-primary cc-bd-paybtn"<?php disabled( (bool) $cc_stop ); ?>>

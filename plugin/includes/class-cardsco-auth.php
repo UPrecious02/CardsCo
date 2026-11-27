@@ -513,15 +513,16 @@ class CardsCo_Auth {
 	 *
 	 * @param WP_User $user The person resetting.
 	 * @param string  $key  The reset key.
+	 * @param string  $base The reset page, when this is not being sent from it.
 	 * @return void
 	 */
-	protected static function send_reset_mail( $user, $key ) {
+	protected static function send_reset_mail( $user, $key, $base = '' ) {
 		$link = add_query_arg(
 			array(
 				'key'   => rawurlencode( $key ),
 				'login' => rawurlencode( $user->user_login ),
 			),
-			self::here()
+			'' !== (string) $base ? (string) $base : self::here()
 		);
 
 		$site = wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES );
@@ -707,6 +708,133 @@ class CardsCo_Auth {
 	/* ---------------------------------------------------------------------
 	 * Throttling
 	 * ------------------------------------------------------------------ */
+
+	/**
+	 * Email somebody who is signed in a link to set a new password.
+	 *
+	 * For the person who cannot remember the password they have, and so
+	 * cannot use the form that asks for it. Being signed in is not proof
+	 * enough to change a password — a laptop left open is signed in — but
+	 * being able to open their own inbox is, and that is the same proof
+	 * the "Forgot password?" link on the sign-in page already asks for.
+	 * It is that same email, sent to the address on the account and
+	 * nowhere else, with the same hour to use it and the same limit on
+	 * how often it can be asked for.
+	 *
+	 * @param int $user_id The person.
+	 * @return true|WP_Error
+	 */
+	public static function email_reset_link( $user_id ) {
+		$user = get_userdata( absint( $user_id ) );
+
+		if ( ! $user ) {
+			return new WP_Error( 'cardsco_reset_user', __( 'Sign in again to reset your password.', 'cardsco' ) );
+		}
+
+		$blocked = self::locked_out( 'reset', $user->user_email );
+
+		if ( '' !== (string) $blocked ) {
+			return new WP_Error( 'cardsco_reset_locked', $blocked );
+		}
+
+		$page = (string) CardsCo_Shortcodes::page_for( 'cardsco_reset' );
+
+		/*
+		 * A site built in a page builder keeps the reset screen where a
+		 * search cannot find it, and it is only known here once somebody
+		 * has opened it. Until then WordPress's own set-a-password page
+		 * takes the same key, so the link still leads somewhere that works.
+		 */
+		if ( '' === $page ) {
+			$page = add_query_arg( 'action', 'rp', wp_login_url() );
+		}
+
+		self::note_failure( 'reset', $user->user_email );
+
+		$key = get_password_reset_key( $user );
+
+		if ( is_wp_error( $key ) ) {
+			return new WP_Error( 'cardsco_reset_key', __( 'We could not send the link just now. Please try again in a few minutes.', 'cardsco' ) );
+		}
+
+		self::send_reset_mail( $user, $key, $page );
+
+		return true;
+	}
+
+	/**
+	 * Change the password of somebody who is signed in.
+	 *
+	 * They prove who they are with the password they have, not with the
+	 * fact of being signed in: a laptop left open in an office is signed
+	 * in. Wrong guesses at it count against the same limit as wrong
+	 * guesses on the sign-in page, so this is not a quieter door to try
+	 * passwords at.
+	 *
+	 * @param int    $user_id The person.
+	 * @param string $current The password they have now.
+	 * @param string $new     The one they want.
+	 * @param string $confirm The same again.
+	 * @return true|WP_Error
+	 */
+	public static function change_password( $user_id, $current, $new, $confirm ) {
+		$user = get_userdata( absint( $user_id ) );
+
+		if ( ! $user ) {
+			return new WP_Error( 'cardsco_password_user', __( 'Sign in again to change your password.', 'cardsco' ) );
+		}
+
+		$blocked = self::locked_out( 'login', $user->user_email );
+
+		if ( '' !== $blocked ) {
+			return new WP_Error( 'cardsco_password_locked', $blocked );
+		}
+
+		if ( '' === (string) $current || ! wp_check_password( (string) $current, $user->user_pass, $user->ID ) ) {
+			self::note_failure( 'login', $user->user_email );
+
+			return new WP_Error( 'cardsco_password_current', __( 'That is not your current password.', 'cardsco' ) );
+		}
+
+		if ( mb_strlen( (string) $new ) < self::MIN_PASSWORD ) {
+			return new WP_Error(
+				'cardsco_password_short',
+				sprintf(
+					/* translators: %d: the smallest number of characters allowed. */
+					__( 'Please use a password of at least %d characters.', 'cardsco' ),
+					self::MIN_PASSWORD
+				)
+			);
+		}
+
+		if ( (string) $new !== (string) $confirm ) {
+			return new WP_Error( 'cardsco_password_match', __( 'Those two passwords are not the same.', 'cardsco' ) );
+		}
+
+		if ( (string) $new === (string) $current ) {
+			return new WP_Error( 'cardsco_password_same', __( 'That is the password you already have. Choose a different one.', 'cardsco' ) );
+		}
+
+		wp_set_password( (string) $new, $user->ID );
+
+		self::clear_failures( 'login', $user->user_email );
+
+		/*
+		 * Every session is ended — a changed password that left the old
+		 * sessions running would not have changed much — and this browser
+		 * is signed straight back in, so the person who changed it is not
+		 * thrown out for doing so.
+		 */
+		if ( class_exists( 'WP_Session_Tokens' ) ) {
+			WP_Session_Tokens::get_instance( $user->ID )->destroy_all();
+		}
+
+		if ( get_current_user_id() === (int) $user->ID && ! headers_sent() ) {
+			wp_set_auth_cookie( $user->ID, false, is_ssl() );
+		}
+
+		return true;
+	}
 
 	/**
 	 * Whether this attempt should be turned away, and what to say if so.
@@ -958,6 +1086,18 @@ class CardsCo_Auth {
 			return $this->already_in( $atts['dashboard'], $atts );
 		}
 
+		/*
+		 * The way to reset a password is offered whether or not the page
+		 * was told where it is. It used to depend on a reset="" attribute
+		 * on the shortcode, so a login page built without one had no way
+		 * back in for somebody who had forgotten theirs. The reset page is
+		 * found on its own; failing that, WordPress's own.
+		 */
+		if ( '' === trim( (string) $atts['reset'] ) ) {
+			$found         = (string) CardsCo_Shortcodes::page_for( 'cardsco_reset' );
+			$atts['reset'] = '' !== $found ? $found : wp_lostpassword_url();
+		}
+
 		return $this->screen( 'view-login.php', array( 'links' => $atts ) );
 	}
 
@@ -994,6 +1134,8 @@ class CardsCo_Auth {
 	 * @return string
 	 */
 	public function reset_screen( $atts ) {
+		CardsCo_Shortcodes::remember_page( 'cardsco_reset' );
+
 		$atts = shortcode_atts( array( 'login' => '', 'logo' => '' ), $atts, 'cardsco_reset' );
 
 		$key   = isset( $_GET['key'] ) ? sanitize_text_field( wp_unslash( $_GET['key'] ) ) : '';

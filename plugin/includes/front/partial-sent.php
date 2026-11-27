@@ -136,7 +136,7 @@ $cc_named = array_values(
 				?>
 			</p>
 			<form class="cc-sent-form" method="post" action="<?php echo esc_url( $order->get_checkout_order_received_url() ); ?>">
-				<?php wp_nonce_field( 'cardsco_claim_' . $order->get_id(), '_cardsco_nonce' ); ?>
+				<?php cardsco_nonce_field( 'cardsco_claim_' . $order->get_id() ); ?>
 				<input type="hidden" name="cardsco_send_action" value="claim" />
 				<input type="hidden" name="order_id" value="<?php echo esc_attr( $order->get_id() ); ?>" />
 				<?php

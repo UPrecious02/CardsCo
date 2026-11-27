@@ -474,6 +474,11 @@ class CardsCo_Programme {
 			$fields['timing_mode'] = in_array( $mode, array( 'monthly_box', 'per_date', 'fixed_date', 'one_off' ), true )
 				? $mode
 				: 'monthly_box';
+
+			/* Not saved for an occasion that cannot have one, whatever was posted. */
+			if ( 'monthly_box' === $fields['timing_mode'] && $existing ) {
+				$fields['timing_mode'] = self::timing_mode( array_merge( $existing, array( 'timing_mode' => 'monthly_box' ) ) );
+			}
 			$format[]              = '%s';
 		}
 
@@ -1478,6 +1483,48 @@ class CardsCo_Programme {
 	/* ---------------------------------------------------------------------
 	 * What it will cost
 	 * ------------------------------------------------------------------ */
+
+	/**
+	 * Whether "one box a month" is a way this occasion can be delivered.
+	 *
+	 * A monthly box is for dates that come round every year and fall all
+	 * through it: birthdays, work anniversaries. Each month's cards arrive
+	 * together for somebody to hand out on the day.
+	 *
+	 * An occasion that happens once for each person is not that. A thank
+	 * you, a welcome to a new customer, a card for somebody leaving: each
+	 * is written for its own day and sent for it, and nobody arranges to
+	 * have them batched up and delivered on the 25th. Christmas and the
+	 * other fixed dates, and promotions, never had the option.
+	 *
+	 * @param array $programme Programme row.
+	 * @return bool
+	 */
+	public static function offers_monthly_box( array $programme ) {
+		$type = CardsCo_Category::primary_type( (string) ( $programme['category'] ?? '' ), (int) ( $programme['company_id'] ?? 0 ) );
+
+		return $type && 'once' !== (string) $type['recurrence'];
+	}
+
+	/**
+	 * How this occasion's cards are actually sent.
+	 *
+	 * The column defaults to the monthly box, so an occasion that cannot
+	 * have one — and any set up before the option was taken away from it —
+	 * may still say so. Everything that acts on the mode asks here.
+	 *
+	 * @param array $programme Programme row.
+	 * @return string monthly_box, per_date, fixed_date or one_off.
+	 */
+	public static function timing_mode( array $programme ) {
+		$mode = (string) ( $programme['timing_mode'] ?? 'monthly_box' );
+
+		if ( 'monthly_box' === $mode && ! self::offers_monthly_box( $programme ) && 'per_person' === CardsCo_Dashboard::timing_shape( $programme ) ) {
+			return 'per_date';
+		}
+
+		return $mode;
+	}
 
 	/**
 	 * Whether this occasion's cards all go to one address.

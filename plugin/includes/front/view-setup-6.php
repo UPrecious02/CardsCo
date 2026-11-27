@@ -26,7 +26,7 @@
 defined( 'ABSPATH' ) || exit;
 ?>
 <form method="post" id="ccWizForm" class="cc-wz-form" action="<?php echo esc_url( $links['here'] ); ?>">
-	<?php wp_nonce_field( 'cardsco_setup', '_cardsco_nonce' ); ?>
+	<?php cardsco_nonce_field( 'cardsco_setup' ); ?>
 	<input type="hidden" name="cardsco_setup_action" value="step" />
 	<input type="hidden" name="step" value="6" />
 	<input type="hidden" name="programme_id" value="<?php echo esc_attr( (int) $programme['id'] ); ?>" />
@@ -214,11 +214,14 @@ defined( 'ABSPATH' ) || exit;
 			</p>
 		</div>
 
+		<?php /* A switch about boxes, on an occasion that has none, is a switch about nothing. */ ?>
+		<?php if ( ! empty( $timing['boxes'] ) ) : ?>
 		<label class="cc-switch">
 			<input type="checkbox" name="notify_before_box" value="1" <?php checked( $timing['notify'] ); ?> />
 			<span class="cc-switch-track" aria-hidden="true"><span class="cc-switch-knob"></span></span>
 			<span class="cc-switch-text"><?php esc_html_e( 'Email me before each box ships', 'cardsco' ); ?></span>
 		</label>
+		<?php endif; ?>
 
 		<label class="cc-switch">
 			<input type="checkbox" name="weekend_rule" value="1" <?php checked( $timing['weekend'] ); ?> />

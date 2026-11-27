@@ -18,7 +18,7 @@
 defined( 'ABSPATH' ) || exit;
 ?>
 <form method="post" id="ccWizForm" class="cc-wz-form" action="<?php echo esc_url( $links['here'] ); ?>">
-	<?php wp_nonce_field( 'cardsco_setup', '_cardsco_nonce' ); ?>
+	<?php cardsco_nonce_field( 'cardsco_setup' ); ?>
 	<input type="hidden" name="cardsco_setup_action" value="start" />
 
 	<div class="cc-wz-grid" role="radiogroup" aria-label="<?php esc_attr_e( 'Occasion', 'cardsco' ); ?>">

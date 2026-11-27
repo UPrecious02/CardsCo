@@ -85,6 +85,9 @@
 	color: var(--cc-text-secondary);
 }
 
+.cc .cc-locked-go { margin: var(--cc-space-16) 0 0; }
+.cc-locked-go .cc-btn { text-decoration: none; }
+
 .cc-warn {
 	background: var(--cc-status-warning-bg);
 	border-color: var(--cc-status-warning-solid);
@@ -1401,7 +1404,111 @@
 	font-size: var(--cc-body-s-size);
 }
 
-.cc-notice-list li { display: flex; gap: var(--cc-space-8); }
+.cc-notice-list li { display: flex; flex-direction: column; gap: var(--cc-space-8); }
+
+/* A row that can be acted on is a link across the whole width of the
+   panel, with what pressing it does at the far end. */
+.cc-notice-row {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--cc-space-8);
+	padding: var(--cc-space-8) var(--cc-space-12);
+	margin: 0 calc(var(--cc-space-12) * -1);
+	border-radius: var(--cc-radius-md);
+	color: var(--cc-text-primary);
+	text-decoration: none;
+}
+
+a.cc-notice-row:hover,
+a.cc-notice-row:focus-visible { background: rgba(0, 0, 0, 0.05); color: var(--cc-text-primary); }
+a.cc-notice-row:focus-visible { outline: 2px solid var(--cc-accent-default); outline-offset: 1px; }
+
+.cc-notice-do {
+	margin-left: auto;
+	font-weight: var(--cc-weight-medium);
+	color: var(--cc-accent-default);
+	white-space: nowrap;
+}
+
+.cc-notice-item.is-open .cc-notice-row { padding-bottom: 0; }
+
+.cc-notice-fix {
+	margin: 0 0 var(--cc-space-8);
+	padding: var(--cc-space-16);
+	border: 1px solid var(--cc-border-subtle);
+	border-radius: var(--cc-radius-lg);
+	background: var(--cc-paper);
+	max-width: 760px;
+}
+
+.cc .cc-notice-fix .cc-field { margin: 0 0 var(--cc-space-12); }
+.cc .cc-notice-fix .cc-addr-row .cc-field { margin: 0; }
+
+.cc .cc-notice-more {
+	margin: var(--cc-space-8) 0 0;
+	font-size: var(--cc-body-s-size);
+	color: var(--cc-text-secondary);
+}
+.cc-notice-fix .cc-field label {
+	display: block;
+	margin: 0 0 6px;
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-secondary);
+}
+.cc-notice-fix .cc-field input[type="text"],
+.cc-notice-fix .cc-field select {
+	width: 100%;
+	height: 40px;
+	padding: 0 var(--cc-space-12);
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-paper);
+	font-family: var(--cc-font-ui);
+	font-size: var(--cc-body-m-size);
+	color: var(--cc-text-primary);
+}
+.cc-notice-fix .cc-field select { padding-right: 30px; text-overflow: ellipsis; }
+
+.cc-notice-fix textarea {
+	width: 100%;
+	min-height: 120px;
+	padding: var(--cc-space-12);
+	border: 1px solid var(--cc-border-default);
+	border-radius: var(--cc-radius-md);
+	background: var(--cc-paper);
+	font-family: var(--cc-font-ui);
+	font-size: var(--cc-body-m-size);
+	line-height: 1.6;
+	color: var(--cc-text-primary);
+	resize: vertical;
+}
+
+.cc .cc-notice-fix-hint {
+	margin: 0;
+	font-size: var(--cc-caption-size);
+	line-height: var(--cc-caption-line);
+	color: var(--cc-text-secondary);
+}
+
+.cc .cc-notice-fix-go { display: flex; flex-wrap: wrap; gap: var(--cc-space-8); margin: var(--cc-space-16) 0 0; }
+
+.cc .cc-notice-fix-error {
+	margin: 0 0 var(--cc-space-12);
+	font-size: var(--cc-body-s-size);
+	color: var(--cc-danger-default, #9B2C2C);
+}
+
+.cc-notice-done {
+	border-left-color: var(--cc-accent-default);
+	background: var(--cc-accent-subtle, #EEF5F1);
+}
+
+@media (max-width: 620px) {
+	.cc-notice-do { margin-left: 0; flex-basis: 100%; }
+	.cc-notice-fix .cc-addr-row { grid-template-columns: 1fr 1fr; }
+}
 .cc-notice-who { font-weight: var(--cc-weight-medium); }
 .cc-notice-why { color: var(--cc-text-secondary); }
 
@@ -2538,6 +2645,17 @@
 	color: var(--cc-text-primary);
 }
 
+/* The same shape, for something that worked. */
+.cc-wz-did {
+	margin-bottom: var(--cc-space-16);
+	padding: var(--cc-space-12) var(--cc-space-16);
+	border-radius: var(--cc-radius-md);
+	border-left: 3px solid var(--cc-status-success-solid);
+	background: var(--cc-status-success-bg);
+	font-size: var(--cc-body-s-size);
+	color: var(--cc-text-primary);
+}
+
 .cc-wz-form { display: contents; }
 
 /* ---------------- step 1: the choice grid ---------------- */
@@ -2661,6 +2779,21 @@
 	justify-content: space-between;
 	gap: var(--cc-space-16);
 	margin-bottom: var(--cc-space-16);
+}
+
+.cc-up-panel-acts {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	gap: var(--cc-space-16);
+}
+
+.cc-up-manual { flex: none; text-decoration: none; }
+
+@media (max-width: 620px) {
+	.cc-up-panel-head { flex-direction: column; }
+	.cc-up-panel-acts { justify-content: flex-start; }
 }
 
 .cc-up-panel-title {
@@ -3591,6 +3724,35 @@
 }
 
 /* Two 363 fields with a 16 gutter, which is the panel's 742 inner width. */
+/* Under the password form: the way round it for somebody who has
+   forgotten the password they would have to type into it. */
+.cc-set-forgot {
+	margin-top: var(--cc-space-24);
+	padding-top: var(--cc-space-20);
+	border-top: 1px solid var(--cc-border-subtle);
+	font-size: var(--cc-body-s-size);
+	line-height: var(--cc-body-s-line);
+	color: var(--cc-text-primary);
+}
+
+.cc .cc-set-forgot p { margin: 0; }
+
+.cc-set-forgot-go {
+	padding: 0;
+	border: 0;
+	background: none;
+	font: inherit;
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-accent-default);
+	text-decoration: underline;
+	text-underline-offset: 3px;
+	cursor: pointer;
+}
+.cc-set-forgot-go:hover { color: var(--cc-accent-strong, var(--cc-accent-default)); }
+.cc-set-forgot-go:focus-visible { outline: 2px solid var(--cc-accent-default); outline-offset: 2px; border-radius: 2px; }
+
+.cc .cc-set-forgot .cc-set-forgot-how { margin-top: var(--cc-space-4); color: var(--cc-text-secondary); }
+
 .cc-set-grid {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -5966,6 +6128,18 @@
 
 /* --- who gets it --- */
 
+/* Above the list: everybody in one press, and how many that makes. */
+.cc .cc-bd-all {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--cc-space-12);
+	margin: 0 0 var(--cc-space-12);
+}
+.cc .cc-bd-all[hidden] { display: none; }
+.cc-bd-all-go { flex: none; }
+.cc-bd-all-n { font-size: var(--cc-body-s-size); color: var(--cc-text-secondary); }
+
 .cc-bd-people {
 	display: grid;
 	gap: var(--cc-space-6);
@@ -6783,6 +6957,13 @@ fieldset.cc-bd-field { padding: 0; border: 0; min-width: 0; }
 .cc-bd-add-quiet {
 	background: transparent;
 	border-style: dashed;
+}
+
+.cc .cc-bd-one-head {
+	margin: var(--cc-space-4) 0 0;
+	font-size: var(--cc-body-s-size);
+	font-weight: var(--cc-weight-semi);
+	color: var(--cc-text-primary);
 }
 
 .cc-bd-one {

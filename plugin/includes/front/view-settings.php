@@ -30,7 +30,10 @@ $cc_base = remove_query_arg( array( 'cardsco_saved', 'cardsco_error' ) );
 		<h1 class="cc-page-title"><?php esc_html_e( 'Settings', 'cardsco' ); ?></h1>
 		<p class="cc-page-sub">
 			<?php
-			if ( $settings['name'] ) {
+			if ( 'account' === $settings['tab'] ) {
+				/* Not the company's: nothing on this tab reaches anybody else. */
+				esc_html_e( 'Your own sign-in details', 'cardsco' );
+			} elseif ( $settings['name'] ) {
 				printf(
 					/* translators: %s: the company's name. */
 					esc_html__( '%s · changes apply to everyone on your team', 'cardsco' ),
@@ -82,7 +85,7 @@ $cc_base = remove_query_arg( array( 'cardsco_saved', 'cardsco_error' ) );
 		 */
 		?>
 		<form class="cc-set-form" method="post" action="<?php echo esc_url( $cc_base ); ?>">
-			<?php wp_nonce_field( 'cardsco_settings', '_cardsco_nonce' ); ?>
+			<?php cardsco_nonce_field( 'cardsco_settings' ); ?>
 			<input type="hidden" name="cardsco_settings_action" value="save" />
 
 			<section class="cc-set-sec">
@@ -170,6 +173,98 @@ $cc_base = remove_query_arg( array( 'cardsco_saved', 'cardsco_error' ) );
 			</footer>
 		</form>
 
+	<?php elseif ( 'account' === $settings['tab'] ) : ?>
+
+		<?php
+		/*
+		 * The one tab that is about the person and not the company, so it
+		 * is open to everybody on the team whatever their role, and its
+		 * button is never disabled for want of one.
+		 */
+		$cc_me = wp_get_current_user();
+		?>
+		<form class="cc-set-form" method="post" action="<?php echo esc_url( $cc_base ); ?>" autocomplete="off">
+			<?php cardsco_nonce_field( 'cardsco_settings' ); ?>
+			<input type="hidden" name="cardsco_settings_action" value="password" />
+
+			<section class="cc-set-sec">
+				<div class="cc-set-side">
+					<h2><?php esc_html_e( 'Password', 'cardsco' ); ?></h2>
+					<p>
+						<?php
+						printf(
+							/* translators: %s: the email address they sign in with. */
+							esc_html__( 'You sign in as %s. Changing your password signs you out everywhere else.', 'cardsco' ),
+							esc_html( $cc_me->user_email )
+						);
+						?>
+					</p>
+				</div>
+
+				<div class="cc-set-panel">
+					<?php /* For password managers: which account these belong to. */ ?>
+					<input type="text" name="username" value="<?php echo esc_attr( $cc_me->user_email ); ?>" autocomplete="username" class="screen-reader-text" tabindex="-1" aria-hidden="true" readonly />
+
+					<p class="cc-field">
+						<label for="cc-pw-now"><?php esc_html_e( 'Current password', 'cardsco' ); ?></label>
+						<input type="password" id="cc-pw-now" name="current_password" autocomplete="current-password" required />
+					</p>
+					<div class="cc-set-grid">
+						<p class="cc-field">
+							<label for="cc-pw-new"><?php esc_html_e( 'New password', 'cardsco' ); ?></label>
+							<input type="password" id="cc-pw-new" name="new_password" autocomplete="new-password"
+								minlength="<?php echo esc_attr( (int) CardsCo_Auth::MIN_PASSWORD ); ?>" required />
+							<span class="cc-field-help">
+								<?php
+								/* translators: %d: the smallest number of characters allowed. */
+								printf( esc_html__( 'At least %d characters', 'cardsco' ), (int) CardsCo_Auth::MIN_PASSWORD );
+								?>
+							</span>
+						</p>
+						<p class="cc-field">
+							<label for="cc-pw-again"><?php esc_html_e( 'New password again', 'cardsco' ); ?></label>
+							<input type="password" id="cc-pw-again" name="confirm_password" autocomplete="new-password"
+								minlength="<?php echo esc_attr( (int) CardsCo_Auth::MIN_PASSWORD ); ?>" required />
+						</p>
+					</div>
+				</div>
+			</section>
+
+			<footer class="cc-set-foot">
+				<span class="cc-set-saved"></span>
+				<a class="cc-set-cancel" href="<?php echo esc_url( $cc_base ); ?>"><?php esc_html_e( 'Cancel', 'cardsco' ); ?></a>
+				<button type="submit" class="cc-btn cc-btn-primary cc-btn-r8">
+					<span><?php esc_html_e( 'Change password', 'cardsco' ); ?></span>
+				</button>
+			</footer>
+		</form>
+
+		<?php
+		/*
+		 * For somebody who cannot fill in the first box. A form of its own,
+		 * so pressing it does not need the three boxes above filled in, and
+		 * a button rather than a link because it sends an email: nothing
+		 * that does something should happen on a page merely being opened.
+		 */
+		?>
+		<form class="cc-set-forgot" method="post" action="<?php echo esc_url( $cc_base ); ?>">
+			<?php cardsco_nonce_field( 'cardsco_settings' ); ?>
+			<input type="hidden" name="cardsco_settings_action" value="password_email" />
+			<p>
+				<?php esc_html_e( 'Can’t remember your current password?', 'cardsco' ); ?>
+				<button type="submit" class="cc-set-forgot-go"><?php esc_html_e( 'Reset your password', 'cardsco' ); ?></button>
+			</p>
+			<p class="cc-set-forgot-how">
+				<?php
+				printf(
+					/* translators: %s: the email address on the account. */
+					esc_html__( 'We’ll email a link to %s. Open it and choose a new password — you won’t be asked for the old one.', 'cardsco' ),
+					esc_html( $cc_me->user_email )
+				);
+				?>
+			</p>
+		</form>
+
 	<?php elseif ( 'profile' !== $settings['tab'] ) : ?>
 
 		<section class="cc-set-soon">
@@ -181,7 +276,7 @@ $cc_base = remove_query_arg( array( 'cardsco_saved', 'cardsco_error' ) );
 
 		<?php /* multipart, because the logo is picked on this form. */ ?>
 		<form class="cc-set-form" method="post" enctype="multipart/form-data" action="<?php echo esc_url( $cc_base ); ?>">
-			<?php wp_nonce_field( 'cardsco_settings', '_cardsco_nonce' ); ?>
+			<?php cardsco_nonce_field( 'cardsco_settings' ); ?>
 			<input type="hidden" name="cardsco_settings_action" value="save" />
 
 			<section class="cc-set-sec">

@@ -51,7 +51,7 @@ $cc_sent  = isset( $_GET['cc_sent'] ) && '1' === $_GET['cc_sent']; // phpcs:igno
 	</p>
 
 	<form class="cc-verify-form" method="post" action="">
-		<?php wp_nonce_field( 'cardsco_resend_verify', '_cardsco_nonce' ); ?>
+		<?php cardsco_nonce_field( 'cardsco_resend_verify' ); ?>
 		<input type="hidden" name="cardsco_auth_action" value="resend_verify" />
 		<button class="cc-verify-resend" type="submit"><?php esc_html_e( 'Send it again', 'cardsco' ); ?></button>
 	</form>

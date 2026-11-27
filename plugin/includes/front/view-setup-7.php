@@ -18,7 +18,7 @@
 defined( 'ABSPATH' ) || exit;
 ?>
 <form method="post" id="ccWizForm" class="cc-wz-form" action="<?php echo esc_url( $links['here'] ); ?>">
-	<?php wp_nonce_field( 'cardsco_setup', '_cardsco_nonce' ); ?>
+	<?php cardsco_nonce_field( 'cardsco_setup' ); ?>
 	<?php /* Not "step": there is no step eight. This one hands over to payment. */ ?>
 	<input type="hidden" name="cardsco_setup_action" value="pay" />
 	<input type="hidden" name="step" value="7" />

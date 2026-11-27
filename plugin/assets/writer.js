@@ -67,7 +67,12 @@ window.CardsCo.add( function () {
 	var signIn = form.querySelector( '[data-cc-signin]' );
 	var blank = form.querySelector( '[data-cc-blank]' );
 	var pane  = form.querySelector( '[data-cc-preview]' );
-	var go    = form.querySelector( '[data-cc-go]' );
+	/*
+	 * Every save button for this form: the tick inside the box, and the one
+	 * in the page's footer, which is outside the form and submits it by its
+	 * form attribute.
+	 */
+	var go    = document.querySelectorAll( '[data-cc-go]' );
 	var clear = form.querySelector( '[data-cc-clear]' );
 	var max   = parseInt( form.getAttribute( 'data-cc-max' ), 10 ) || 0;
 
@@ -109,7 +114,7 @@ window.CardsCo.add( function () {
 	var sample = {};
 
 	try {
-		sample = JSON.parse( form.getAttribute( 'data-cc-sample' ) || '{}' ) || {};
+		sample = JSON.parse( form.getAttribute( 'data-cc-preview-for' ) || '{}' ) || {};
 	} catch ( e ) {
 		sample = {};
 	}
@@ -196,9 +201,9 @@ window.CardsCo.add( function () {
 
 		form.classList.toggle( 'is-over', over || !! gap || !! empty );
 
-		if ( go ) {
-			go.disabled = ! has || over || !! gap || !! empty;
-		}
+		Array.prototype.forEach.call( go, function ( button ) {
+			button.disabled = ! has || over || !! gap || !! empty;
+		} );
 	}
 
 	text.addEventListener( 'input', paint );

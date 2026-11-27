@@ -49,7 +49,7 @@ $cc_has_people = ! empty( $people );
 	<form class="cc-up-file" method="post" enctype="multipart/form-data" id="ccBdUpload"
 		action="<?php echo esc_url( $links['here'] ); ?>">
 
-		<?php wp_nonce_field( 'cardsco_builder', '_cardsco_nonce' ); ?>
+		<?php cardsco_nonce_field( 'cardsco_builder' ); ?>
 		<input type="hidden" name="cardsco_builder_action" value="upload_people" />
 		<input type="hidden" name="campaign" value="<?php echo esc_attr( (int) $campaign['id'] ); ?>" />
 
@@ -73,8 +73,10 @@ $cc_has_people = ! empty( $people );
 		</button>
 	</form>
 
+	<p class="cc-bd-one-head"><?php esc_html_e( 'Or add someone manually', 'cardsco' ); ?></p>
+
 	<form class="cc-bd-one" method="post" action="<?php echo esc_url( $links['here'] ); ?>">
-		<?php wp_nonce_field( 'cardsco_builder', '_cardsco_nonce' ); ?>
+		<?php cardsco_nonce_field( 'cardsco_builder' ); ?>
 		<input type="hidden" name="cardsco_builder_action" value="add_person" />
 		<input type="hidden" name="campaign" value="<?php echo esc_attr( (int) $campaign['id'] ); ?>" />
 
@@ -93,14 +95,16 @@ $cc_has_people = ! empty( $people );
 			<input type="email" id="cc-bd-email" name="email" autocomplete="off" />
 		</div>
 
-		<button type="submit" class="cc-btn cc-btn-quiet cc-bd-one-go">
-			<?php esc_html_e( 'Add person', 'cardsco' ); ?>
+		<?php /* Outlined, with a plus: the grey one read as a disabled button. */ ?>
+		<button type="submit" class="cc-btn cc-btn-outline cc-bd-one-go">
+			<?php echo call_user_func( array( 'CardsCo_Shortcodes', 'icon' ), 'plus', 'cc-btn-icon' ); // phpcs:ignore WordPress.Security.EscapeOutput -- inline svg built in PHP. ?>
+			<?php esc_html_e( 'Add manually', 'cardsco' ); ?>
 		</button>
 	</form>
 </section>
 
 <form method="post" id="ccBdForm" class="cc-wz-form" action="<?php echo esc_url( $links['here'] ); ?>">
-	<?php wp_nonce_field( 'cardsco_builder', '_cardsco_nonce' ); ?>
+	<?php cardsco_nonce_field( 'cardsco_builder' ); ?>
 	<input type="hidden" name="cardsco_builder_action" value="step" />
 	<input type="hidden" name="step" value="2" />
 	<input type="hidden" name="campaign" value="<?php echo esc_attr( (int) $campaign['id'] ); ?>" />
@@ -147,6 +151,26 @@ $cc_has_people = ! empty( $people );
 		<?php if ( ! $people ) : ?>
 			<p class="cc-bd-none"><?php esc_html_e( 'Nobody yet — add somebody above and they will appear here, already picked.', 'cardsco' ); ?></p>
 		<?php else : ?>
+			<?php
+			/*
+			 * Ticking a list of forty one at a time is forty clicks. Shown
+			 * by builder.js, because without a script it would be a button
+			 * that does nothing; it turns into "Clear all" once everybody
+			 * is ticked.
+			 */
+			if ( count( $people ) > 1 ) :
+				?>
+				<p class="cc-bd-all" data-cc-bd-all hidden>
+					<button type="button" class="cc-btn cc-btn-outline cc-bd-all-go" data-cc-bd-all-go
+						data-cc-all="<?php esc_attr_e( 'Select all', 'cardsco' ); ?>"
+						data-cc-none="<?php esc_attr_e( 'Clear all', 'cardsco' ); ?>">
+						<?php esc_html_e( 'Select all', 'cardsco' ); ?>
+					</button>
+					<span class="cc-bd-all-n" data-cc-bd-all-n
+						data-cc-say="<?php esc_attr_e( '%1$s of %2$s selected', 'cardsco' ); ?>"></span>
+				</p>
+			<?php endif; ?>
+
 			<div class="cc-bd-people">
 				<?php foreach ( $people as $cc_p ) : ?>
 					<?php

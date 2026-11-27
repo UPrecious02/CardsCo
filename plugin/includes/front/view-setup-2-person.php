@@ -34,7 +34,7 @@ $cc_saved = $person['saved'];
 	 */
 	?>
 	<form method="post" id="ccWizForm" class="cc-wz-form" action="<?php echo esc_url( $links['here'] ); ?>">
-		<?php wp_nonce_field( 'cardsco_setup', '_cardsco_nonce' ); ?>
+		<?php cardsco_nonce_field( 'cardsco_setup' ); ?>
 		<input type="hidden" name="cardsco_setup_action" value="step" />
 		<input type="hidden" name="step" value="2" />
 		<input type="hidden" name="programme_id" value="<?php echo esc_attr( (int) $programme['id'] ); ?>" />
@@ -223,7 +223,7 @@ $cc_saved = $person['saved'];
 	?>
 	<?php $cc_edit = $person['edit']; ?>
 	<form method="post" id="ccPersonForm" class="cc-pn-panel" action="<?php echo esc_url( $links['here'] ); ?>">
-		<?php wp_nonce_field( 'cardsco_setup', '_cardsco_nonce' ); ?>
+		<?php cardsco_nonce_field( 'cardsco_setup' ); ?>
 		<input type="hidden" name="cardsco_setup_action" value="add_person" />
 		<input type="hidden" name="programme_id" value="<?php echo esc_attr( (int) $programme['id'] ); ?>" />
 

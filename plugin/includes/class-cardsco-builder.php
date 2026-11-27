@@ -388,8 +388,7 @@ class CardsCo_Builder {
 
 		$summary               = (array) $read['summary'];
 		$back['cc_up_added']   = (int) ( $summary['added'] ?? 0 );
-		$back['cc_up_matched'] = (int) ( $summary['matched'] ?? 0 );
-		$back['cc_up_nodate']  = (int) ( $summary['missing_date'] ?? 0 );
+		$back['cc_up_on']      = count( array_unique( array_filter( array_map( 'intval', (array) $read['recipient_ids'] ) ) ) );
 		$back['cc_up_bad']     = (int) ( $summary['problem_count'] ?? 0 );
 
 		self::go( $back );
@@ -851,7 +850,7 @@ class CardsCo_Builder {
 	 * @return void
 	 */
 	public static function go( array $args ) {
-		$strip = array( self::ARG, 'step', 'new', 'saved', 'cancelled', 'cardsco_error' );
+		$strip = array( self::ARG, 'step', 'new', 'saved', 'cancelled', 'cardsco_error', 'cc_added', 'cc_up_added', 'cc_up_on', 'cc_up_bad', 'cc_up_matched', 'cc_up_nodate' );
 		$base  = remove_query_arg( $strip );
 
 		if ( ! $base ) {

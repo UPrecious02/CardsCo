@@ -53,7 +53,7 @@ $cc = 'CardsCo_Shortcodes';
 				</p>
 
 				<form method="post" action="<?php echo esc_url( $links['manage'] ); ?>">
-					<?php wp_nonce_field( 'cardsco_renew', '_cardsco_nonce' ); ?>
+					<?php cardsco_nonce_field( 'cardsco_renew' ); ?>
 					<input type="hidden" name="cardsco_renew_action" value="pay" />
 					<input type="hidden" name="programme" value="<?php echo esc_attr( $renewal['id'] ); ?>" />
 					<button type="submit" class="cc-btn cc-btn-primary cc-btn-r8">
@@ -190,7 +190,7 @@ $cc = 'CardsCo_Shortcodes';
 							 */
 							?>
 							<form class="cc-occ-start" method="post" action="<?php echo esc_url( $links['setup'] ); ?>">
-								<?php wp_nonce_field( 'cardsco_setup', '_cardsco_nonce' ); ?>
+								<?php cardsco_nonce_field( 'cardsco_setup' ); ?>
 								<input type="hidden" name="cardsco_setup_action" value="start" />
 								<input type="hidden" name="category" value="<?php echo esc_attr( $cc_occ['slug'] ); ?>" />
 

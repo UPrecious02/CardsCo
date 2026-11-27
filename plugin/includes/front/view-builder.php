@@ -15,6 +15,7 @@
  * @var int     $step
  * @var array[] $steps
  * @var string  $error
+ * @var string  $did     What was just added, in a sentence. Step 2 only.
  * @var array   $links
  * @var string  $body  The step's own view file.
  * @var bool    $finished
@@ -84,6 +85,10 @@ $cc_spec = $steps[ $step ] ?? array( 'heading' => '', 'label' => '' );
 		<div class="cc-wz-content">
 			<?php if ( $error ) : ?>
 				<div class="cc-wz-error" role="alert"><?php echo esc_html( $error ); ?></div>
+			<?php endif; ?>
+
+			<?php if ( ! $error && ! empty( $did ) ) : ?>
+				<div class="cc-wz-did" role="status"><?php echo esc_html( $did ); ?></div>
 			<?php endif; ?>
 
 			<p class="cc-wz-of<?php echo $finished ? ' is-done' : ''; ?>">

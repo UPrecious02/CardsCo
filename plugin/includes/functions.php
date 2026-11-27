@@ -628,3 +628,26 @@ function cardsco_add_working_days( $from, $days ) {
 
 	return gmdate( 'Y-m-d', $timestamp );
 }
+
+/**
+ * A nonce field for one of our forms.
+ *
+ * wp_nonce_field() gives the input an id equal to its name. Every form of
+ * ours names its nonce _cardsco_nonce, and a screen often carries several
+ * forms — the people step has an upload, a list and an add-a-person form
+ * — so the page ended up with the same id on three elements. Nothing read
+ * the id; it was simply invalid, and the kind of thing that makes a label
+ * or a script find the wrong element one day. This prints the same field
+ * without one.
+ *
+ * @param string $action What the nonce is for.
+ * @return void
+ */
+function cardsco_nonce_field( $action ) {
+	printf(
+		'<input type="hidden" name="_cardsco_nonce" value="%s" />',
+		esc_attr( wp_create_nonce( $action ) )
+	);
+
+	wp_referer_field();
+}

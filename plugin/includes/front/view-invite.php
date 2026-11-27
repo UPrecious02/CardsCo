@@ -87,7 +87,7 @@ $cc_name    = $company ? $company['name'] : '';
 						<?php endif; ?>
 
 						<form class="cc-auth-fields" method="post" action="<?php echo esc_url( $action ); ?>">
-							<?php wp_nonce_field( CardsCo_Auth::NONCE_INVITE, '_cardsco_nonce' ); ?>
+							<?php cardsco_nonce_field( CardsCo_Auth::NONCE_INVITE ); ?>
 							<input type="hidden" name="cardsco_auth_action" value="invite_accept" />
 							<input type="hidden" name="key" value="<?php echo esc_attr( $key ); ?>" />
 							<input type="hidden" name="login" value="<?php echo esc_attr( $login ); ?>" />

@@ -1115,6 +1115,31 @@ class CardsCo_Dashboard {
 	}
 
 	/**
+	 * How many of this company's cards are held, all told.
+	 *
+	 * The panel lists the first few. Its heading has to count them all, or
+	 * a company with thirty held cards is told it has eight.
+	 *
+	 * @return int
+	 */
+	public static function held_count() {
+		global $wpdb;
+
+		$company_id = CardsCo_Access::company_id();
+
+		if ( ! $company_id ) {
+			return 0;
+		}
+
+		return (int) $wpdb->get_var(
+			$wpdb->prepare(
+				'SELECT COUNT(*) FROM ' . cardsco_table( 'card_queue' ) . " WHERE company_id = %d AND status = 'on_hold'", // phpcs:ignore WordPress.DB.PreparedSQL
+				$company_id
+			)
+		);
+	}
+
+	/**
 	 * What this company has spent on cards so far this year.
 	 *
 	 * Counts cards that actually went out. A card still queued has not cost
@@ -1333,7 +1358,7 @@ class CardsCo_Dashboard {
 				return '' !== $where ? $where : __( 'Your company address', 'cardsco' );
 
 			case 6:
-				return 'per_date' === (string) $programme['timing_mode']
+				return 'per_date' === CardsCo_Programme::timing_mode( $programme )
 					? __( 'Before each date', 'cardsco' )
 					: __( 'One box a month', 'cardsco' );
 		}
@@ -2231,8 +2256,10 @@ class CardsCo_Dashboard {
 			return self::timing_one_off( $programme );
 		}
 
-		$mode = (string) ( $programme['timing_mode'] ?? 'monthly_box' );
-		$mode = in_array( $mode, array( 'monthly_box', 'per_date' ), true ) ? $mode : 'monthly_box';
+		/* The mode in force, which is not always the one stored: see timing_mode(). */
+		$boxes = CardsCo_Programme::offers_monthly_box( $programme );
+		$mode  = CardsCo_Programme::timing_mode( $programme );
+		$mode  = in_array( $mode, array( 'monthly_box', 'per_date' ), true ) ? $mode : ( $boxes ? 'monthly_box' : 'per_date' );
 		$day  = (int) ( $programme['box_arrive_day'] ?? 25 );
 		$day  = $day >= 1 && $day <= 28 ? $day : 25;
 
@@ -2312,10 +2339,13 @@ class CardsCo_Dashboard {
 
 		return array(
 			'mode'    => $mode,
+			/* Whether a monthly box is on offer at all; the box's own switch goes with it. */
+			'boxes'   => $boxes,
 			/* The view says it too, on the weekend switch. */
 			'noun'    => $noun,
-			'modes'   => array(
-				array(
+			'modes'   => array_values( array_filter( array(
+				/* Only where it makes sense: see offers_monthly_box(). */
+				! $boxes ? null : array(
 					'key'  => 'monthly_box',
 					'head' => __( 'One box a month', 'cardsco' ),
 					'sub'  => sprintf(
@@ -2348,7 +2378,7 @@ class CardsCo_Dashboard {
 					'chip' => '',
 					'on'   => 'per_date' === $mode,
 				),
-			),
+			) ) ),
 			'starts'  => $starts,
 			'start'   => $chosen,
 			/*
@@ -2840,7 +2870,7 @@ class CardsCo_Dashboard {
 	public static function settings_screen( $tab = 'profile' ) {
 		$company_id = CardsCo_Access::company_id();
 		$company    = $company_id ? CardsCo_Company::get( $company_id ) : null;
-		$known      = array( 'profile', 'billing', 'team' );
+		$known      = array( 'profile', 'billing', 'team', 'account' );
 		$tab        = in_array( $tab, $known, true ) ? $tab : 'profile';
 
 		$get = static function ( $key, $default = '' ) use ( $company_id ) {
@@ -2879,6 +2909,11 @@ class CardsCo_Dashboard {
 					'key'   => 'team',
 					'label' => __( 'Team access', 'cardsco' ),
 					'on'    => 'team' === $tab,
+				),
+				array(
+					'key'   => 'account',
+					'label' => __( 'Your account', 'cardsco' ),
+					'on'    => 'account' === $tab,
 				),
 			),
 			'company'  => $company,

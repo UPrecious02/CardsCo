@@ -82,12 +82,68 @@ window.CardsCo.add( function () {
 			count.textContent = ( 1 === n ? one : many ).replace( '%s', String( n ) );
 		};
 
+		/*
+		 * Everybody at once. The boxes are the ones the form sends, so
+		 * this ticks them and nothing else: what is saved is exactly what
+		 * ticking each by hand would have saved.
+		 */
+		var all = document.querySelector( '[data-cc-bd-all]' );
+		var allGo = all ? all.querySelector( '[data-cc-bd-all-go]' ) : null;
+		var allN = all ? all.querySelector( '[data-cc-bd-all-n]' ) : null;
+
+		var boxes = function () {
+			return Array.prototype.slice.call( people.querySelectorAll( 'input[name="recipients[]"]' ) );
+		};
+
+		var tally = function () {
+			var list = boxes();
+			var on = list.filter( function ( box ) { return box.checked; } ).length;
+
+			list.forEach( function ( box ) {
+				var row = box.closest ? box.closest( '.cc-bd-check' ) : null;
+
+				if ( row ) {
+					row.classList.toggle( 'is-on', box.checked );
+				}
+			} );
+
+			if ( ! allGo ) {
+				return;
+			}
+
+			allGo.textContent = ( on === list.length && on > 0 )
+				? allGo.getAttribute( 'data-cc-none' )
+				: allGo.getAttribute( 'data-cc-all' );
+
+			if ( allN ) {
+				allN.textContent = ( allN.getAttribute( 'data-cc-say' ) || '' )
+					.replace( '%1$s', String( on ) )
+					.replace( '%2$s', String( list.length ) );
+			}
+		};
+
+		if ( all && allGo ) {
+			all.hidden = false;
+
+			allGo.addEventListener( 'click', function () {
+				var list = boxes();
+				var every = list.every( function ( box ) { return box.checked; } );
+
+				list.forEach( function ( box ) { box.checked = ! every; } );
+
+				tally();
+				recount();
+			} );
+		}
+
 		document.addEventListener( 'change', function ( e ) {
 			if ( e.target && e.target.name && /^(recipients|exclude|segments)\[\]$/.test( e.target.name ) ) {
+				tally();
 				recount();
 			}
 		} );
 
+		tally();
 		recount();
 	}
 

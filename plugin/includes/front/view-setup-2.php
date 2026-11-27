@@ -17,7 +17,7 @@
 defined( 'ABSPATH' ) || exit;
 ?>
 <form method="post" id="ccWizForm" class="cc-wz-form" action="<?php echo esc_url( $links['here'] ); ?>">
-	<?php wp_nonce_field( 'cardsco_setup', '_cardsco_nonce' ); ?>
+	<?php cardsco_nonce_field( 'cardsco_setup' ); ?>
 	<input type="hidden" name="cardsco_setup_action" value="step" />
 	<input type="hidden" name="step" value="2" />
 	<input type="hidden" name="programme_id" value="<?php echo esc_attr( (int) $programme['id'] ); ?>" />
@@ -42,7 +42,20 @@ defined( 'ABSPATH' ) || exit;
 				?>
 			</p>
 		</div>
-		<a class="cc-link" href="<?php echo esc_url( $links['template'] ); ?>"><?php esc_html_e( 'Download template', 'cardsco' ); ?></a>
+		<?php
+		/*
+		 * The other way to put somebody on the list, beside the upload it
+		 * is the alternative to. It used to be a text link at the foot of
+		 * the page, under the whole list, where nobody found it.
+		 */
+		?>
+		<div class="cc-up-panel-acts">
+			<a class="cc-link" href="<?php echo esc_url( $links['template'] ); ?>"><?php esc_html_e( 'Download template', 'cardsco' ); ?></a>
+			<a class="cc-btn cc-btn-outline cc-up-manual" href="<?php echo esc_url( $links['people'] ); ?>">
+				<?php echo call_user_func( array( 'CardsCo_Shortcodes', 'icon' ), 'plus', 'cc-btn-icon' ); // phpcs:ignore WordPress.Security.EscapeOutput -- inline svg built in PHP. ?>
+				<?php esc_html_e( 'Add manually', 'cardsco' ); ?>
+			</a>
+		</div>
 	</div>
 
 	<?php
@@ -76,7 +89,7 @@ defined( 'ABSPATH' ) || exit;
 	?>
 	<?php if ( $cc_asking ) : ?>
 		<form class="cc-up-ask" method="post">
-			<?php wp_nonce_field( 'cardsco_setup', '_cardsco_nonce' ); ?>
+			<?php cardsco_nonce_field( 'cardsco_setup' ); ?>
 			<input type="hidden" name="programme_id" value="<?php echo esc_attr( (int) $programme['id'] ); ?>" />
 
 			<p class="cc-up-ask-head">
@@ -189,7 +202,7 @@ defined( 'ABSPATH' ) || exit;
 					?>
 					<td class="cc-people-act">
 						<form method="post" class="cc-drop">
-							<?php wp_nonce_field( 'cardsco_setup', '_cardsco_nonce' ); ?>
+							<?php cardsco_nonce_field( 'cardsco_setup' ); ?>
 							<input type="hidden" name="cardsco_setup_action" value="remove_person" />
 							<input type="hidden" name="programme_id" value="<?php echo esc_attr( (int) $programme['id'] ); ?>" />
 							<input type="hidden" name="recipient_id" value="<?php echo esc_attr( (int) $cc_person['id'] ); ?>" />
@@ -261,7 +274,7 @@ $cc_dropped = isset( $_GET['cc_dropped'] ) ? sanitize_text_field( wp_unslash( $_
 ?>
 <?php if ( ! empty( $people['available'] ) ) : ?>
 	<form class="cc-have" method="post">
-		<?php wp_nonce_field( 'cardsco_setup', '_cardsco_nonce' ); ?>
+		<?php cardsco_nonce_field( 'cardsco_setup' ); ?>
 		<input type="hidden" name="cardsco_setup_action" value="add_existing" />
 		<input type="hidden" name="programme_id" value="<?php echo esc_attr( (int) $programme['id'] ); ?>" />
 
@@ -310,7 +323,6 @@ $cc_dropped = isset( $_GET['cc_dropped'] ) ? sanitize_text_field( wp_unslash( $_
 <?php endif; ?>
 
 <p class="cc-people-foot">
-	<a class="cc-link" href="<?php echo esc_url( $links['people'] ); ?>"><?php esc_html_e( 'Add someone by hand', 'cardsco' ); ?></a>
 	<span class="cc-people-showing">
 		<?php
 		/*

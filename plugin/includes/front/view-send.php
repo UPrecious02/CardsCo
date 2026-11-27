@@ -110,7 +110,7 @@ $cc_shown = 0;
 	<form class="cc-send-panel" method="post" action="<?php echo esc_url( $here ); ?>" id="ccSendForm" enctype="multipart/form-data"
 		autocomplete="off"
 		data-cc-max="<?php echo esc_attr( (int) CardsCo_Send::max_chars() ); ?>">
-		<?php wp_nonce_field( 'cardsco_send', '_cardsco_nonce' ); ?>
+		<?php cardsco_nonce_field( 'cardsco_send' ); ?>
 		<input type="hidden" name="cardsco_send_action" value="step" />
 		<input type="hidden" name="step" value="<?php echo esc_attr( $step ); ?>" />
 

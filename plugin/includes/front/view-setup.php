@@ -209,5 +209,19 @@ $cc = 'CardsCo_Shortcodes';
 			<span><?php echo esc_html( $rail['continue'] ); ?></span>
 		</button>
 		<?php endif; ?>
+
+		<?php if ( ! $finished && ! empty( $rail['writer_save'] ) ) : ?>
+			<?php
+			/*
+			 * The writer's save, where the Continue button is on every
+			 * other screen. It submits the writer's own form from out here
+			 * by its form attribute, and is enabled and disabled with the
+			 * tick inside the box, by the same script.
+			 */
+			?>
+			<button type="submit" form="ccWriter" class="cc-btn cc-btn-primary cc-btn-r8" data-cc-go>
+				<span><?php echo esc_html( $rail['writer_save'] ); ?></span>
+			</button>
+		<?php endif; ?>
 	</footer>
 </div>

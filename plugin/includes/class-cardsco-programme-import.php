@@ -124,17 +124,10 @@ class CardsCo_Programme_Import {
 	 * @return string|WP_Error Absolute path to the saved file.
 	 */
 	public static function stash( array $file ) {
-		if ( empty( $file['tmp_name'] ) || ! is_uploaded_file( $file['tmp_name'] ) ) {
-			return new WP_Error( 'cardsco_import_upload', __( 'No file was uploaded.', 'cardsco' ) );
-		}
+		$allowed = CardsCo_Import::accept_list( $file );
 
-		$extension = strtolower( pathinfo( sanitize_file_name( $file['name'] ?? '' ), PATHINFO_EXTENSION ) );
-
-		if ( ! in_array( $extension, array( 'csv', 'txt', 'tsv' ), true ) ) {
-			return new WP_Error(
-				'cardsco_import_type',
-				__( 'Only CSV files can be read. In Excel or Google Sheets choose File, then Download or Save As, and pick CSV.', 'cardsco' )
-			);
+		if ( is_wp_error( $allowed ) ) {
+			return $allowed;
 		}
 
 		$dir = CardsCo_Import::storage_dir();
@@ -148,6 +141,9 @@ class CardsCo_Programme_Import {
 		if ( ! move_uploaded_file( $file['tmp_name'], $path ) ) {
 			return new WP_Error( 'cardsco_import_move', __( 'The file could not be saved.', 'cardsco' ) );
 		}
+
+		// Readable by the web user and nobody else, and never runnable.
+		@chmod( $path, 0600 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors
 
 		return $path;
 	}
